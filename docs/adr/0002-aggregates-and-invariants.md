@@ -132,9 +132,10 @@ stored version is `Version()-1`.
   `failureReason` is free text (the model defines no vocabulary) of 1 to 200
   characters, required when FAILED and forbidden when DELIVERED. `at` must not be
   zero and is stored in UTC; it is not compared with the start of the route.
-- **A16** (G34) A route completes inside `RecordAttempt` in the same save as the
-  attempt that records its last outstanding package (policy
-  CompleteRouteOnLastAttempt); `CompleteRoute` therefore has no REST operation. A
+- **A16** (G34) A route completes (CompleteRoute, a second save in the same unit of
+  work) right after the attempt that records its last outstanding package (policy
+  CompleteRouteOnLastAttempt); `CompleteRoute` therefore has no REST operation, and
+  the domain refuses it with `ErrRouteIncomplete` while a package has no attempt. A
   route whose driver never records every package stays OUT_FOR_DELIVERY (listed in
   `model_gaps`).
 - **A17** (G17) A stop's outcome is derived: unset until every package of the stop has
