@@ -19,7 +19,10 @@ info:
     opaque `stopKey` that shipping-and-tracking derives at label time. No
     authentication, consistent with the rest of the network. Every state
     changing POST takes a required `Idempotency-Key` header (table
-    idempotency_keys, 24 h). Errors are RFC 9457 `application/problem+json`;
+    idempotency_keys, 24 h): a missing or over-long key is 400
+    `idempotency-key-required`, a key reused with another body on the same
+    resource is 422 `idempotency-key-reused`, and a repeated request replays the
+    stored 2xx response with the header `Idempotent-Replayed: true`. Errors are RFC 9457 `application/problem+json`;
     the `type` is a slug. The shared slugs are `not-found` (404),
     `illegal-transition` (409), `concurrent-update` (409) and
     `validation-failed` (422), plus one slug per model Err name (kebab-case
@@ -425,7 +428,7 @@ components:
         Validation failed. Problem types: `validation-failed` (malformed body,
         parameter or value-object rule), `invalid-wave-times`
         (ErrInvalidWaveTimes), `invalid-van-capacity` (ErrInvalidVanCapacity),
-        `unknown-station` (ErrUnknownStation).
+        `unknown-station` (ErrUnknownStation), `idempotency-key-reused`.
       content:
         application/problem+json:
           schema:
