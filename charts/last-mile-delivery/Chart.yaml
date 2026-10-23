@@ -1,0 +1,12 @@
+apiVersion: v2
+name: last-mile-delivery
+description: Last-Mile Delivery (retail network, Supporting, logistics tier) - delivery waves, routes for delivery service partners and delivery attempts; publishes on retailnetwork.last-mile-delivery.events and .analytics
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://github.com/IQVO/last-mile-delivery
+keywords:
+  - ddd
+  - hexagonal-architecture
+  - retail-network
+  - golang

@@ -1,0 +1,10 @@
+# Patterns to ignore when building packages.
+.DS_Store
+.git/
+.gitignore
+*.swp
+*.bak
+*.tmp
+# Chart tests and ct values stay in the repo, not in the package.
+tests/
+ci/
