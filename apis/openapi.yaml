@@ -1,0 +1,671 @@
+openapi: 3.0.3
+info:
+  title: Last-Mile Delivery API
+  version: 0.1.0
+  contact:
+    name: last-mile-delivery maintainers
+    url: https://github.com/IQVO/last-mile-delivery
+  description: >-
+    REST contract of the last-mile-delivery bounded context of the retail
+    network (logistics tier), derived from retail-network-docs
+    model/model.yaml (contexts[last-mile-delivery].rest, .aggregates,
+    .publishes, conventions.errors) and adjusted by the orchestrator's
+    contracts-delta and Gap Register resolutions (G5, G11, G16, G17, G34).
+    The context runs the network's delivery stations: it schedules delivery
+    waves (induct cutoff, delivery window, stop capacity), inducts arrived
+    packages into them, plans routes for delivery service partners (DSPs) and
+    records delivery attempts. No endpoint carries an address or any other PII:
+    packages are identified by tracking number and grouped into stops by the
+    opaque `stopKey` that shipping-and-tracking derives at label time. No
+    authentication, consistent with the rest of the network. Every state
+    changing POST takes a required `Idempotency-Key` header (table
+    idempotency_keys, 24 h). Errors are RFC 9457 `application/problem+json`;
+    the `type` is a slug. The shared slugs are `not-found` (404),
+    `illegal-transition` (409), `concurrent-update` (409) and
+    `validation-failed` (422), plus one slug per model Err name (kebab-case
+    without the `Err` prefix). The first eight operations of this file are the
+    model's REST list; `getWaveStops`, `cancelWave`, `getRoute` and
+    `deactivatePartner` are the additions of Gap Register G11, G17 and G34
+    (ADR 0002).
+servers:
+  - url: http://localhost:8080
+tags:
+  - name: Waves
+    description: Delivery waves of a station (aggregate DeliveryWave).
+  - name: Routes
+    description: DSP van routes and delivery attempts (aggregate Route).
+  - name: Partners
+    description: Delivery service partners (aggregate DeliveryServicePartner).
+paths:
+  /waves:
+    post:
+      tags: [Waves]
+      operationId: scheduleWave
+      summary: Schedule a delivery wave (ScheduleWave)
+      description: >-
+        Creates an OPEN wave and publishes DeliveryWaveScheduled. Enforces
+        inductCutoffAt < windowStart < windowEnd (ErrInvalidWaveTimes, 422
+        invalid-wave-times) and that stationNodeId is a DELIVERY_STATION known
+        from node-topology (ErrUnknownStation, 422 unknown-station). Packages
+        that arrived while no wave was eligible are inducted into the new wave
+        in arrival order (policy InductDeferredOnSchedule).
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScheduleWaveRequest'
+      responses:
+        '201':
+          description: Wave scheduled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryWave'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+    get:
+      tags: [Waves]
+      operationId: listWaves
+      summary: List the waves of a station for a service date
+      description: >-
+        Returns the waves of the station on the service date ordered by
+        inductCutoffAt then waveId. A station or date with no wave is an empty
+        list.
+      parameters:
+        - name: stationNodeId
+          in: query
+          required: true
+          description: The delivery station (node-topology nodeId).
+          schema:
+            type: string
+        - name: serviceDate
+          in: query
+          required: true
+          description: The station's local service date.
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: The waves, ordered by inductCutoffAt.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DeliveryWave'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /waves/{waveId}/stops:
+    get:
+      tags: [Waves]
+      operationId: getWaveStops
+      summary: List the stops of a wave (packages grouped by stopKey)
+      description: >-
+        Returns the packages inducted into the wave grouped into stops by the
+        opaque stopKey (Gap Register G11), ordered by the first induction of
+        each stop. A package with no label data is its own stop. The planner
+        builds PlanRoute from this list. No address is ever returned.
+      parameters:
+        - $ref: '#/components/parameters/WaveId'
+      responses:
+        '200':
+          description: The stops of the wave.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WaveStop'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /waves/{waveId}:close-induction:
+    post:
+      tags: [Waves]
+      operationId: closeInduction
+      summary: Close induction of a wave (CloseInduction)
+      description: OPEN to INDUCTION_CLOSED. No event is published.
+      parameters:
+        - $ref: '#/components/parameters/WaveId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Induction closed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryWave'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /waves/{waveId}:dispatch:
+    post:
+      tags: [Waves]
+      operationId: dispatchWave
+      summary: Dispatch a wave (DispatchWave)
+      description: >-
+        INDUCTION_CLOSED to DISPATCHED. No event is published for the wave
+        itself. Packages inducted in the wave that no route holds are
+        re-inducted onto the next wave (Gap Register G17 mechanism). A wave
+        with no route left to run completes at once (policy
+        CompleteWaveOnLastRoute), so the response may show COMPLETED.
+      parameters:
+        - $ref: '#/components/parameters/WaveId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Wave dispatched.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryWave'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /waves/{waveId}:cancel:
+    post:
+      tags: [Waves]
+      operationId: cancelWave
+      summary: Cancel a wave (CancelWave)
+      description: >-
+        OPEN to CANCELLED, publishes DeliveryWaveCancelled (an integration
+        event, Gap Register G5). Every package inducted in the wave is
+        re-inducted onto the next eligible wave in the same transaction (Gap
+        Register G17); a package with no eligible wave is deferred
+        (PackageInductionDeferred).
+      parameters:
+        - $ref: '#/components/parameters/WaveId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelWaveRequest'
+      responses:
+        '200':
+          description: Wave cancelled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryWave'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /routes:
+    post:
+      tags: [Routes]
+      operationId: planRoute
+      summary: Plan a DSP van route in a wave (PlanRoute)
+      description: >-
+        Creates a PLANNED route and publishes RoutePlanned (analytics stream
+        only). The wave must be INDUCTION_CLOSED (illegal-transition), the
+        partner ACTIVE, of the wave's station and the stops at most the
+        partner's van capacity (ErrRouteOverCapacity, 409
+        route-over-capacity). Every package must be inducted in the wave and
+        not on another route, and the packages of one stop must share one
+        stopKey (G34).
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlanRouteRequest'
+      responses:
+        '201':
+          description: Route planned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Route'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /routes/{routeId}:
+    get:
+      tags: [Routes]
+      operationId: getRoute
+      summary: Get a route with its stops and attempts
+      description: Returns the route, its stops (with derived outcomes) and every recorded attempt.
+      parameters:
+        - $ref: '#/components/parameters/RouteId'
+      responses:
+        '200':
+          description: The route.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Route'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /routes/{routeId}:start:
+    post:
+      tags: [Routes]
+      operationId: startRoute
+      summary: Start a route (StartRoute)
+      description: >-
+        PLANNED to OUT_FOR_DELIVERY; the route's wave must be DISPATCHED
+        (illegal-transition otherwise). Publishes one PackageOutForDelivery per
+        tracking number on the route.
+      parameters:
+        - $ref: '#/components/parameters/RouteId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Route out for delivery.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Route'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /routes/{routeId}/attempts:
+    post:
+      tags: [Routes]
+      operationId: recordAttempt
+      summary: Record a delivery attempt (RecordAttempt)
+      description: >-
+        Records DELIVERED or FAILED for one package on an OUT_FOR_DELIVERY
+        route and publishes DeliveryAttempted. Errors: ErrRouteNotStarted (409
+        route-not-started), ErrAlreadyDelivered (409 already-delivered). A
+        FAILED attempt counts in the package's attempt history and re-inducts
+        the package onto the next wave (policy RetryNextWave); the third
+        failure publishes PackageReturnInitiated instead. The attempt that
+        records the last outstanding package completes the route, and the last
+        completed route completes the wave.
+      parameters:
+        - $ref: '#/components/parameters/RouteId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordAttemptRequest'
+      responses:
+        '201':
+          description: Attempt recorded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attempt'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /partners:
+    post:
+      tags: [Partners]
+      operationId: contractPartner
+      summary: Contract a delivery service partner (ContractPartner)
+      description: >-
+        Creates an ACTIVE partner. Van capacity must be greater than zero
+        (ErrInvalidVanCapacity, 422 invalid-van-capacity) and stationNodeId a
+        known DELIVERY_STATION (ErrUnknownStation, 422 unknown-station).
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContractPartnerRequest'
+      responses:
+        '201':
+          description: Partner contracted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryServicePartner'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /partners/{dspId}:deactivate:
+    post:
+      tags: [Partners]
+      operationId: deactivatePartner
+      summary: Deactivate a delivery service partner (DeactivatePartner)
+      description: >-
+        ACTIVE to INACTIVE (Gap Register G34). An inactive partner can be given
+        no new route; routes already planned are unaffected.
+      parameters:
+        - $ref: '#/components/parameters/DspId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Partner deactivated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryServicePartner'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+components:
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: >-
+        Client-chosen key; a repeated request with the same key on the same
+        route returns the stored response and changes nothing. Keys are kept
+        24 hours.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 200
+    WaveId:
+      name: waveId
+      in: path
+      required: true
+      schema:
+        type: string
+    RouteId:
+      name: routeId
+      in: path
+      required: true
+      schema:
+        type: string
+    DspId:
+      name: dspId
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    NotFound:
+      description: >-
+        The wave, route, partner or (for an attempt) the package on the route
+        does not exist. Problem types `not-found`, `package-not-on-route`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Conflict:
+      description: >-
+        Conflict with the aggregate's state or capacity. Problem types:
+        `illegal-transition`, `concurrent-update`, `route-over-capacity`,
+        `route-not-started`, `already-delivered`, `attempt-already-recorded`,
+        `package-not-inducted`, `package-already-routed`, `stop-key-mismatch`,
+        `partner-inactive`, `partner-station-mismatch`, `route-incomplete`.
+        ErrWaveFull (`wave-full`) and ErrInductionClosed (`induction-closed`)
+        are raised only by policy-driven induction, which has no route.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Unprocessable:
+      description: >-
+        Validation failed. Problem types: `validation-failed` (malformed body,
+        parameter or value-object rule), `invalid-wave-times`
+        (ErrInvalidWaveTimes), `invalid-van-capacity` (ErrInvalidVanCapacity),
+        `unknown-station` (ErrUnknownStation).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  schemas:
+    Problem:
+      type: object
+      description: RFC 9457 problem details.
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          description: Problem type slug, for example `wave-full`.
+          example: wave-full
+        title:
+          type: string
+          example: The wave has no stop capacity left
+        status:
+          type: integer
+          example: 409
+        detail:
+          type: string
+        instance:
+          type: string
+    WaveState:
+      type: string
+      enum: [OPEN, INDUCTION_CLOSED, DISPATCHED, COMPLETED, CANCELLED]
+    ScheduleWaveRequest:
+      type: object
+      required: [stationNodeId, serviceDate, inductCutoffAt, windowStart, windowEnd, stopCapacity]
+      properties:
+        stationNodeId:
+          type: string
+          description: The delivery station (node-topology nodeId).
+        serviceDate:
+          type: string
+          format: date
+        inductCutoffAt:
+          type: string
+          format: date-time
+          description: Must be before windowStart.
+        windowStart:
+          type: string
+          format: date-time
+          description: Must be before windowEnd.
+        windowEnd:
+          type: string
+          format: date-time
+        stopCapacity:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+    CancelWaveRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 200
+    DeliveryWave:
+      type: object
+      required: [waveId, stationNodeId, serviceDate, inductCutoffAt, windowStart, windowEnd, stopCapacity, assignedStops, remainingStops, state]
+      properties:
+        waveId:
+          type: string
+        stationNodeId:
+          type: string
+        serviceDate:
+          type: string
+          format: date
+        inductCutoffAt:
+          type: string
+          format: date-time
+        windowStart:
+          type: string
+          format: date-time
+        windowEnd:
+          type: string
+          format: date-time
+        stopCapacity:
+          type: integer
+          minimum: 0
+        assignedStops:
+          type: integer
+          minimum: 0
+        remainingStops:
+          type: integer
+          minimum: 0
+        state:
+          $ref: '#/components/schemas/WaveState'
+        cancelReason:
+          type: string
+          description: Present only on a CANCELLED wave.
+    WaveStop:
+      type: object
+      required: [stopKey, trackingNumbers]
+      properties:
+        stopKey:
+          type: string
+          description: Opaque keyed hash of the normalized address, from shipping-and-tracking; `pkg:<trackingNumber>` when no label data was received.
+        destinationPostalPrefix:
+          type: string
+          description: Present when the label data carried it.
+        trackingNumbers:
+          type: array
+          items:
+            type: string
+    RouteState:
+      type: string
+      enum: [PLANNED, OUT_FOR_DELIVERY, COMPLETED]
+    Outcome:
+      type: string
+      enum: [DELIVERED, FAILED]
+    StopInput:
+      type: object
+      required: [stopNo, trackingNumbers]
+      properties:
+        stopNo:
+          type: integer
+          minimum: 1
+          description: 1-based position; the stops of a route are numbered 1..n without gaps.
+        trackingNumbers:
+          type: array
+          minItems: 1
+          items:
+            type: string
+    Stop:
+      type: object
+      required: [stopNo, trackingNumbers]
+      properties:
+        stopNo:
+          type: integer
+          minimum: 1
+        trackingNumbers:
+          type: array
+          items:
+            type: string
+        outcome:
+          type: string
+          enum: [DELIVERED, FAILED]
+          description: >-
+            Derived from the per-package attempts (Gap Register G17): omitted
+            until every package of the stop has an attempt, then DELIVERED when
+            all were delivered, else FAILED.
+    PlanRouteRequest:
+      type: object
+      required: [waveId, dspId, stops]
+      properties:
+        waveId:
+          type: string
+        dspId:
+          type: string
+        stops:
+          type: array
+          minItems: 1
+          description: Ordered stops; at most the partner's van capacity.
+          items:
+            $ref: '#/components/schemas/StopInput'
+    Route:
+      type: object
+      required: [routeId, waveId, dspId, stationNodeId, state, stopCount, stops, attempts]
+      properties:
+        routeId:
+          type: string
+        waveId:
+          type: string
+        dspId:
+          type: string
+        stationNodeId:
+          type: string
+        state:
+          $ref: '#/components/schemas/RouteState'
+        stopCount:
+          type: integer
+          minimum: 1
+        stops:
+          type: array
+          items:
+            $ref: '#/components/schemas/Stop'
+        attempts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Attempt'
+    RecordAttemptRequest:
+      type: object
+      required: [trackingNumber, outcome, at]
+      properties:
+        trackingNumber:
+          type: string
+        outcome:
+          $ref: '#/components/schemas/Outcome'
+        failureReason:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Required when outcome is FAILED and forbidden when DELIVERED; free text, the model defines no vocabulary.
+        at:
+          type: string
+          format: date-time
+    Attempt:
+      type: object
+      required: [routeId, trackingNumber, outcome, at]
+      properties:
+        routeId:
+          type: string
+        trackingNumber:
+          type: string
+        outcome:
+          $ref: '#/components/schemas/Outcome'
+        failureReason:
+          type: string
+        at:
+          type: string
+          format: date-time
+    PartnerState:
+      type: string
+      enum: [ACTIVE, INACTIVE]
+    ContractPartnerRequest:
+      type: object
+      required: [stationNodeId, vanCapacity]
+      properties:
+        stationNodeId:
+          type: string
+          description: The delivery station the partner is contracted to.
+        vanCapacity:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+          description: Maximum stops per route; must be greater than zero.
+    DeliveryServicePartner:
+      type: object
+      required: [dspId, stationNodeId, vanCapacity, state]
+      properties:
+        dspId:
+          type: string
+        stationNodeId:
+          type: string
+        vanCapacity:
+          type: integer
+          minimum: 1
+        state:
+          $ref: '#/components/schemas/PartnerState'

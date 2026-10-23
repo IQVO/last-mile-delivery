@@ -1,0 +1,739 @@
+asyncapi: 3.0.0
+
+info:
+  title: last-mile-delivery Domain Events
+  version: "1.0.0"
+  contact:
+    name: last-mile-delivery maintainers
+    url: https://github.com/IQVO/last-mile-delivery
+    email: last-mile-delivery@iqvo.example.com
+  license:
+    name: UNLICENSED
+  tags:
+    - name: last-mile-delivery
+      description: The last-mile-delivery bounded context (retail network, logistics tier).
+    - name: wave
+      description: Events raised by the DeliveryWave aggregate.
+    - name: route
+      description: Events raised by the Route aggregate.
+    - name: packageattempthistory
+      description: Events raised by the PackageAttemptHistory aggregate.
+  description: |
+    Event catalog for the **last-mile-delivery** bounded context of the retail
+    network (logistics tier): the delivery stations' waves (induct cutoff,
+    delivery window, stop capacity), the routes of delivery service partners
+    and every delivery attempt (ADR 0001, ADR 0002).
+
+    **Published.** Eight events. Seven go to the integration topic
+    `retailnetwork.last-mile-delivery.events`; `RoutePlanned` is analytics only
+    and goes ONLY to `retailnetwork.last-mile-delivery.analytics`. Every event
+    leaves through a **transactional outbox**: the aggregates and their
+    already-encoded events are written in ONE database transaction and an
+    always-on relay drains them to Kafka (at-least-once; the CloudEvents `id` is
+    stored with the outbox row, so a retry republishes the same `id`). The eight
+    types are catalogued in ADR 0004.
+
+    **Consumed.** Four events (ADR 0003): `LoadArrived` from
+    linehaul-transportation, `NodeRegistered` and `ServiceAreaAssigned` from
+    node-topology, `LabelIssued` from shipping-and-tracking. Each consumer
+    dedupes on the CloudEvents `id` (inbox table `processed_events`), dispatches
+    on the full `type`, ignores unknown types and unknown fields. The consumed
+    messages below list only the fields this service relies on; the producers'
+    own AsyncAPI files are the authority.
+
+    **Envelope (mandatory).** CloudEvents 1.0, structured content mode, Kafka
+    header `content-type: application/cloudevents+json; charset=UTF-8`.
+    `specversion`, `id`, `source` (`/retailnetwork/last-mile-delivery`), `type`,
+    `subject` (the aggregate root id), `time`, `datacontenttype`
+    (`application/json`) and `dataschema`
+    (`urn:retailnetwork:last-mile-delivery:<stream>:<EventName>:v1`, stream
+    `events` or `analytics`) are all required. Kafka key = the subject, so one
+    aggregate's events stay ordered on one partition. Type =
+    `com.retailnetwork.logistics.last-mile-delivery.<entity>.<EventName>` with
+    entity `wave`, `route` or `packageattempthistory`. A breaking payload change
+    is a new `.v2` type, never a mutation.
+
+    **Conventions.** `data` is camelCase; ids are strings; instants are RFC 3339
+    UTC strings; the service date is `YYYY-MM-DD`; counts are integers;
+    optional fields are omitted when absent (never null); evolution is additive
+    only. No address and no other PII appears in any event.
+
+servers:
+  production:
+    host: "{brokers}"
+    protocol: kafka
+    description: Retail-network Kafka broker (host supplied by the deployment environment via KAFKA_BROKERS).
+    variables:
+      brokers:
+        default: "kafka.retail-network.internal:9092"
+
+defaultContentType: application/cloudevents+json
+
+channels:
+  lastMileEvents:
+    address: retailnetwork.last-mile-delivery.events
+    title: last-mile-delivery integration topic
+    description: |
+      This service's integration topic. Written by the outbox relay; key =
+      subject (waveId, routeId or trackingNumber). Every message carries the
+      CloudEvents content-type header. Dispatch on the full `type`, ignore
+      unknown types, dedupe on `id`.
+    messages:
+      DeliveryWaveScheduled:
+        $ref: "#/components/messages/DeliveryWaveScheduled"
+      DeliveryWaveCapacityChanged:
+        $ref: "#/components/messages/DeliveryWaveCapacityChanged"
+      DeliveryWaveCancelled:
+        $ref: "#/components/messages/DeliveryWaveCancelled"
+      PackageOutForDelivery:
+        $ref: "#/components/messages/PackageOutForDelivery"
+      DeliveryAttempted:
+        $ref: "#/components/messages/DeliveryAttempted"
+      PackageInductionDeferred:
+        $ref: "#/components/messages/PackageInductionDeferred"
+      PackageReturnInitiated:
+        $ref: "#/components/messages/PackageReturnInitiated"
+
+  lastMileAnalytics:
+    address: retailnetwork.last-mile-delivery.analytics
+    title: last-mile-delivery analytics topic
+    description: |
+      Analytics-only events. Nothing on this topic is an integration contract;
+      the same event is never also written to the events topic.
+    messages:
+      RoutePlanned:
+        $ref: "#/components/messages/RoutePlanned"
+
+  linehaulEvents:
+    address: retailnetwork.linehaul-transportation.events
+    title: linehaul-transportation integration topic (consumed)
+    description: Consumed for LoadArrived only; every other type is ignored.
+    messages:
+      LoadArrived:
+        $ref: "#/components/messages/LoadArrived"
+
+  nodeTopologyEvents:
+    address: retailnetwork.node-topology.events
+    title: node-topology integration topic (consumed)
+    description: Consumed for NodeRegistered and ServiceAreaAssigned only; every other type is ignored.
+    messages:
+      NodeRegistered:
+        $ref: "#/components/messages/NodeRegistered"
+      ServiceAreaAssigned:
+        $ref: "#/components/messages/ServiceAreaAssigned"
+
+  shippingEvents:
+    address: retailnetwork.shipping-and-tracking.events
+    title: shipping-and-tracking integration topic (consumed)
+    description: Consumed for LabelIssued only (stopKey and destinationPostalPrefix, Gap Register G11); every other type is ignored.
+    messages:
+      LabelIssued:
+        $ref: "#/components/messages/LabelIssued"
+
+operations:
+  publishLastMileEvents:
+    action: send
+    title: Publish last-mile-delivery integration events
+    summary: Publish the seven integration events through the transactional outbox.
+    description: |
+      The service sends the events of its three event-raising aggregates
+      (DeliveryWave, Route, PackageAttemptHistory) to
+      `retailnetwork.last-mile-delivery.events`. Consumers route on the full
+      `type`: delivery-promise and order-sourcing read the wave events,
+      shipping-and-tracking reads PackageOutForDelivery, DeliveryAttempted and
+      PackageReturnInitiated, delivery-promise reads PackageInductionDeferred.
+    tags:
+      - name: last-mile-delivery
+    channel:
+      $ref: "#/channels/lastMileEvents"
+    messages:
+      - $ref: "#/channels/lastMileEvents/messages/DeliveryWaveScheduled"
+      - $ref: "#/channels/lastMileEvents/messages/DeliveryWaveCapacityChanged"
+      - $ref: "#/channels/lastMileEvents/messages/DeliveryWaveCancelled"
+      - $ref: "#/channels/lastMileEvents/messages/PackageOutForDelivery"
+      - $ref: "#/channels/lastMileEvents/messages/DeliveryAttempted"
+      - $ref: "#/channels/lastMileEvents/messages/PackageInductionDeferred"
+      - $ref: "#/channels/lastMileEvents/messages/PackageReturnInitiated"
+
+  publishLastMileAnalytics:
+    action: send
+    title: Publish last-mile-delivery analytics events
+    summary: Publish RoutePlanned on the analytics topic only.
+    description: |
+      The service sends the analytics-only RoutePlanned event to
+      `retailnetwork.last-mile-delivery.analytics` through the same outbox.
+    tags:
+      - name: last-mile-delivery
+    channel:
+      $ref: "#/channels/lastMileAnalytics"
+    messages:
+      - $ref: "#/channels/lastMileAnalytics/messages/RoutePlanned"
+
+  receiveLoadArrived:
+    action: receive
+    title: Receive LoadArrived
+    summary: A load reached its destination node; induct its packages (policy InductOnArrival).
+    description: |
+      linehaul-transportation `LoadArrived`. When the destination is a delivery
+      station (event `nodeType` when present, else the StationView), every
+      tracking number is inducted into the earliest eligible wave; a package no
+      wave accepts is deferred (PackageInductionDeferred).
+    tags:
+      - name: last-mile-delivery
+    channel:
+      $ref: "#/channels/linehaulEvents"
+    messages:
+      - $ref: "#/channels/linehaulEvents/messages/LoadArrived"
+
+  receiveNodeTopologyEvents:
+    action: receive
+    title: Receive node-topology station events
+    summary: Feed the StationView read model from NodeRegistered and ServiceAreaAssigned.
+    description: |
+      node-topology `NodeRegistered` (kept when `nodeType` is DELIVERY_STATION)
+      and `ServiceAreaAssigned` (kept only when its `assignmentVersion` is
+      higher than the stored one) feed `rm_stations` and
+      `rm_station_service_areas`.
+    tags:
+      - name: last-mile-delivery
+    channel:
+      $ref: "#/channels/nodeTopologyEvents"
+    messages:
+      - $ref: "#/channels/nodeTopologyEvents/messages/NodeRegistered"
+      - $ref: "#/channels/nodeTopologyEvents/messages/ServiceAreaAssigned"
+
+  receiveLabelIssued:
+    action: receive
+    title: Receive LabelIssued
+    summary: Learn the stopKey, postal prefix and assignmentId of a package at label time.
+    description: |
+      shipping-and-tracking `LabelIssued` feeds `rm_package_stops` (keyed by
+      trackingNumber). Induction groups packages into stops by `stopKey`;
+      `assignmentId` is echoed on PackageInductionDeferred. A label seen twice
+      keeps the first values.
+    tags:
+      - name: last-mile-delivery
+    channel:
+      $ref: "#/channels/shippingEvents"
+    messages:
+      - $ref: "#/channels/shippingEvents/messages/LabelIssued"
+
+components:
+  messages:
+    DeliveryWaveScheduled:
+      name: DeliveryWaveScheduled
+      title: Delivery wave scheduled
+      summary: A delivery wave was scheduled in state OPEN.
+      description: "`type` = `com.retailnetwork.logistics.last-mile-delivery.wave.DeliveryWaveScheduled`; subject and key = the waveId. Raised by ScheduleWave. delivery-promise and order-sourcing plan the last leg on it."
+      contentType: application/cloudevents+json
+      tags:
+        - name: wave
+      payload:
+        $ref: "#/components/schemas/DeliveryWaveScheduledEvent"
+      examples:
+        - name: deliveryWaveScheduled
+          summary: A morning wave of station node-ds-01.
+          payload:
+            specversion: "1.0"
+            id: "5d3a8c1e-0a63-4f0b-9d54-7a1a6b0c2e11"
+            source: "/retailnetwork/last-mile-delivery"
+            type: "com.retailnetwork.logistics.last-mile-delivery.wave.DeliveryWaveScheduled"
+            subject: "wave-3b9f"
+            time: "2026-10-23T11:00:00Z"
+            datacontenttype: "application/json"
+            dataschema: "urn:retailnetwork:last-mile-delivery:events:DeliveryWaveScheduled:v1"
+            data:
+              waveId: "wave-3b9f"
+              stationNodeId: "node-ds-01"
+              serviceDate: "2026-10-24"
+              inductCutoffAt: "2026-10-24T08:00:00Z"
+              windowStart: "2026-10-24T12:00:00Z"
+              windowEnd: "2026-10-24T20:00:00Z"
+              stopCapacity: 120
+
+    DeliveryWaveCapacityChanged:
+      name: DeliveryWaveCapacityChanged
+      title: Delivery wave capacity changed
+      summary: The assigned stops of a wave changed.
+      description: "`type` = `com.retailnetwork.logistics.last-mile-delivery.wave.DeliveryWaveCapacityChanged`; subject and key = the waveId. Raised when an induction adds a NEW stop to the wave (a package joining a stop already in the wave changes no count and raises nothing). `remainingStops` = `stopCapacity` - `assignedStops`. A wave with no remaining stops is no longer a candidate."
+      contentType: application/cloudevents+json
+      tags:
+        - name: wave
+      payload:
+        $ref: "#/components/schemas/DeliveryWaveCapacityChangedEvent"
+      examples:
+        - name: deliveryWaveCapacityChanged
+          summary: One more stop assigned.
+          payload:
+            specversion: "1.0"
+            id: "0e7c2f6a-31b4-4c8e-8f0d-9a5f1d2b7c33"
+            source: "/retailnetwork/last-mile-delivery"
+            type: "com.retailnetwork.logistics.last-mile-delivery.wave.DeliveryWaveCapacityChanged"
+            subject: "wave-3b9f"
+            time: "2026-10-24T06:15:00Z"
+            datacontenttype: "application/json"
+            dataschema: "urn:retailnetwork:last-mile-delivery:events:DeliveryWaveCapacityChanged:v1"
+            data:
+              waveId: "wave-3b9f"
+              stopCapacity: 120
+              assignedStops: 41
+              remainingStops: 79
+
+    DeliveryWaveCancelled:
+      name: DeliveryWaveCancelled
+      title: Delivery wave cancelled
+      summary: An OPEN wave was cancelled; its packages moved to the next wave.
+      description: "`type` = `com.retailnetwork.logistics.last-mile-delivery.wave.DeliveryWaveCancelled`; subject and key = the waveId. Raised by CancelWave. An INTEGRATION event on the events topic (Gap Register G5, contracts-delta E5): delivery-promise (view and RepromiseOnRisk) and order-sourcing (NetworkGraphView) consume it."
+      contentType: application/cloudevents+json
+      tags:
+        - name: wave
+      payload:
+        $ref: "#/components/schemas/DeliveryWaveCancelledEvent"
+      examples:
+        - name: deliveryWaveCancelled
+          summary: A wave cancelled by the station planner.
+          payload:
+            specversion: "1.0"
+            id: "7a1d9b24-5c70-4e0a-b3d1-2f6e8c0a9d55"
+            source: "/retailnetwork/last-mile-delivery"
+            type: "com.retailnetwork.logistics.last-mile-delivery.wave.DeliveryWaveCancelled"
+            subject: "wave-3b9f"
+            time: "2026-10-24T05:00:00Z"
+            datacontenttype: "application/json"
+            dataschema: "urn:retailnetwork:last-mile-delivery:events:DeliveryWaveCancelled:v1"
+            data:
+              waveId: "wave-3b9f"
+              reason: "station closed for maintenance"
+
+    RoutePlanned:
+      name: RoutePlanned
+      title: Route planned
+      summary: A DSP van route was planned in a wave (analytics only).
+      description: "`type` = `com.retailnetwork.logistics.last-mile-delivery.route.RoutePlanned`; subject and key = the routeId. Raised by PlanRoute. ANALYTICS ONLY: written to `retailnetwork.last-mile-delivery.analytics` and never to the events topic; dataschema stream is `analytics`."
+      contentType: application/cloudevents+json
+      tags:
+        - name: route
+      payload:
+        $ref: "#/components/schemas/RoutePlannedEvent"
+      examples:
+        - name: routePlanned
+          summary: A 32-stop route.
+          payload:
+            specversion: "1.0"
+            id: "c4b2e1f0-8d3a-47a6-91be-6f0d2a7e4b66"
+            source: "/retailnetwork/last-mile-delivery"
+            type: "com.retailnetwork.logistics.last-mile-delivery.route.RoutePlanned"
+            subject: "route-81c2"
+            time: "2026-10-24T08:30:00Z"
+            datacontenttype: "application/json"
+            dataschema: "urn:retailnetwork:last-mile-delivery:analytics:RoutePlanned:v1"
+            data:
+              routeId: "route-81c2"
+              waveId: "wave-3b9f"
+              dspId: "dsp-77a0"
+              stopCount: 32
+
+    PackageOutForDelivery:
+      name: PackageOutForDelivery
+      title: Package out for delivery
+      summary: A package left the station on a started route.
+      description: "`type` = `com.retailnetwork.logistics.last-mile-delivery.route.PackageOutForDelivery`; subject = the routeId, key = the routeId. Raised by StartRoute, one event per tracking number on the route. shipping-and-tracking records the AT_STATION to OUT_FOR_DELIVERY scan."
+      contentType: application/cloudevents+json
+      tags:
+        - name: route
+      payload:
+        $ref: "#/components/schemas/PackageOutForDeliveryEvent"
+      examples:
+        - name: packageOutForDelivery
+          summary: One package of a started route.
+          payload:
+            specversion: "1.0"
+            id: "a91f3d77-2b0c-4d1e-8a6f-3c5e7b9d1f77"
+            source: "/retailnetwork/last-mile-delivery"
+            type: "com.retailnetwork.logistics.last-mile-delivery.route.PackageOutForDelivery"
+            subject: "route-81c2"
+            time: "2026-10-24T12:02:00Z"
+            datacontenttype: "application/json"
+            dataschema: "urn:retailnetwork:last-mile-delivery:events:PackageOutForDelivery:v1"
+            data:
+              routeId: "route-81c2"
+              trackingNumber: "TRK-000123"
+              stationNodeId: "node-ds-01"
+              at: "2026-10-24T12:02:00Z"
+
+    DeliveryAttempted:
+      name: DeliveryAttempted
+      title: Delivery attempted
+      summary: One delivery attempt of one package was recorded.
+      description: "`type` = `com.retailnetwork.logistics.last-mile-delivery.route.DeliveryAttempted`; subject = the routeId, key = the routeId. Raised by RecordAttempt, per package (Gap Register G17: outcomes are per package, the stop outcome is derived). `outcome` is DELIVERED or FAILED; `failureReason` is present only when FAILED. A FAILED attempt re-inducts the package onto the next wave, or after the third failure raises PackageReturnInitiated."
+      contentType: application/cloudevents+json
+      tags:
+        - name: route
+      payload:
+        $ref: "#/components/schemas/DeliveryAttemptedEvent"
+      examples:
+        - name: deliveryAttemptedFailed
+          summary: A failed attempt.
+          payload:
+            specversion: "1.0"
+            id: "3e8b5a90-6d12-4f7c-a0e3-1b9c4d6f8a88"
+            source: "/retailnetwork/last-mile-delivery"
+            type: "com.retailnetwork.logistics.last-mile-delivery.route.DeliveryAttempted"
+            subject: "route-81c2"
+            time: "2026-10-24T14:20:00Z"
+            datacontenttype: "application/json"
+            dataschema: "urn:retailnetwork:last-mile-delivery:events:DeliveryAttempted:v1"
+            data:
+              routeId: "route-81c2"
+              trackingNumber: "TRK-000123"
+              outcome: FAILED
+              failureReason: "recipient absent"
+              at: "2026-10-24T14:19:30Z"
+
+    PackageInductionDeferred:
+      name: PackageInductionDeferred
+      title: Package induction deferred
+      summary: A package at the station could not be inducted into any wave.
+      description: "`type` = `com.retailnetwork.logistics.last-mile-delivery.packageattempthistory.PackageInductionDeferred`; subject and key = the trackingNumber. Raised when no OPEN wave of the station with stop capacity accepts the package (LoadArrived, a failed attempt, a cancelled wave or a dispatch leftover; Gap Register G16, contracts-delta E15). delivery-promise treats it as a risk. The package is inducted later when a wave is scheduled. `assignmentId` comes from the package's LabelIssued and is omitted only when no label data was received."
+      contentType: application/cloudevents+json
+      tags:
+        - name: packageattempthistory
+      payload:
+        $ref: "#/components/schemas/PackageInductionDeferredEvent"
+      examples:
+        - name: packageInductionDeferred
+          summary: No wave had capacity.
+          payload:
+            specversion: "1.0"
+            id: "d2f4a6c8-1e3b-45d7-9f0a-8b6c4e2d0a99"
+            source: "/retailnetwork/last-mile-delivery"
+            type: "com.retailnetwork.logistics.last-mile-delivery.packageattempthistory.PackageInductionDeferred"
+            subject: "TRK-000123"
+            time: "2026-10-24T09:00:00Z"
+            datacontenttype: "application/json"
+            dataschema: "urn:retailnetwork:last-mile-delivery:events:PackageInductionDeferred:v1"
+            data:
+              trackingNumber: "TRK-000123"
+              assignmentId: "asg-5531"
+
+    PackageReturnInitiated:
+      name: PackageReturnInitiated
+      title: Package return initiated
+      summary: The third delivery attempt of a package failed; return it to sender.
+      description: "`type` = `com.retailnetwork.logistics.last-mile-delivery.packageattempthistory.PackageReturnInitiated`; subject and key = the trackingNumber. Raised by the third failed attempt of a package (Gap Register G16, contracts-delta E15). shipping-and-tracking consumes it into ReturnToSender. The package is not re-inducted."
+      contentType: application/cloudevents+json
+      tags:
+        - name: packageattempthistory
+      payload:
+        $ref: "#/components/schemas/PackageReturnInitiatedEvent"
+      examples:
+        - name: packageReturnInitiated
+          summary: Three failed attempts.
+          payload:
+            specversion: "1.0"
+            id: "b8d0f2a4-7c9e-4a1b-8d3f-5e7a9c1b3d00"
+            source: "/retailnetwork/last-mile-delivery"
+            type: "com.retailnetwork.logistics.last-mile-delivery.packageattempthistory.PackageReturnInitiated"
+            subject: "TRK-000123"
+            time: "2026-10-26T14:20:00Z"
+            datacontenttype: "application/json"
+            dataschema: "urn:retailnetwork:last-mile-delivery:events:PackageReturnInitiated:v1"
+            data:
+              trackingNumber: "TRK-000123"
+
+    LoadArrived:
+      name: LoadArrived
+      title: Load arrived (consumed)
+      summary: linehaul-transportation LoadArrived, as this service reads it.
+      description: "`type` = `com.retailnetwork.logistics.linehaul-transportation.load.LoadArrived`. Fields relied on: `destinationNodeId`, `trackingNumbers`, `arrivedAt`, `loadId`, `departureId`, and (contracts-delta E3) `nodeType` of the node where it happened. Only fields listed here are read; unknown fields are ignored."
+      contentType: application/cloudevents+json
+      tags:
+        - name: last-mile-delivery
+      payload:
+        $ref: "#/components/schemas/LoadArrivedEvent"
+      examples:
+        - name: loadArrived
+          summary: A load of two packages at a delivery station.
+          payload:
+            specversion: "1.0"
+            id: "11111111-2222-4333-8444-555555555501"
+            source: "/retailnetwork/linehaul-transportation"
+            type: "com.retailnetwork.logistics.linehaul-transportation.load.LoadArrived"
+            subject: "load-20"
+            time: "2026-10-24T06:00:00Z"
+            datacontenttype: "application/json"
+            data:
+              loadId: "load-20"
+              departureId: "dep-9"
+              destinationNodeId: "node-ds-01"
+              nodeType: DELIVERY_STATION
+              trackingNumbers: ["TRK-000123", "TRK-000124"]
+              arrivedAt: "2026-10-24T06:00:00Z"
+
+    NodeRegistered:
+      name: NodeRegistered
+      title: Node registered (consumed)
+      summary: node-topology NodeRegistered, as this service reads it.
+      description: "`type` = `com.retailnetwork.logistics.node-topology.node.NodeRegistered`. Fields relied on: `nodeId`, `nodeType`, `regionId`, `timezone`. Only DELIVERY_STATION nodes are kept in `rm_stations`."
+      contentType: application/cloudevents+json
+      tags:
+        - name: last-mile-delivery
+      payload:
+        $ref: "#/components/schemas/NodeRegisteredEvent"
+      examples:
+        - name: nodeRegistered
+          summary: A delivery station was registered.
+          payload:
+            specversion: "1.0"
+            id: "11111111-2222-4333-8444-555555555502"
+            source: "/retailnetwork/node-topology"
+            type: "com.retailnetwork.logistics.node-topology.node.NodeRegistered"
+            subject: "node-ds-01"
+            time: "2026-10-01T10:00:00Z"
+            datacontenttype: "application/json"
+            data:
+              nodeId: "node-ds-01"
+              nodeType: DELIVERY_STATION
+              regionId: "region-se"
+              timezone: "America/Sao_Paulo"
+
+    ServiceAreaAssigned:
+      name: ServiceAreaAssigned
+      title: Service area assigned (consumed)
+      summary: node-topology ServiceAreaAssigned, as this service reads it.
+      description: "`type` = `com.retailnetwork.logistics.node-topology.servicearea.ServiceAreaAssigned`. Fields relied on: `postalPrefix`, `deliveryStationNodeId`, `regionId`, `assignmentVersion` (the highest version per prefix wins)."
+      contentType: application/cloudevents+json
+      tags:
+        - name: last-mile-delivery
+      payload:
+        $ref: "#/components/schemas/ServiceAreaAssignedEvent"
+      examples:
+        - name: serviceAreaAssigned
+          summary: A postal prefix assigned to a station.
+          payload:
+            specversion: "1.0"
+            id: "11111111-2222-4333-8444-555555555503"
+            source: "/retailnetwork/node-topology"
+            type: "com.retailnetwork.logistics.node-topology.servicearea.ServiceAreaAssigned"
+            subject: "01310"
+            time: "2026-10-01T10:05:00Z"
+            datacontenttype: "application/json"
+            data:
+              postalPrefix: "01310"
+              deliveryStationNodeId: "node-ds-01"
+              regionId: "region-se"
+              assignmentVersion: 1
+
+    LabelIssued:
+      name: LabelIssued
+      title: Label issued (consumed)
+      summary: shipping-and-tracking LabelIssued, as this service reads it.
+      description: "`type` = `com.retailnetwork.logistics.shipping-and-tracking.label.LabelIssued`. Fields relied on: `trackingNumber`, `stopKey` and `destinationPostalPrefix` (contracts-delta E10), `assignmentId`. A label without `stopKey` is ignored (the package becomes its own stop)."
+      contentType: application/cloudevents+json
+      tags:
+        - name: last-mile-delivery
+      payload:
+        $ref: "#/components/schemas/LabelIssuedEvent"
+      examples:
+        - name: labelIssued
+          summary: A label with its opaque stop key.
+          payload:
+            specversion: "1.0"
+            id: "11111111-2222-4333-8444-555555555504"
+            source: "/retailnetwork/shipping-and-tracking"
+            type: "com.retailnetwork.logistics.shipping-and-tracking.label.LabelIssued"
+            subject: "label-77"
+            time: "2026-10-23T15:00:00Z"
+            datacontenttype: "application/json"
+            data:
+              labelRef: "label-77"
+              trackingNumber: "TRK-000123"
+              assignmentId: "asg-5531"
+              stopKey: "k1:9f2c4e7a1b3d5f60"
+              destinationPostalPrefix: "01310"
+
+  schemas:
+    CloudEventEnvelope:
+      type: object
+      required: [specversion, id, source, type, subject, time, datacontenttype, dataschema, data]
+      properties:
+        specversion: { type: string, const: "1.0" }
+        id: { type: string, description: UUID minted once per occurrence and stored with the outbox row. }
+        source: { type: string, const: "/retailnetwork/last-mile-delivery" }
+        type: { type: string }
+        subject: { type: string, description: The aggregate root id; also the Kafka key. }
+        time: { type: string, format: date-time }
+        datacontenttype: { type: string, const: application/json }
+        dataschema: { type: string }
+
+    Outcome:
+      type: string
+      enum: [DELIVERED, FAILED]
+
+    DeliveryWaveScheduledEvent:
+      allOf:
+        - $ref: "#/components/schemas/CloudEventEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [waveId, stationNodeId, serviceDate, inductCutoffAt, windowStart, windowEnd, stopCapacity]
+              properties:
+                waveId: { type: string }
+                stationNodeId: { type: string }
+                serviceDate: { type: string, format: date, description: The station's local service date. }
+                inductCutoffAt: { type: string, format: date-time }
+                windowStart: { type: string, format: date-time }
+                windowEnd: { type: string, format: date-time }
+                stopCapacity: { type: integer, minimum: 0 }
+
+    DeliveryWaveCapacityChangedEvent:
+      allOf:
+        - $ref: "#/components/schemas/CloudEventEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [waveId, stopCapacity, assignedStops, remainingStops]
+              properties:
+                waveId: { type: string }
+                stopCapacity: { type: integer, minimum: 0 }
+                assignedStops: { type: integer, minimum: 0 }
+                remainingStops: { type: integer, minimum: 0 }
+
+    DeliveryWaveCancelledEvent:
+      allOf:
+        - $ref: "#/components/schemas/CloudEventEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [waveId, reason]
+              properties:
+                waveId: { type: string }
+                reason: { type: string }
+
+    RoutePlannedEvent:
+      allOf:
+        - $ref: "#/components/schemas/CloudEventEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [routeId, waveId, dspId, stopCount]
+              properties:
+                routeId: { type: string }
+                waveId: { type: string }
+                dspId: { type: string }
+                stopCount: { type: integer, minimum: 1 }
+
+    PackageOutForDeliveryEvent:
+      allOf:
+        - $ref: "#/components/schemas/CloudEventEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [routeId, trackingNumber, stationNodeId, at]
+              properties:
+                routeId: { type: string }
+                trackingNumber: { type: string }
+                stationNodeId: { type: string }
+                at: { type: string, format: date-time }
+
+    DeliveryAttemptedEvent:
+      allOf:
+        - $ref: "#/components/schemas/CloudEventEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [routeId, trackingNumber, outcome, at]
+              properties:
+                routeId: { type: string }
+                trackingNumber: { type: string }
+                outcome: { $ref: "#/components/schemas/Outcome" }
+                failureReason: { type: string, description: Present only when outcome is FAILED. }
+                at: { type: string, format: date-time, description: The instant of the attempt as reported by the driver app. }
+
+    PackageInductionDeferredEvent:
+      allOf:
+        - $ref: "#/components/schemas/CloudEventEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [trackingNumber]
+              properties:
+                trackingNumber: { type: string }
+                assignmentId: { type: string, description: From LabelIssued; omitted only when no label data was received. }
+
+    PackageReturnInitiatedEvent:
+      allOf:
+        - $ref: "#/components/schemas/CloudEventEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [trackingNumber]
+              properties:
+                trackingNumber: { type: string }
+
+    LoadArrivedEvent:
+      allOf:
+        - $ref: "#/components/schemas/CloudEventEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [destinationNodeId, trackingNumbers, arrivedAt]
+              properties:
+                loadId: { type: string }
+                departureId: { type: string }
+                destinationNodeId: { type: string }
+                nodeType: { type: string, description: Type of the node where the arrival happened (contracts-delta E3). }
+                trackingNumbers: { type: array, items: { type: string } }
+                arrivedAt: { type: string, format: date-time }
+
+    NodeRegisteredEvent:
+      allOf:
+        - $ref: "#/components/schemas/CloudEventEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [nodeId, nodeType]
+              properties:
+                nodeId: { type: string }
+                nodeType: { type: string }
+                regionId: { type: string }
+                timezone: { type: string }
+
+    ServiceAreaAssignedEvent:
+      allOf:
+        - $ref: "#/components/schemas/CloudEventEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [postalPrefix, deliveryStationNodeId, assignmentVersion]
+              properties:
+                postalPrefix: { type: string }
+                deliveryStationNodeId: { type: string }
+                regionId: { type: string }
+                assignmentVersion: { type: integer, minimum: 1 }
+
+    LabelIssuedEvent:
+      allOf:
+        - $ref: "#/components/schemas/CloudEventEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [trackingNumber]
+              properties:
+                labelRef: { type: string }
+                trackingNumber: { type: string }
+                assignmentId: { type: string }
+                stopKey: { type: string, description: Opaque keyed hash of the normalized address. }
+                destinationPostalPrefix: { type: string }
