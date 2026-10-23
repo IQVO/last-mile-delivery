@@ -134,6 +134,19 @@ func Produce(t *testing.T, topic string, msgs ...Message) {
 	}
 }
 
+// Stop terminates the shared broker in the middle of a test (the dead-broker
+// scenario); a later Shutdown is then a no-op.
+func Stop(t *testing.T) {
+	t.Helper()
+	if container == nil {
+		t.Fatal("kafkatest.Stop: the broker was never started")
+	}
+	if err := testcontainers.TerminateContainer(container); err != nil {
+		t.Fatalf("stop kafka container: %v", err)
+	}
+	container = nil
+}
+
 // Shutdown terminates the shared broker; call it from TestMain.
 func Shutdown() {
 	if container != nil {

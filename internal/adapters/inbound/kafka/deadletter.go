@@ -18,7 +18,7 @@ import (
 )
 
 // DLQSuffix is appended to a consumed topic to name its dead-letter topic
-// (warehouse.order-management.events.dlq for the demand consumer).
+// (retailnetwork.node-topology.events.dlq for the topology consumer).
 const DLQSuffix = ".dlq"
 
 // DeadLetterWriter is the subset of *kafkago.Writer a dead-lettering
@@ -69,7 +69,7 @@ func isTopicNotReady(err error) bool {
 // domainMaxHandlerAttempts bounds a domain consumer's in-loop retry of a
 // transient failure before the message is dead-lettered: 1 initial
 // attempt plus up to 4 retries. Chosen (rather than the fleet's smaller
-// maxHandlerAttempts=3 used by order-management/fulfillment-execution,
+// maxHandlerAttempts=3 used by the fleet siblings,
 // which retry inside ONE handler call) to stay comfortably above this
 // package's existing "fails twice then succeeds" test fixtures while
 // still bounding the previously-infinite retry.

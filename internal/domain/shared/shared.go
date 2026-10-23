@@ -1,4 +1,4 @@
-// Package shared holds what more than one aggregate of the node-topology
+// Package shared holds what more than one aggregate of the last-mile-delivery
 // domain raises or implements: the shared domain errors, the Event interface
 // and the identifier checks. It imports nothing.
 //

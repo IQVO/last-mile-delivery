@@ -1,8 +1,7 @@
 // Package kafka holds this service's INBOUND Kafka consumers (ADR 0003): the
-// demand copy (order-management's SiteSkuDemandChanged), the product copy
-// (product-master's ProductClassified / ProductDimensionsDeclared /
-// ProductMeasured) and the layout copy (facility-layout's ZoneRegistered /
-// LocationSlotRegistered / LocationSlotDecommissioned). Every consumer decodes
+// station copy (node-topology's NodeRegistered / ServiceAreaAssigned), the
+// arrival copy (linehaul-transportation's LoadArrived) and the stop copy
+// (shipping-and-tracking's LabelIssued). Every consumer decodes
 // CloudEvents 1.0 only, via internal/adapters/kafka/cloudevents, and
 // dispatches on the FULL `type` string.
 //
