@@ -40,9 +40,12 @@ producers' files once pushed.
   transaction as the effect; a redelivered event is applied once.
 - Dispatch is on the full `type` string; an unknown type and unknown fields are
   ignored; a message that is not a CloudEvents 1.0 event, or whose `data` cannot
-  be decoded, goes to the dead-letter topic and the offset is committed.
-- A deterministic failure (an unknown station on a `LoadArrived`) is not retried:
-  the event is applied as "ignored" and marked processed. A transient failure
+  be decoded, goes to the dead-letter topic (`<topic>.dlq`) at once and the offset
+  is committed; a transient failure is retried five times before the same fate.
+- A deterministic skip (a `LoadArrived` whose `nodeType` is not `DELIVERY_STATION`,
+  or a decodable event with no usable key) is not retried: the event is applied
+  as "ignored" and marked processed (ADR 0002 A8: the event's `nodeType` wins; the
+  `StationView` is consulted only when the event carries none). A transient failure
   (database, concurrent update after the retry) is returned so the message is
   redelivered.
 - `NodeRegistered` keeps only `DELIVERY_STATION` nodes (first write wins; a node
@@ -73,6 +76,8 @@ always-on relay writes them to Kafka (ADR 0004).
 
 ## Consequences
 
-- A station that was never registered cannot receive waves or partners, and a
-  `LoadArrived` for it is ignored until its `NodeRegistered` is consumed.
+- A station that was never registered cannot receive waves or partners. A
+  `LoadArrived` for it that carries `nodeType: DELIVERY_STATION` still inducts or
+  defers its packages (the `PackageInductionDeferred` risk signal is kept); one
+  with no `nodeType` is ignored until the `NodeRegistered` is consumed.
 - The `rm_` tables lag their producers; no aggregate holds a foreign key to them.
