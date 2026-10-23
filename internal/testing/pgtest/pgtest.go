@@ -191,3 +191,31 @@ func Shutdown() {
 		_ = testcontainers.TerminateContainer(container)
 	}
 }
+
+// Exec runs one statement on pool and fails the test on an error.
+func Exec(t *testing.T, pool *pgxpool.Pool, sql string, args ...any) {
+	t.Helper()
+	if _, err := pool.Exec(context.Background(), sql, args...); err != nil {
+		t.Fatalf("%s: %v", sql, err)
+	}
+}
+
+// TryExec runs one statement on pool and returns its error (a constraint check
+// that must fail).
+func TryExec(pool *pgxpool.Pool, sql string, args ...any) error {
+	_, err := pool.Exec(context.Background(), sql, args...)
+	return err
+}
+
+// TableCount returns how many tables the public schema holds, not counting the
+// migration tool's own bookkeeping table.
+func TableCount(t *testing.T, pool *pgxpool.Pool) int {
+	t.Helper()
+	var n int
+	err := pool.QueryRow(context.Background(), `SELECT count(*) FROM information_schema.tables
+		WHERE table_schema = 'public' AND table_name <> 'schema_migrations'`).Scan(&n)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return n
+}

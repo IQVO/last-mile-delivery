@@ -3,10 +3,7 @@
 package postgres_test
 
 import (
-	"context"
 	"testing"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/claudioed/last-mile-delivery/internal/adapters/outbound/postgres"
 	"github.com/claudioed/last-mile-delivery/internal/adapters/outbound/repocontract"
@@ -52,7 +49,6 @@ func TestPostgresPassesTheRepositoryContract(t *testing.T) {
 // reject what the domain would never produce, so a bug can not store it.
 func TestDatabaseConstraintsBackTheInvariants(t *testing.T) {
 	pool := pgtest.NewPool(t)
-	ctx := context.Background()
 	bad := []struct{ name, sql string }{
 		{"wave times out of order", `INSERT INTO delivery_waves VALUES ('w', 's', '2026-10-24', now(), now(), now(), 1, 0, 'OPEN', NULL, 1)`},
 		{"wave over capacity", `INSERT INTO delivery_waves VALUES ('w', 's', '2026-10-24', now(), now() + interval '1 hour', now() + interval '2 hours', 1, 2, 'OPEN', NULL, 1)`},
@@ -62,21 +58,14 @@ func TestDatabaseConstraintsBackTheInvariants(t *testing.T) {
 		{"package with four failures", `INSERT INTO package_histories VALUES ('t', 's', NULL, 4, 'INDUCTED', now(), 1)`},
 	}
 	for _, c := range bad {
-		if _, err := pool.Exec(ctx, c.sql); err == nil {
+		if err := pgtest.TryExec(pool, c.sql); err == nil {
 			t.Errorf("%s: the database accepted it", c.name)
 		}
 	}
-	mustExec(t, pool, `INSERT INTO routes VALUES ('r1', 'w', 'd', 's', 'OUT_FOR_DELIVERY', 2), ('r2', 'w', 'd', 's', 'OUT_FOR_DELIVERY', 2)`)
-	mustExec(t, pool, `INSERT INTO route_attempts VALUES ('r1', 'T1', 'DELIVERED', NULL, now(), 0)`)
-	if _, err := pool.Exec(ctx, `INSERT INTO route_attempts VALUES ('r2', 'T1', 'DELIVERED', NULL, now(), 0)`); err == nil {
+	pgtest.Exec(t, pool, `INSERT INTO routes VALUES ('r1', 'w', 'd', 's', 'OUT_FOR_DELIVERY', 2), ('r2', 'w', 'd', 's', 'OUT_FOR_DELIVERY', 2)`)
+	pgtest.Exec(t, pool, `INSERT INTO route_attempts VALUES ('r1', 'T1', 'DELIVERED', NULL, now(), 0)`)
+	if err := pgtest.TryExec(pool, `INSERT INTO route_attempts VALUES ('r2', 'T1', 'DELIVERED', NULL, now(), 0)`); err == nil {
 		t.Error("a package delivered twice across routes was accepted")
 	}
-	mustExec(t, pool, `INSERT INTO route_attempts VALUES ('r2', 'T1', 'FAILED', 'absent', now(), 0)`)
-}
-
-func mustExec(t *testing.T, pool *pgxpool.Pool, sql string) {
-	t.Helper()
-	if _, err := pool.Exec(context.Background(), sql); err != nil {
-		t.Fatalf("%s: %v", sql, err)
-	}
+	pgtest.Exec(t, pool, `INSERT INTO route_attempts VALUES ('r2', 'T1', 'FAILED', 'absent', now(), 0)`)
 }
