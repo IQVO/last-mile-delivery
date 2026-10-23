@@ -1,0 +1,15 @@
+DROP TABLE IF EXISTS idempotency_keys;
+DROP TABLE IF EXISTS processed_events;
+DROP TABLE IF EXISTS outbox_events;
+DROP TABLE IF EXISTS rm_inbound_packages;
+DROP TABLE IF EXISTS rm_package_stops;
+DROP TABLE IF EXISTS rm_station_service_areas;
+DROP TABLE IF EXISTS rm_stations;
+DROP TABLE IF EXISTS package_histories;
+DROP TABLE IF EXISTS delivery_service_partners;
+DROP TABLE IF EXISTS route_attempts;
+DROP TABLE IF EXISTS route_stop_packages;
+DROP TABLE IF EXISTS route_stops;
+DROP TABLE IF EXISTS routes;
+DROP TABLE IF EXISTS wave_inductions;
+DROP TABLE IF EXISTS delivery_waves;
