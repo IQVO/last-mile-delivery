@@ -14,6 +14,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/claudioed/last-mile-delivery/internal/application/outbox"
 	"github.com/claudioed/last-mile-delivery/internal/application/repository"
 	"github.com/claudioed/last-mile-delivery/internal/application/views"
 	"github.com/claudioed/last-mile-delivery/internal/domain/history"
@@ -117,6 +118,13 @@ type Inbox interface {
 // to Kafka afterwards. Appending no events is a no-op.
 type EventOutbox interface {
 	Append(ctx context.Context, events ...shared.Event) error
+}
+
+// EventEncoder turns domain events into the already-encoded outbox messages (the
+// CloudEvents envelope, the topic and the Kafka key). The CloudEvents id is
+// minted here, once, and stored with the row.
+type EventEncoder interface {
+	Encode(events ...shared.Event) ([]outbox.Message, error)
 }
 
 // UnitOfWork runs fn as ONE atomic unit: every repository and outbox call fn
