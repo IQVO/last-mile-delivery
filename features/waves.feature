@@ -46,6 +46,11 @@ Feature: Delivery waves and induction
     Then the package "TRK-1" is inducted in wave "wave-2"
     And the event "DeliveryWaveCancelled" was published for wave "wave-1"
 
+  Scenario: Scheduling a wave announces it
+    When the planner schedules a wave "wave-1" with its cutoff in 2 hours and capacity 5
+    Then the event "DeliveryWaveScheduled" was published for wave "wave-1"
+    And the "DeliveryWaveScheduled" event for wave "wave-1" has "stationNodeId" "node-ds-01"
+
   Scenario: A redelivered LoadArrived event inducts nothing twice
     Given a wave "wave-1" with its cutoff in 2 hours and capacity 5
     When the load event "ev-1" with the package "TRK-1" is delivered twice
