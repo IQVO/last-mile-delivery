@@ -81,3 +81,12 @@ always-on relay writes them to Kafka (ADR 0004).
   defers its packages (the `PackageInductionDeferred` risk signal is kept); one
   with no `nodeType` is ignored until the `NodeRegistered` is consumed.
 - The `rm_` tables lag their producers; no aggregate holds a foreign key to them.
+
+## Known consumer mismatch on what this context publishes (checked 2026-10-23)
+
+`delivery-promise` (apis/asyncapi.yaml on `origin/feature/service`) consumes `PackageInductionDeferred` under the type
+`com.retailnetwork.logistics.last-mile-delivery.package.PackageInductionDeferred`. This context publishes it under
+`...last-mile-delivery.packageattempthistory.PackageInductionDeferred`, because the entity segment is the raising
+aggregate (contracts-delta, wire conventions) and the aggregate is `PackageAttemptHistory`. `shipping-and-tracking`
+accepts the `packageattempthistory` type for `PackageReturnInitiated`. Nothing is adapted here: the producer type stays
+as catalogued in ADR 0004, and `delivery-promise` has to accept it (or the orchestrator has to rule on the entity name).

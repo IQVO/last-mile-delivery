@@ -27,5 +27,8 @@ unleash:
     # differs. See HARNESS.md's mutation-testing section for the
     # tagless-switch-under-reports pitfall before assuming a low number
     # means missing tests.
-    efficacy: "90"
-    mutant-coverage: "90"
+    # Measured 2026-10-23, every package of internal/domain (wave 33, route 53,
+    # partner 13, history 25, shared 33 mutants): efficacy 100%, mutant coverage
+    # 100%, 0 lived. The thresholds sit strictly below that measurement.
+    efficacy: "95"
+    mutant-coverage: "95"

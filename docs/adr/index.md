@@ -10,3 +10,4 @@ The *Status* column is copied from each ADR's own `## Status` section.
 | [0002](./0002-aggregates-and-invariants.md) | the DeliveryWave, Route, DeliveryServicePartner and PackageAttemptHistory aggregates, their invariants and the assumptions the model left open | Accepted (2026-10-23) |
 | [0003](./0003-consumed-contracts-and-local-read-models.md) | consumed contracts, local read models and relationships | Accepted (2026-10-23) |
 | [0004](./0004-cloudevents-envelope-and-type-catalogue.md) | CloudEvents envelope and type catalogue | Accepted (2026-10-23) |
+| [0005](./0005-runtime-outbox-http-and-readiness.md) | runtime, outbox, HTTP and readiness | Accepted (2026-10-23) |
