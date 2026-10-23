@@ -34,4 +34,16 @@ Runtime: Go, hexagonal, real PostgreSQL and Kafka only. Mandatory environment: `
 - `make coverage` (>= 90% over `internal/domain` + `internal/application`), `make mutation` (gremlins per domain package), `make integration` (testcontainers Postgres and Kafka, needs Docker), `make vuln`.
 - `go test -tags=integration ./cmd/api/` boots `run(ctx)` over real Postgres and Kafka, drives it through REST and Kafka only, and stops Kafka to prove `/readyz` answers 503 `dependency-unavailable` while `/healthz` stays 200.
 
-See `docs/adr/` for decisions and `docs/before-first-release.md` for the packaging checklist (the Helm chart is a follow-up).
+## Deployment
+
+The Helm chart is `charts/last-mile-delivery/` (one `api` Deployment, Service, ConfigMap, optional Secret, ServiceAccount; HPA, Ingress and Gateway API HTTPRoute are off by default). The `release` job packages it as `last-mile-delivery-<version>.tgz` and pushes it to `oci://ghcr.io/iqvo`.
+
+```sh
+helm template r charts/last-mile-delivery -f charts/last-mile-delivery/ci/default-values.yaml
+```
+
+- The chart refuses to render without `database.url` or `database.existingSecret` (`DATABASE_URL` always comes from a Secret; `database.migrationsExistingSecretKey` optionally names a direct connection for the migrations), `kafka.brokers`, and the three stable consumer groups `config.linehaulConsumerGroup`, `config.nodeTopologyConsumerGroup`, `config.shippingConsumerGroup` (service-prefixed, never the pod name). A `*_MODE` in `extraEnv` is refused: there is no mode switch.
+- The pod runs non-root with a read-only root filesystem, no privilege escalation, all capabilities dropped and the `RuntimeDefault` seccomp profile; probes are `/healthz` (startup, liveness) and `/readyz` (readiness). `terminationGracePeriodSeconds` (60) must cover `config.shutdownDrainDelay` + 50 s (HTTP 10 s, three consumers 10 s each, relay 10 s); the chart refuses less.
+- Tests: `bash charts/last-mile-delivery/tests/render_test.sh` and `python3 charts/last-mile-delivery/tests/test_service_selectors.py` (needs helm and PyYAML); CI runs them in `chart-tests`, and `helm-lint` runs `ct lint` on pull requests.
+
+See `docs/adr/` for decisions and `docs/before-first-release.md` for the packaging checklist (rows 5 to 9, the chart, are done; row 11, the registry secrets, is for the repo admin).

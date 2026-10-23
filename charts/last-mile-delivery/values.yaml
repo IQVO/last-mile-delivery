@@ -1,0 +1,184 @@
+# Default values for last-mile-delivery.
+#
+# One component: the api Deployment (cmd/api = REST + the three consumers +
+# the always-on outbox relay in one process). Every key under config.* maps
+# 1:1 to one environment variable cmd/api reads.
+
+replicaCount: 1
+
+# Published by the docker-publish CI job on every merge to main (tags: latest,
+# the short SHA and, from the release job, vX.Y.Z). Empty tag = v<appVersion>,
+# because the release job packages the chart with appVersion X.Y.Z.
+image:
+  repository: ghcr.io/iqvo/last-mile-delivery
+  pullPolicy: IfNotPresent
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+# The image runs as uid/gid 1000 (Dockerfile USER 1000).
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+# The service writes nothing to disk (migrations are embedded, logs go to
+# stdout), so the root filesystem is read-only.
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  capabilities:
+    drop: ["ALL"]
+  seccompProfile:
+    type: RuntimeDefault
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: last-mile-delivery.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# Gateway API alternative to the ingress: block. Disabled by default; routes
+# only to the api Service.
+gatewayApi:
+  enabled: false
+  parentRefs:
+    - name: ""
+      namespace: ""
+      sectionName: "http"
+  hosts:
+    - path: /
+      pathType: PathPrefix
+  stripPath: true
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# HorizontalPodAutoscaler (autoscaling/v2) for the api Deployment, disabled by
+# default. When enabled the Deployment omits replicas so the HPA owns them.
+# N>1 is designed for (outbox relay claims rows with FOR UPDATE SKIP LOCKED,
+# aggregate writes are version-guarded, consumers share one stable group and
+# dedupe on the CloudEvents id) but has not been load-tested.
+autoscaling:
+  api:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+
+# Environment read by cmd/api. Every key maps 1:1 to one env var.
+config:
+  httpAddr: ":8080"                  # HTTP_ADDR
+  logLevel: "info"                   # LOG_LEVEL: debug | info | warn (or warning) | error
+  # OUTBOX_RELAY_INTERVAL: Go duration ("500ms", "2s") or plain seconds.
+  # Empty = not rendered; the binary defaults to its own interval.
+  outboxRelayInterval: ""
+  # OUTBOX_MAX_ATTEMPTS: how many times one outbox row may fail before the
+  # relay stops claiming it. 0 = unlimited.
+  outboxMaxAttempts: 20
+  # SHUTDOWN_DRAIN_DELAY: how long /readyz reports not-ready before the HTTP
+  # server stops accepting. Whole seconds ("5s"): the chart adds it to the
+  # other shutdown bounds to check terminationGracePeriodSeconds.
+  shutdownDrainDelay: "5s"
+  # The three consumers' STABLE group ids, REQUIRED (empty = the chart refuses
+  # to render and the binary refuses to boot). Service-prefixed and fixed, never
+  # derived from the pod name: a stable id is what lets a rescheduled pod
+  # resume from its committed offsets, and a shared one would let two services
+  # steal each other's offsets.
+  linehaulConsumerGroup: ""          # LINEHAUL_CONSUMER_GROUP (linehaul-transportation: LoadArrived)
+  nodeTopologyConsumerGroup: ""      # NODE_TOPOLOGY_CONSUMER_GROUP (node-topology: NodeRegistered, ServiceAreaAssigned)
+  shippingConsumerGroup: ""          # SHIPPING_CONSUMER_GROUP (shipping-and-tracking: LabelIssued)
+
+# The chart refuses to render unless database.url or database.existingSecret
+# is set. Postgres is the only runtime: cmd/api exits at boot without
+# DATABASE_URL.
+database:
+  # A DSN given here is stored in a Secret created by this chart (dev only).
+  url: ""
+  # Preferred: a Secret you manage.
+  existingSecret: ""
+  existingSecretKey: "DATABASE_URL"
+  # Key, in the same Secret, of a DIRECT (non-pooled, session-mode) Postgres
+  # connection string used ONLY for the golang-migrate startup step, never for
+  # the runtime pool. Rendered with `optional: true`: a Secret without this key
+  # still starts the pod and the binary falls back to DATABASE_URL.
+  migrationsExistingSecretKey: "MIGRATIONS_DATABASE_URL"
+
+# Kafka is the only runtime: KAFKA_BROKERS is MANDATORY (outbox relay, the
+# three consumers and the /readyz broker check). Comma-separated.
+# Produced: retailnetwork.last-mile-delivery.events (+ .analytics);
+# consumed: the linehaul-transportation, node-topology and
+# shipping-and-tracking events topics.
+kafka:
+  brokers: ""
+
+# Extra env vars appended to the api container as a raw list. The chart refuses
+# any *_MODE variable here: the service has no mode switch and boots only on
+# real Postgres and Kafka.
+extraEnv: []
+
+# The Postgres dial at boot is wrapped in a bounded retry; periodSeconds *
+# failureThreshold gives a ~60s window before the kubelet gives up. Once the
+# startupProbe succeeds, liveness takes over; readiness uses /readyz (flipped
+# to not-ready as the FIRST step of graceful shutdown).
+startupProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  periodSeconds: 2
+  failureThreshold: 30
+
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: http
+  initialDelaySeconds: 3
+  periodSeconds: 5
+
+# Room for the binary's sequential graceful shutdown (cmd/api/main.go):
+# SHUTDOWN_DRAIN_DELAY (default 5s) + HTTP drain (shutdownTimeout 10s) +
+# three consumers awaited one after the other (workerDrainTimeout 10s each =
+# 30s) + outbox relay (workerDrainTimeout 10s) = 55s worst case. The chart
+# refuses anything below config.shutdownDrainDelay + 50: a shorter grace
+# period SIGKILLs the consumers or the relay mid-drain.
+terminationGracePeriodSeconds: 60
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
