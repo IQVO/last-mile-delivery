@@ -15,14 +15,18 @@ import (
 
 func initializeScenario(sc *godog.ScenarioContext) {
 	w := &world{}
+	hw := &httpWorld{}
 	sc.Before(func(ctx context.Context, _ *godog.Scenario) (context.Context, error) {
 		*w = *newWorld()
+		hw.reset(w)
 		return ctx, nil
 	})
 	registerWaveSteps(sc, w)
 	registerInductionSteps(sc, w)
 	registerRouteSteps(sc, w)
 	registerAssertionSteps(sc, w)
+	registerDispatchSteps(sc, w)
+	registerHTTPSteps(sc, hw)
 }
 
 func registerWaveSteps(sc *godog.ScenarioContext, w *world) {
@@ -182,7 +186,7 @@ func registerAssertionSteps(sc *godog.ScenarioContext, w *world) {
 	sc.Step(`^the package "([^"]*)" is "([^"]*)"$`, w.assertPackage)
 	sc.Step(`^route "([^"]*)" is "([^"]*)"$`, w.assertRoute)
 	sc.Step(`^wave "([^"]*)" is "([^"]*)"$`, w.assertWave)
-	sc.Step(`^the event "([^"]*)" was published for (?:wave|package) "([^"]*)"$`, w.assertEvent)
+	sc.Step(`^the event "([^"]*)" was published for (?:wave|package|route) "([^"]*)"$`, w.assertEvent)
 }
 
 func (w *world) assertRefused(want string) error {

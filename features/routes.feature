@@ -41,6 +41,29 @@ Feature: Routes and delivery attempts
     When the driver records the package "TRK-1" as failed because "recipient absent"
     Then the package "TRK-1" is inducted in wave "wave-2"
 
+  Scenario: Planning a route publishes it to the analytics stream
+    Given the packages "TRK-1" are inducted in wave "wave-1" and induction is closed
+    When the planner plans a route with 1 stops
+    Then the event "RoutePlanned" was published for route "route-1"
+    And the "RoutePlanned" event for route "route-1" has "dspId" "dsp-1"
+    And the "RoutePlanned" event for route "route-1" has "stopCount" "1"
+
+  Scenario: Starting a route announces every package as out for delivery
+    Given the packages "TRK-1" and "TRK-2" are inducted in wave "wave-1" and induction is closed
+    And the planner plans a route with 2 stops
+    And the planner dispatches wave "wave-1"
+    When the driver starts route "route-1"
+    Then the event "PackageOutForDelivery" was published for route "route-1"
+    And the "PackageOutForDelivery" event for route "route-1" has "trackingNumber" "TRK-1"
+    And the "PackageOutForDelivery" event for route "route-1" has "trackingNumber" "TRK-2"
+
+  Scenario: An attempt is published with its outcome
+    Given a started route "route-1" with the packages "TRK-1" and "TRK-2"
+    When the driver records the package "TRK-1" as delivered
+    Then the event "DeliveryAttempted" was published for route "route-1"
+    And the "DeliveryAttempted" event for route "route-1" has "trackingNumber" "TRK-1"
+    And the "DeliveryAttempted" event for route "route-1" has "outcome" "DELIVERED"
+
   Scenario: The third failed attempt returns the package to its sender
     Given a wave "wave-2" with its cutoff in 48 hours and capacity 5
     And the package "TRK-1" already failed twice
