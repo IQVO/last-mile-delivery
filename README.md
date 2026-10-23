@@ -2,6 +2,12 @@
 
 Retail network, bounded context **Last-Mile Delivery** (Supporting, logistics tier).
 
+## Disclaimer
+
+This project is a domain-driven design study. It is not associated with, endorsed by or affiliated with any company, and it uses no company's code, data, logos or trademarks. All names, figures and examples are illustrative or synthetic.
+
+## Overview
+
 Runs each delivery station: publishes delivery waves (induct cutoff, delivery window, stop capacity) that the promise relies on, plans routes for delivery service partners, and records every delivery attempt.
 
 Status: under construction. The design is proposed in
