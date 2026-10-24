@@ -26,6 +26,14 @@ warehouse-systems fleet; the fleet reaches the network only through the `vendor-
 - Published (`apis/asyncapi.yaml`, CloudEvents 1.0, transactional outbox): `DeliveryWaveScheduled`, `DeliveryWaveCapacityChanged`, `DeliveryWaveCancelled`, `PackageOutForDelivery`, `DeliveryAttempted`, `PackageInductionDeferred`, `PackageReturnInitiated` on `retailnetwork.last-mile-delivery.events`; `RoutePlanned` on `.analytics`.
 - Consumed: `LoadArrived` (linehaul-transportation), `NodeRegistered` and `ServiceAreaAssigned` (node-topology), `LabelIssued` (shipping-and-tracking); inbox table, retry, `<topic>.dlq`.
 
+## MCP (read-only)
+
+`cmd/mcp` (ADR 0006) is a second deployable: the same read use cases the REST adapter serves, exposed to AI agents over the official MCP Go SDK on Streamable HTTP (`/mcp` and `/`, plus an open `/healthz`). Three tools, one per REST GET: `list_waves(stationNodeId, serviceDate)`, `get_wave_stops(waveId)`, `get_route(routeId)`; every input required, results camelCase like the REST bodies, typed errors carrying the REST problem slugs (`not-found`, `validation-failed`). Read-only is structural: no write use case is wired, no outbox, no consumer, Kafka never dialled, no auth (fleet decision). Boot mirrors `cmd/api`: mandatory `DATABASE_URL`, idempotent embedded migrations (optional `MIGRATIONS_DATABASE_URL`), `MCP_ADDR` (`:8090`), `LOG_LEVEL`, `SERVICE_VERSION`, `ENVIRONMENT`. The chart deploys it as an optional `mcp` component (Service `:8090`, opt-in Kong route `/api/mcp/last-mile-delivery` -> `/mcp`).
+
+## Web remote (console MFE)
+
+`web/` (ADR 0007) is the console's Module Federation remote (`last_mile_mfe`, exposes `./App`, dev/preview port `4014`, asset base `/mfes/last-mile-delivery/` on build). It is a small READ-ONLY React UI over this context's three GETs, resolved from the shell's runtime config (`apiOrigin` + `/api/last-mile-delivery`): Waves (a station + service date search), Wave stops (packages grouped by `stopKey`) and Routes (stops with derived outcomes and every attempt). No write path, no sibling API, no address ever shown. `npm ci && npm run lint && npx tsc -b && npm test && npm run build` inside `web/` is the gate (the CI `web` job); the image builds with `docker build --build-context uikit=../../warehouse-ui-kit .` and the chart deploys it as an optional `frontend` component (own nginx pod, ClusterIP only; the Nginx web gateway owns the public path).
+
 ## Run and test
 
 Runtime: Go, hexagonal, real PostgreSQL and Kafka only. Mandatory environment: `DATABASE_URL`, `KAFKA_BROKERS`, `LINEHAUL_CONSUMER_GROUP`, `NODE_TOPOLOGY_CONSUMER_GROUP`, `SHIPPING_CONSUMER_GROUP` (the process exits at boot naming the missing one). Optional: `HTTP_ADDR` (`:8080`), `MIGRATIONS_DATABASE_URL`, `OUTBOX_RELAY_INTERVAL`, `OUTBOX_MAX_ATTEMPTS`, `SHUTDOWN_DRAIN_DELAY`, `LOG_LEVEL`.
@@ -36,7 +44,7 @@ Runtime: Go, hexagonal, real PostgreSQL and Kafka only. Mandatory environment: `
 
 ## Deployment
 
-The Helm chart is `charts/last-mile-delivery/` (one `api` Deployment, Service, ConfigMap, optional Secret, ServiceAccount; HPA, Ingress and Gateway API HTTPRoute are off by default). The `release` job packages it as `last-mile-delivery-<version>.tgz` and pushes it to `oci://ghcr.io/iqvo`.
+The Helm chart is `charts/last-mile-delivery/` (one `api` Deployment, Service, ConfigMap, optional Secret, ServiceAccount; HPA, Ingress and Gateway API HTTPRoute are off by default, as are the optional `mcp` and `frontend` components of ADR 0006/0007 — `charts/last-mile-delivery/ci/all-components-values.yaml` renders them all together). The `release` job packages it as `last-mile-delivery-<version>.tgz` and pushes it to `oci://ghcr.io/iqvo`.
 
 ```sh
 helm template r charts/last-mile-delivery -f charts/last-mile-delivery/ci/default-values.yaml
