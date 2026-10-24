@@ -1,6 +1,6 @@
 # Domain model: ubiquitous language, aggregates, events, use cases
 
-Source of truth: retail-network-docs `model/model.yaml` (context `last-mile-delivery`,
+Source of truth: warehouse-docs `network/model/model.yaml` (context `last-mile-delivery`,
 a Supporting context of the logistics tier). Invariants, transitions and every
 assumption the model left open are in `docs/adr/0002-aggregates-and-invariants.md`
 (assumptions A1-A29). Consumed contracts and the local read models are in
