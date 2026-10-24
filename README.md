@@ -10,7 +10,7 @@ This project is a domain-driven design study. It is not associated with, endorse
 
 Runs each delivery station: publishes delivery waves (induct cutoff, delivery window, stop capacity) that the promise relies on, plans routes for delivery service partners, and records every delivery attempt.
 
-Design source of truth: [retail-network-docs](https://iqvo.github.io/retail-network-docs/contexts/last-mile-delivery) (`model/model.yaml`);
+Design source of truth: [retail-network docs](https://iqvo.github.io/warehouse-docs/network/contexts/last-mile-delivery) (`model/model.yaml`);
 cross-context decisions that supersede it are recorded in `docs/adr/`. This repository is a service of the retail network, not of the
 warehouse-systems fleet; the fleet reaches the network only through the `vendor-connectivity` Vendor API.
 
