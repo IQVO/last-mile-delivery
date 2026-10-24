@@ -171,3 +171,11 @@ install`.
 {{- include "last-mile-delivery.requireNoInMemoryEnv" (dict "list" .Values.extraEnv "where" "extraEnv") -}}
 {{- include "last-mile-delivery.requireGracePeriod" . -}}
 {{- end -}}
+
+{{/*
+Fully qualified name of the read-only MCP server Deployment/Service (cmd/mcp,
+ADR 0006). Component label mcp: the api Service must never select it.
+*/}}
+{{- define "last-mile-delivery.mcpFullname" -}}
+{{- include "last-mile-delivery.fullname" . }}-mcp
+{{- end }}
