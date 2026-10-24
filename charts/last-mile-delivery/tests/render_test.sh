@@ -184,4 +184,76 @@ for kind in HorizontalPodAutoscaler Ingress HTTPRoute; do
 done
 if grep -q 'replicas:' <<<"$rendered_all"; then fail "the Deployment must omit replicas while the HPA owns them"; fi
 
+# --- optional components (ADR 0006 mcp, the web remote) -----------------------
+render_opt() { helm template "$release" "$chart_dir" "${base[@]}" "$@"; }
+# render_only_opt <template> <extra helm args...>
+render_only_opt() { local t="$1"; shift; render_opt "$@" --show-only "templates/$t"; }
+
+# Every optional component is OFF by default: a default render is the api alone.
+for c in mcp frontend; do
+  if grep -q "app.kubernetes.io/component: $c\$" <<<"$default_render"; then
+    fail "the $c component must not render while its enabled flag is false"
+  fi
+done
+
+# binary_env_of <main.go...>: the env literals one binary reads.
+binary_env_of() {
+  local f
+  for f in "$@"; do
+    grep -hoE '[Gg]etenv\("[A-Z][A-Z0-9_]*"' "$f" || true
+    grep -hoE 'os\.Getenv\("[A-Z][A-Z0-9_]*"' "$f" || true
+  done | sed -E 's/.*"([A-Z0-9_]+)".*/\1/' | sort -u
+}
+# assert_env_rendered <rendered> <label> <vars...>
+assert_env_rendered() {
+  local rendered="$1" label="$2"; shift 2
+  local var
+  for var in "$@"; do
+    grep -q "name: $var\$" <<<"$rendered" || fail "$label does not render $var, which its binary reads"
+  done
+}
+
+# mcp: its own env, never the api ConfigMap, never Kafka (ADR 0006).
+mcp_dep="$(render_only_opt mcp-deployment.yaml --set mcp.enabled=true)"
+grep -q 'app.kubernetes.io/component: mcp' <<<"$mcp_dep" || fail "the mcp Deployment was not rendered with mcp.enabled=true"
+grep -q 'command: \["/app/mcp"\]' <<<"$mcp_dep" || fail "the mcp Deployment must run /app/mcp"
+if grep -q 'configMapRef:' <<<"$mcp_dep"; then fail "mcp-deployment.yaml must not mount the api ConfigMap"; fi
+if grep -Eq 'name: (KAFKA_BROKERS|OUTBOX_[A-Z_]+|[A-Z]+_CONSUMER_GROUP)$' <<<"$mcp_dep"; then
+  fail "the mcp Deployment must not get Kafka/relay/consumer env (read-only, never dials Kafka)"
+fi
+# shellcheck disable=SC2207
+mcp_vars=($(binary_env_of "$repo_dir/cmd/mcp/main.go"))
+(( ${#mcp_vars[@]} >= 4 )) || fail "found only ${#mcp_vars[@]} env literals in cmd/mcp/main.go; the scan is looking in the wrong place"
+assert_env_rendered "$mcp_dep" "the mcp Deployment" "${mcp_vars[@]}" DATABASE_URL MIGRATIONS_DATABASE_URL
+grep -A4 'name: DATABASE_URL$' <<<"$mcp_dep" | grep -q 'secretKeyRef:' || fail "the mcp DATABASE_URL must come from a Secret (secretKeyRef)"
+grep -A5 'name: MIGRATIONS_DATABASE_URL$' <<<"$mcp_dep" | grep -q 'optional: true' \
+  || fail "the mcp MIGRATIONS_DATABASE_URL must be an optional secretKeyRef"
+grep -q 'path: /healthz' <<<"$mcp_dep" || fail "the mcp Deployment must probe /healthz (served by cmd/mcp)"
+mcp_svc="$(render_only_opt mcp-service.yaml --set mcp.enabled=true)"
+grep -q 'kind: Service' <<<"$mcp_svc" || fail "the mcp Service was not rendered with mcp.enabled=true"
+# The Kong route is a separate opt-in, and rewrites /api/mcp/last-mile-delivery to /mcp.
+if grep -q 'kind: HTTPRoute' <<<"$mcp_dep$mcp_svc"; then fail "the mcp route must not render while mcp.route.enabled is false"; fi
+mcp_route="$(render_only_opt mcp-route.yaml --set mcp.enabled=true --set mcp.route.enabled=true \
+  --set mcp.route.parentRefs[0].name=warehouse-gateway --set mcp.route.parentRefs[0].namespace=kong)"
+grep -q 'value: /api/mcp/last-mile-delivery' <<<"$mcp_route" || fail "the mcp HTTPRoute must match the fleet host path"
+grep -q 'replacePrefixMatch: /mcp' <<<"$mcp_route" || fail "the mcp HTTPRoute must rewrite the prefix to /mcp"
+
+# The web remote: its own nginx Deployment + ClusterIP Service, no DB/Kafka
+# env, and no route in this chart (the Nginx web gateway owns /mfes/last-mile-delivery/).
+frontend_dep="$(render_only_opt frontend-deployment.yaml --set frontend.enabled=true)"
+frontend_svc="$(render_only_opt frontend-service.yaml --set frontend.enabled=true)"
+grep -q 'app.kubernetes.io/component: frontend' <<<"$frontend_dep" || fail "the frontend Deployment was not rendered with frontend.enabled=true"
+grep -q 'type: ClusterIP' <<<"$frontend_svc" || fail "the frontend Service must stay ClusterIP"
+if grep -Eq 'name: (DATABASE_URL|KAFKA_BROKERS)$' <<<"$frontend_dep"; then fail "the frontend Deployment must not get database/Kafka env"; fi
+if grep -qE 'kind: (Ingress|HTTPRoute)' <<<"$frontend_dep$frontend_svc"; then fail "frontend routing must not live in this chart"; fi
+
+# ALL optional components render TOGETHER (ct lint's values file).
+together="$(helm template "$release" "$chart_dir" -f "$chart_dir/ci/all-components-values.yaml")"
+for component in api mcp frontend; do
+  grep -q "app.kubernetes.io/component: $component\$" <<<"$together" || fail "the full render lacks the $component component"
+done
+if grep -E 'kind: (Ingress|HTTPRoute)' <<<"$together" | grep -q frontend; then
+  fail "frontend routing must not live in this chart"
+fi
+
 echo "PASS: last-mile-delivery chart render assertions"
