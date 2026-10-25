@@ -1,0 +1,38 @@
+# Used by `helm lint` / `ct lint`: every optional component set at once
+# (api + mcp + frontend), so the whole chart renders together.
+database:
+  existingSecret: "last-mile-delivery-db"
+kafka:
+  brokers: "kafka-0.kafka.warehouse-systems.svc.cluster.local:9092,kafka-1.kafka.warehouse-systems.svc.cluster.local:9092"
+config:
+  logLevel: "debug"
+  outboxRelayInterval: "500ms"
+  outboxMaxAttempts: 20
+  shutdownDrainDelay: "5s"
+  linehaulConsumerGroup: "last-mile-delivery-linehaul"
+  nodeTopologyConsumerGroup: "last-mile-delivery-node-topology"
+  shippingConsumerGroup: "last-mile-delivery-shipping"
+gatewayApi:
+  enabled: true
+  parentRefs:
+    - name: warehouse-gateway
+      namespace: kong
+      sectionName: http
+  hosts:
+    - path: /api/last-mile-delivery
+      pathType: PathPrefix
+autoscaling:
+  api:
+    enabled: true
+mcp:
+  enabled: true
+  serviceVersion: "0.1.0"
+  environment: "cluster"
+  route:
+    enabled: true
+    parentRefs:
+      - name: warehouse-gateway
+        namespace: kong
+        sectionName: http
+frontend:
+  enabled: true

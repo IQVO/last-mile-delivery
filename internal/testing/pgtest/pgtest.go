@@ -136,6 +136,15 @@ func NewPool(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
+// Pool re-exports the pool pointer type so *_integration_test.go files
+// outside this package can name it (helpers, parameters) without importing
+// pgxpool themselves: every file that imports pgx must carry the
+// testcontainers postgres import in its own package
+// (internal/architecture's TestPostgresIntegrationTestsUseTestcontainers),
+// and a pool handed over by pgtest.NewPool or pgtest.URL needs no such import
+// at the call site.
+type Pool = *pgxpool.Pool
+
 // WaitAllPublished fails the test unless every outbox row has been published
 // within a few seconds.
 func WaitAllPublished(t *testing.T, pool *pgxpool.Pool) {

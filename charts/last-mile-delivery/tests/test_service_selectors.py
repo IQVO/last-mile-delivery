@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Assert this chart's Service selector isolates the api component.
+"""Assert this chart's Service selectors isolate each component.
 
 Why this exists (fleet-wide): `app.kubernetes.io/name` + `instance` are identical
 on every pod a release creates. A Service that selects on those two alone selects
@@ -8,9 +8,13 @@ ALL of them as soon as a second component exists. The Deployment here carries
 Service selects on it, so each Service selects EXACTLY ONE Deployment. This test
 fails if that ever stops being true.
 
-last-mile-delivery has one component, `api`; the optional resources (HPA, Ingress,
-HTTPRoute) are rendered ON together with it, and the api env is checked against the
-variables cmd/api reads.
+last-mile-delivery has one always-on component, `api`; the optional resources
+(HPA, Ingress, HTTPRoute) are rendered ON together with it, and the api env is
+checked against the variables cmd/api reads. The optional components (ADR 0006
+`mcp`, the `frontend` web remote) are rendered in a second pass: three
+Deployments and three Services, each Service selecting exactly its own
+Deployment, the mcp HTTPRoute targeting the mcp Service, and nothing routing to
+the frontend from this chart.
 
 Run: python3 charts/last-mile-delivery/tests/test_service_selectors.py
 Needs: helm, PyYAML.
@@ -189,6 +193,57 @@ def check_refusals(failures: list[str]) -> None:
             failures.append(f"chart rendered (or failed for another reason) {label}")
 
 
+def check_optional_components(failures: list[str]) -> None:
+    """api + mcp + frontend together: every Service selects exactly one Deployment."""
+    args = BASE + [
+        "--set", "mcp.enabled=true",
+        "--set", "mcp.route.enabled=true",
+        "--set", "mcp.route.parentRefs[0].name=warehouse-gateway",
+        "--set", "mcp.route.parentRefs[0].namespace=kong",
+        "--set", "frontend.enabled=true",
+    ]
+    docs = render(args)
+    by_component = {
+        d["spec"]["template"]["metadata"]["labels"].get("app.kubernetes.io/component"): d
+        for d in docs if d.get("kind") == "Deployment"
+    }
+    if set(by_component) != {"api", "mcp", "frontend"}:
+        failures.append(f"expected the api, mcp and frontend Deployments, got {sorted(by_component)}")
+        return
+
+    services = {d["metadata"]["name"]: d for d in docs if d.get("kind") == "Service"}
+    deployments = {d["metadata"]["name"]: d for d in docs if d.get("kind") == "Deployment"}
+    # The real invariant: each Service selects exactly one Deployment.
+    for svc_name, svc in services.items():
+        sel = selector_of(svc)
+        hit = [d for d, dep in deployments.items() if matches(sel, pod_labels_of(dep))]
+        if len(hit) != 1:
+            failures.append(f"Service {svc_name} selects {len(hit)} Deployments {sorted(hit)}; expected exactly 1")
+        if "app.kubernetes.io/component" not in sel:
+            failures.append(f"Service {svc_name} selector does not pin a component")
+    for name, dep in deployments.items():
+        match_labels = dep["spec"]["selector"].get("matchLabels") or {}
+        if "app.kubernetes.io/component" not in match_labels:
+            failures.append(f"Deployment {name} selector.matchLabels lacks app.kubernetes.io/component")
+
+    # The mcp HTTPRoute targets the mcp Service by name and port; nothing in
+    # this chart routes to the frontend (the Nginx web gateway owns it).
+    mcp_service = next((s for n, s in services.items() if selector_of(s).get("app.kubernetes.io/component") == "mcp"), None)
+    if mcp_service is None:
+        failures.append("the mcp Service was not rendered with mcp.enabled=true")
+        return
+    mcp_name = mcp_service["metadata"]["name"]
+    mcp_port = mcp_service["spec"]["ports"][0]["port"]
+    for d in docs:
+        if d.get("kind") == "HTTPRoute":
+            refs = [b for r in d["spec"]["rules"] for b in r["backendRefs"]]
+            if d["metadata"]["name"] == mcp_name:
+                if any(b["name"] != mcp_name or b["port"] != mcp_port for b in refs):
+                    failures.append("the mcp HTTPRoute must target the mcp Service and its port")
+            elif any(b["name"] == mcp_name or "frontend" in b["name"] for b in refs):
+                failures.append(f"HTTPRoute {d['metadata']['name']} must not target the mcp or frontend Service")
+
+
 def main() -> int:
     failures: list[str] = []
 
@@ -196,7 +251,7 @@ def main() -> int:
 
     # Default values must not deploy an HPA or a route.
     defaults = render(BASE)
-    stray = [d["kind"] for d in defaults if d.get("kind") in {"HorizontalPodAutoscaler", "Ingress", "HTTPRoute"}]
+    stray = [d["kind"] for d in defaults if d.get("kind") in {"HorizontalPodAutoscaler", "Ingress", "HTTPRoute", "Deployment"} if d["kind"] != "Deployment" or d["metadata"]["name"] != RELEASE]
     if stray:
         failures.append(f"optional resources rendered with default values: {stray}")
     dep = next(d for d in defaults if d.get("kind") == "Deployment")
@@ -209,6 +264,8 @@ def main() -> int:
 
     check_refusals(failures)
 
+    check_optional_components(failures)
+
     if failures:
         for f in failures:
             print(f"FAIL: {f}")
@@ -216,7 +273,8 @@ def main() -> int:
 
     print("PASS: the api Service selects exactly one Deployment; HPA, Ingress and HTTPRoute are off by default and target the api; "
           "every cmd/api env var is rendered once; the chart refuses to render without a database source, brokers or any consumer "
-          "group, with a *_MODE in extraEnv, or with a grace period under the shutdown bounds")
+          "group, with a *_MODE in extraEnv, or with a grace period under the shutdown bounds; with mcp and frontend enabled each "
+          "Service still selects exactly one Deployment, the mcp HTTPRoute targets the mcp Service and nothing routes to the frontend")
     return 0
 
 
