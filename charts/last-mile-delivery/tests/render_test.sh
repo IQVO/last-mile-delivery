@@ -176,6 +176,34 @@ helm template "$release" "$chart_dir" "${base[@]}" --set config.shutdownDrainDel
   || fail "a 30s drain delay with a grace period of its own floor must render"
 expect_refusal "a drain delay that is not whole seconds" "config.shutdownDrainDelay" "${base[@]}" --set config.shutdownDrainDelay=1m
 
+# --- observability (docs/adr/0008, fleet standard item 7) ---------------------
+# The api renders the fleet pipeline's env: the Collector endpoint, the service
+# name, the version (image tag, appVersion when empty) and the environment.
+otel_endpoint="otel-collector.observability.svc.cluster.local:4317"
+[[ "$(env_value "$api_deployment" OTEL_EXPORTER_OTLP_ENDPOINT)" == "$otel_endpoint" ]] \
+  || fail "the api Deployment does not render OTEL_EXPORTER_OTLP_ENDPOINT from otel.endpoint"
+[[ "$(env_value "$api_deployment" OTEL_SERVICE_NAME)" == "last-mile-delivery" ]] \
+  || fail "the api Deployment does not render OTEL_SERVICE_NAME=last-mile-delivery from otel.serviceName"
+[[ "$(env_value "$api_deployment" SERVICE_VERSION)" == "0.1.0" ]] \
+  || fail "SERVICE_VERSION must default to the chart appVersion"
+[[ "$(env_value "$api_deployment" ENVIRONMENT)" == "production" ]] || fail "ENVIRONMENT must come from environment"
+tagged="$(helm template "$release" "$chart_dir" "${base[@]}" --set image.tag=v9.9.9 --set otel.serviceName=lmd --set otel.endpoint=http://collector:4317 \
+  --set environment=staging --show-only templates/deployment.yaml)"
+[[ "$(env_value "$tagged" SERVICE_VERSION)" == "v9.9.9" ]] || fail "SERVICE_VERSION must follow image.tag"
+[[ "$(env_value "$tagged" OTEL_SERVICE_NAME)" == "lmd" ]] || fail "OTEL_SERVICE_NAME must follow otel.serviceName"
+[[ "$(env_value "$tagged" OTEL_EXPORTER_OTLP_ENDPOINT)" == "http://collector:4317" ]] || fail "OTEL_EXPORTER_OTLP_ENDPOINT must follow otel.endpoint"
+[[ "$(env_value "$tagged" ENVIRONMENT)" == "staging" ]] || fail "ENVIRONMENT must follow environment"
+# otel.enabled=false renders no OTEL_* env (SERVICE_VERSION stays: it also labels the logs' build).
+otel_off="$(helm template "$release" "$chart_dir" "${base[@]}" --set otel.enabled=false --set mcp.enabled=true)"
+if grep -q 'name: OTEL_' <<<"$otel_off"; then fail "otel.enabled=false must render no OTEL_* env in any component"; fi
+grep -q 'name: SERVICE_VERSION$' <<<"$otel_off" || fail "SERVICE_VERSION must still render with otel.enabled=false"
+# The values are chart-owned: extraEnv may not set them a second time.
+for owned in OTEL_SERVICE_NAME OTEL_EXPORTER_OTLP_ENDPOINT SERVICE_VERSION ENVIRONMENT; do
+  err="$(helm template "$release" "$chart_dir" "${base[@]}" --set "extraEnv[0].name=$owned" --set 'extraEnv[0].value=x' 2>&1)" \
+    && fail "extraEnv must not be able to set $owned"
+  grep -qF "extraEnv sets $owned" <<<"$err" || fail "the refusal for extraEnv $owned does not name it: $err"
+done
+
 # Optional resources are off by default and render when asked.
 default_render="$(helm template "$release" "$chart_dir" "${base[@]}")"
 for kind in HorizontalPodAutoscaler Ingress HTTPRoute; do
@@ -222,9 +250,14 @@ if grep -Eq 'name: (KAFKA_BROKERS|OUTBOX_[A-Z_]+|[A-Z]+_CONSUMER_GROUP)$' <<<"$m
   fail "the mcp Deployment must not get Kafka/relay/consumer env (read-only, never dials Kafka)"
 fi
 # shellcheck disable=SC2207
-mcp_vars=($(binary_env_of "$repo_dir/cmd/mcp/main.go"))
+mcp_vars=($(binary_env_of "$repo_dir/cmd/mcp/main.go" "$repo_dir/cmd/mcp/telemetry.go"))
 (( ${#mcp_vars[@]} >= 4 )) || fail "found only ${#mcp_vars[@]} env literals in cmd/mcp/main.go; the scan is looking in the wrong place"
-assert_env_rendered "$mcp_dep" "the mcp Deployment" "${mcp_vars[@]}" DATABASE_URL MIGRATIONS_DATABASE_URL
+assert_env_rendered "$mcp_dep" "the mcp Deployment" "${mcp_vars[@]}" DATABASE_URL MIGRATIONS_DATABASE_URL \
+  OTEL_SERVICE_NAME OTEL_EXPORTER_OTLP_ENDPOINT
+[[ "$(env_value "$mcp_dep" OTEL_SERVICE_NAME)" == "last-mile-delivery-mcp" ]] || fail "the mcp component must export as <otel.serviceName>-mcp"
+[[ "$(env_value "$mcp_dep" OTEL_EXPORTER_OTLP_ENDPOINT)" == "$otel_endpoint" ]] || fail "the mcp component must export to otel.endpoint"
+mcp_named="$(render_only_opt mcp-deployment.yaml --set mcp.enabled=true --set otel.serviceName=lmd)"
+[[ "$(env_value "$mcp_named" OTEL_SERVICE_NAME)" == "lmd-mcp" ]] || fail "the mcp service name must follow otel.serviceName"
 grep -A4 'name: DATABASE_URL$' <<<"$mcp_dep" | grep -q 'secretKeyRef:' || fail "the mcp DATABASE_URL must come from a Secret (secretKeyRef)"
 grep -A5 'name: MIGRATIONS_DATABASE_URL$' <<<"$mcp_dep" | grep -q 'optional: true' \
   || fail "the mcp MIGRATIONS_DATABASE_URL must be an optional secretKeyRef"
