@@ -42,6 +42,14 @@ Runtime: Go, hexagonal, real PostgreSQL and Kafka only. Mandatory environment: `
 - `make coverage` (>= 90% over `internal/domain` + `internal/application`), `make mutation` (gremlins per domain package), `make integration` (testcontainers Postgres and Kafka, needs Docker), `make vuln`.
 - `go test -tags=integration ./cmd/api/` boots `run(ctx)` over real Postgres and Kafka, drives it through REST and Kafka only, and stops Kafka to prove `/readyz` answers 503 `dependency-unavailable` while `/healthz` stays 200.
 
+## Observability
+
+Logs, metrics and traces follow the fleet standard ([ADR 0008](docs/adr/0008-fleet-observability-standard.md)): JSON logs on stdout carry `trace_id`/`span_id`
+and a `request_id`; `cmd/api` and `cmd/mcp` export OTLP/gRPC to the Collector (`OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`, `SERVICE_VERSION`, `ENVIRONMENT`;
+export never blocks, so no Collector costs telemetry, nothing else) with HTTP request duration, Go runtime metrics and the business counter
+`last_mile_delivery.package.attempted` (`outcome`, `reason`); the trace continues across Kafka in the `traceparent` header of each published event and is picked up by the
+consumers. The chart's `otel.*` values render the env.
+
 ## Deployment
 
 The Helm chart is `charts/last-mile-delivery/` (one `api` Deployment, Service, ConfigMap, optional Secret, ServiceAccount; HPA, Ingress and Gateway API HTTPRoute are off by default, as are the optional `mcp` and `frontend` components of ADR 0006/0007 — `charts/last-mile-delivery/ci/all-components-values.yaml` renders them all together). The `release` job packages it as `last-mile-delivery-<version>.tgz` and pushes it to `oci://ghcr.io/iqvo`.
