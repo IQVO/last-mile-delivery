@@ -5,11 +5,15 @@
 package http
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/riandyrn/otelchi"
+	otelchimetric "github.com/riandyrn/otelchi/metric"
 
+	"github.com/claudioed/last-mile-delivery/internal/adapters/inbound/requestlog"
 	"github.com/claudioed/last-mile-delivery/internal/application/usecases"
 )
 
@@ -36,10 +40,29 @@ type Server struct {
 	Metrics http.Handler
 }
 
+// DefaultServiceName names the server spans and the HTTP metrics when the
+// composition root passes no service name.
+const DefaultServiceName = "last-mile-delivery"
+
 // NewRouter wires the routes of apis/openapi.yaml plus /healthz, /readyz and,
-// when configured, /metrics.
-func NewRouter(s *Server) http.Handler {
+// when configured, /metrics. A nil logger defaults to slog.Default(); an empty
+// serviceName to DefaultServiceName.
+//
+// Middleware order is the fleet observability standard: RequestID, then otelchi
+// (the server span, named after the chi route pattern, so one span name per
+// route and not per wave id), then the request-duration histogram, then
+// RequestLogger (it runs inside the span, so its record carries trace_id and
+// span_id), then Recoverer. telemetry.Setup must have run before this call:
+// otelchimetric binds the global MeterProvider when it is constructed.
+func NewRouter(s *Server, logger *slog.Logger, serviceName string) http.Handler {
+	if serviceName == "" {
+		serviceName = DefaultServiceName
+	}
 	r := chi.NewRouter()
+	r.Use(middleware.RequestID)
+	r.Use(otelchi.Middleware(serviceName, otelchi.WithChiRoutes(r)))
+	r.Use(otelchimetric.NewServerRequestDuration(otelchimetric.NewBaseConfig(serviceName)))
+	r.Use(requestlog.RequestLogger(logger))
 	r.Use(middleware.Recoverer)
 	r.Use(rejectNUL)
 

@@ -50,7 +50,7 @@ func (h *httpWorld) reset(w *world) {
 		PlanRoute: usecases.NewPlanRoute(w.deps), StartRoute: usecases.NewStartRoute(w.deps), RecordAttempt: usecases.NewRecordAttempt(w.deps),
 		GetRoute: usecases.NewGetRoute(w.deps), ContractPartner: usecases.NewContractPartner(w.deps), DeactivatePartner: usecases.NewDeactivatePartner(w.deps),
 		Idempotency: handler.RequireIdempotencyKey(h.idem),
-	})
+	}, nil, "")
 }
 
 func (h *httpWorld) send(method, path, key, body string) error {

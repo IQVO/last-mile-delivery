@@ -208,7 +208,7 @@ func (o *Outbox) Append(ctx context.Context, events ...shared.Event) error {
 	if err != nil {
 		return err
 	}
-	return o.store.Insert(ctx, msgs...)
+	return o.store.Insert(ctx, withTraceHeaders(ctx, msgs)...)
 }
 
 // Count returns how many outbox rows exist (published or not); a test helper of

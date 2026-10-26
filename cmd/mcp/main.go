@@ -19,9 +19,11 @@
 //	MCP_ADDR                 listen address (default :8090)
 //	DATABASE_URL             REQUIRED. Postgres DSN (the service database cmd/api owns)
 //	MIGRATIONS_DATABASE_URL  direct DSN for the boot migrations (default DATABASE_URL)
-//	SERVICE_VERSION          version reported to MCP clients (default 1.0.0)
-//	ENVIRONMENT              deployment environment, logged at boot (default unset)
+//	SERVICE_VERSION          version reported to MCP clients and service.version (default 1.0.0 for MCP, dev for telemetry)
+//	ENVIRONMENT              deployment.environment.name, logged at boot too (default unset, local in telemetry)
 //	LOG_LEVEL                debug | info | warn | error (default info)
+//	OTEL_SERVICE_NAME        service.name of spans and metrics (default last-mile-delivery-mcp)
+//	OTEL_EXPORTER_OTLP_ENDPOINT  Collector OTLP/gRPC endpoint (default telemetry.DefaultEndpoint); export never blocks
 package main
 
 import (
@@ -37,6 +39,7 @@ import (
 
 	inboundmcp "github.com/claudioed/last-mile-delivery/internal/adapters/inbound/mcp"
 	"github.com/claudioed/last-mile-delivery/internal/adapters/outbound/postgres"
+	"github.com/claudioed/last-mile-delivery/internal/adapters/outbound/telemetry"
 	"github.com/claudioed/last-mile-delivery/internal/application/usecases"
 	"github.com/claudioed/last-mile-delivery/internal/bootretry"
 )
@@ -59,6 +62,15 @@ func run() error {
 	logger := newLogger(getenv("LOG_LEVEL", "info"))
 	slog.SetDefault(logger)
 
+	// Telemetry comes up before the router is built (otelchimetric binds the
+	// global MeterProvider at construction) and is flushed last.
+	tel := loadTelemetryEnv(os.Getenv)
+	flushTelemetry, err := startTelemetry(logger, tel)
+	if err != nil {
+		return err
+	}
+	defer flushTelemetry()
+
 	databaseURL := os.Getenv("DATABASE_URL")
 	deps, closeAdapters, err := buildDeps(context.Background(), logger, databaseURL, getenv("MIGRATIONS_DATABASE_URL", databaseURL))
 	if err != nil {
@@ -68,7 +80,7 @@ func run() error {
 
 	srv := &http.Server{
 		Addr:              getenv("MCP_ADDR", ":8090"),
-		Handler:           newRouter(inboundmcp.Handler(inboundmcp.NewServer(deps, getenv("SERVICE_VERSION", "1.0.0")))),
+		Handler:           newRouter(inboundmcp.Handler(inboundmcp.NewServer(deps, getenv("SERVICE_VERSION", "1.0.0"))), logger, tel.serviceName),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	logger.Info("mcp server starting", "environment", os.Getenv("ENVIRONMENT"))
@@ -161,7 +173,7 @@ func newLogger(level string) *slog.Logger {
 	default:
 		lvl = slog.LevelInfo
 	}
-	return slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: lvl}))
+	return slog.New(telemetry.WithTraceContext(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: lvl})))
 }
 
 func getenv(key, fallback string) string {
