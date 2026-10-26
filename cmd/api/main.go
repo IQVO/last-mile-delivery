@@ -1,5 +1,11 @@
 // Command api is the last-mile-delivery service: the REST API, the three
 // consumers and the always-on outbox relay in one process.
+//
+// Observability environment (docs/adr/0008): OTEL_SERVICE_NAME (default
+// last-mile-delivery), OTEL_EXPORTER_OTLP_ENDPOINT (default
+// telemetry.DefaultEndpoint; export never blocks), SERVICE_VERSION (default
+// dev), ENVIRONMENT (default local) and LOG_LEVEL (debug|info|warn|error,
+// default info).
 package main
 
 import (
@@ -16,6 +22,7 @@ import (
 	inboundhttp "github.com/claudioed/last-mile-delivery/internal/adapters/inbound/http"
 	outboundkafka "github.com/claudioed/last-mile-delivery/internal/adapters/outbound/kafka"
 	outboxrelay "github.com/claudioed/last-mile-delivery/internal/adapters/outbound/outbox"
+	"github.com/claudioed/last-mile-delivery/internal/adapters/outbound/telemetry"
 )
 
 const (
@@ -54,6 +61,13 @@ func run(ctx context.Context) error {
 		return err
 	}
 	defer closeAdapters()
+
+	// The business counter binds to the MeterProvider telemetry.Setup installed.
+	attemptMetrics, err := telemetry.NewAttemptMetrics()
+	if err != nil {
+		return err
+	}
+	ad.deps.Metrics = attemptMetrics
 
 	readiness := newReadiness(ad.pool.Ping, rt.brokers)
 	httpServer := &http.Server{

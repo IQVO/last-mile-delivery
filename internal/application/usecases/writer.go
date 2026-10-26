@@ -36,7 +36,25 @@ type Deps struct {
 	UoW          ports.UnitOfWork
 	Clock        ports.Clock
 	IDs          ports.IDGenerator
+	// Metrics records the business outcome of each delivery attempt; nil
+	// records nothing, so unit tests need no wiring.
+	Metrics ports.AttemptMetrics
 }
+
+// metrics returns the configured AttemptMetrics or a no-op.
+func (d Deps) metrics() ports.AttemptMetrics {
+	if d.Metrics != nil {
+		return d.Metrics
+	}
+	return noMetrics{}
+}
+
+// noMetrics is the AttemptMetrics of a Deps without one.
+type noMetrics struct{}
+
+func (noMetrics) AttemptDelivered(context.Context)        {}
+func (noMetrics) AttemptFailed(context.Context)           {}
+func (noMetrics) AttemptRejected(context.Context, string) {}
 
 // writer is what every use case embeds.
 type writer struct{ Deps }

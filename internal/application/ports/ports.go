@@ -151,3 +151,20 @@ type IDGenerator interface {
 	NewRouteID() route.ID
 	NewPartnerID() partner.ID
 }
+
+// AttemptMetrics records the business outcome of every delivery attempt a
+// driver reports (Tier 2 of the fleet metrics convention). RecordAttempt calls
+// it once per command: AttemptDelivered or AttemptFailed when the attempt was
+// recorded, AttemptRejected otherwise, with the problem slug that says why (the
+// `type` suffix the REST adapter answers with: "route-not-started",
+// "already-delivered", ...). The implementation lives in
+// internal/adapters/outbound/telemetry; a nil Deps.Metrics records nothing.
+type AttemptMetrics interface {
+	// AttemptDelivered counts a recorded attempt that delivered the package.
+	AttemptDelivered(ctx context.Context)
+	// AttemptFailed counts a recorded attempt that did not deliver the package.
+	AttemptFailed(ctx context.Context)
+	// AttemptRejected counts an attempt report that recorded nothing; reason
+	// is a stable, low-cardinality slug.
+	AttemptRejected(ctx context.Context, reason string)
+}
