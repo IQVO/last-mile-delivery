@@ -133,6 +133,21 @@ and Kafka.
 {{- end -}}
 
 {{/*
+extraEnv may not set a variable the chart renders itself for the observability
+standard (the same variable would be set twice and the later one would win
+silently): the api Deployment owns these four.
+*/}}
+{{- define "last-mile-delivery.requireCleanExtraEnv" -}}
+{{- $owned := list "ENVIRONMENT" "SERVICE_VERSION" "OTEL_SERVICE_NAME" "OTEL_EXPORTER_OTLP_ENDPOINT" -}}
+{{- range .Values.extraEnv -}}
+{{- $name := toString .name -}}
+{{- if has $name $owned -}}
+{{- fail (printf "extraEnv sets %s - the chart renders it from environment / otel.* / image.tag; set the value instead." $name) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
 SHUTDOWN_DRAIN_DELAY in whole seconds. The value must look like "5s" so the
 grace period can be checked against it.
 */}}
@@ -169,6 +184,7 @@ install`.
 {{- include "last-mile-delivery.requireKafka" . -}}
 {{- include "last-mile-delivery.requireConsumerGroups" . -}}
 {{- include "last-mile-delivery.requireNoInMemoryEnv" (dict "list" .Values.extraEnv "where" "extraEnv") -}}
+{{- include "last-mile-delivery.requireCleanExtraEnv" . -}}
 {{- include "last-mile-delivery.requireGracePeriod" . -}}
 {{- end -}}
 

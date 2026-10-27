@@ -113,6 +113,12 @@ func NewRecordAttempt(d Deps) *RecordAttempt { return &RecordAttempt{writer{d}} 
 // RetryNextWave on a failure (A18, A19), completes the route when its last
 // package is recorded (A16) and the wave when its last route completes (A9).
 func (uc *RecordAttempt) Execute(ctx context.Context, cmd RecordAttemptCommand) (views.Attempt, error) {
+	a, err := uc.execute(ctx, cmd)
+	uc.recordOutcome(ctx, cmd.Outcome, err)
+	return a, err
+}
+
+func (uc *RecordAttempt) execute(ctx context.Context, cmd RecordAttemptCommand) (views.Attempt, error) {
 	return transact(ctx, uc.UoW, func(ctx context.Context) (views.Attempt, error) {
 		r, err := uc.Routes.Get(ctx, cmd.RouteID)
 		if err != nil {

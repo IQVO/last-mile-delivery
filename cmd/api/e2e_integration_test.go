@@ -91,7 +91,7 @@ func TestADeliveryDayOverRealPostgresAndKafka(t *testing.T) {
 
 	ad := postgresAdapters(pool)
 	ad.deps.Outbox = postgres.NewOutbox(pool, &outboundkafka.Encoder{EventsTopic: eventsTopic, AnalyticsTopic: analyticsTopic})
-	srv := httptest.NewServer(inboundhttp.NewRouter(buildServer(ad, nil)))
+	srv := httptest.NewServer(inboundhttp.NewRouter(buildServer(ad, nil), nil, ""))
 	t.Cleanup(srv.Close)
 	c := &client{t: t, url: srv.URL}
 
