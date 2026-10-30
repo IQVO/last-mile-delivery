@@ -163,7 +163,7 @@ func nonNil(s []string) []string {
 func (d Deps) listWaves(ctx context.Context, in listWavesInput) (wavePageView, error) {
 	waves, err := d.ListWaves.Execute(ctx, in.StationNodeID, in.ServiceDate)
 	if err != nil {
-		return wavePageView{}, mapError(err)
+		return wavePageView{}, mapError(ctx, err)
 	}
 	return toWavePage(waves), nil
 }
@@ -173,7 +173,7 @@ func (d Deps) listWaves(ctx context.Context, in listWavesInput) (wavePageView, e
 func (d Deps) getWaveStops(ctx context.Context, in waveIDInput) (waveStopsView, error) {
 	stops, err := d.GetWaveStops.Execute(ctx, wave.ID(in.WaveID))
 	if err != nil {
-		return waveStopsView{}, mapError(err)
+		return waveStopsView{}, mapError(ctx, err)
 	}
 	return toWaveStops(stops), nil
 }
@@ -183,7 +183,7 @@ func (d Deps) getWaveStops(ctx context.Context, in waveIDInput) (waveStopsView, 
 func (d Deps) getRoute(ctx context.Context, in routeIDInput) (routeView, error) {
 	r, err := d.GetRoute.Execute(ctx, route.ID(in.RouteID))
 	if err != nil {
-		return routeView{}, mapError(err)
+		return routeView{}, mapError(ctx, err)
 	}
 	return toRoute(r), nil
 }

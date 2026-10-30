@@ -10,6 +10,7 @@ import (
 	"time"
 
 	outboxrelay "github.com/claudioed/last-mile-delivery/internal/adapters/outbound/outbox"
+	"github.com/claudioed/last-mile-delivery/internal/adapters/outbound/telemetry"
 )
 
 var (
@@ -112,6 +113,8 @@ func shutdownDrainDelay(logger *slog.Logger) time.Duration {
 	return d
 }
 
+// newLogger builds the JSON logger. The handler is wrapped so a record written with a span-carrying context (the
+// *Context slog variants) also carries trace_id and span_id.
 func newLogger(level string) *slog.Logger {
 	var lvl slog.Level
 	switch strings.ToLower(level) {
@@ -124,7 +127,7 @@ func newLogger(level string) *slog.Logger {
 	default:
 		lvl = slog.LevelInfo
 	}
-	return slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: lvl}))
+	return slog.New(telemetry.WithTraceContext(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: lvl})))
 }
 
 func getenv(key, fallback string) string {

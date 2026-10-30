@@ -38,3 +38,5 @@ Aggregates, invariants and assumptions A1-A29 are in docs/adr/0002; consumed con
 ## Workflow
 GitFlow: feature/* -> PR into develop, CI green before merge, never push develop or main. lefthook: pre-commit fmt/vet/lint, pre-push `make check`. Commit and push after each step.
 Chart: charts/last-mile-delivery (api only; renders exactly the env cmd/api reads; refuses empty database, brokers or `*_CONSUMER_GROUP`, any `*_MODE`, and a grace period below `config.shutdownDrainDelay` + 50s). Tests: charts/last-mile-delivery/tests; docs/before-first-release.md rows 5-9 are done, row 11 (registry secrets) is for the repo admin.
+
+A2A: `cmd/a2a` (port 8093) is this context's read-only Agent2Agent agent, skills `list_waves` (read), `get_route` (read), decided in `docs/adr/0009-a2a-inbound-adapter.md`; delegation only (facts stay CloudEvents on Kafka), unauthenticated like REST and MCP; rules in `.claude/rules/fleet/a2a.md`.

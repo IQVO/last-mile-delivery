@@ -1,5 +1,5 @@
 # Used by `helm lint` / `ct lint`: every optional component set at once
-# (api + mcp + frontend), so the whole chart renders together.
+# (api + mcp + a2a + frontend), so the whole chart renders together.
 database:
   existingSecret: "last-mile-delivery-db"
 kafka:
@@ -25,6 +25,16 @@ autoscaling:
   api:
     enabled: true
 mcp:
+  enabled: true
+  serviceVersion: "0.1.0"
+  environment: "cluster"
+  route:
+    enabled: true
+    parentRefs:
+      - name: warehouse-gateway
+        namespace: kong
+        sectionName: http
+a2a:
   enabled: true
   serviceVersion: "0.1.0"
   environment: "cluster"
