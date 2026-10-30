@@ -1,5 +1,7 @@
 # last-mile-delivery
 
+[![CI](https://github.com/IQVO/last-mile-delivery/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/IQVO/last-mile-delivery/actions/workflows/ci.yml?query=branch%3Adevelop) [![coverage gate](https://img.shields.io/badge/coverage%20gate-90%25-brightgreen)](https://github.com/IQVO/last-mile-delivery/blob/develop/Makefile) [![Go](https://img.shields.io/badge/go-1.27.3-00ADD8?logo=go&logoColor=white)](https://github.com/IQVO/last-mile-delivery/blob/develop/go.mod) [![release](https://img.shields.io/github/v/release/IQVO/last-mile-delivery?sort=semver)](https://github.com/IQVO/last-mile-delivery/releases) [![docs](https://img.shields.io/badge/docs-iqvo.github.io-blue)](https://iqvo.github.io/last-mile-delivery/) [![license](https://img.shields.io/badge/license-MIT-blue)](https://github.com/IQVO/last-mile-delivery/blob/develop/LICENSE)
+
 Retail network, bounded context **Last-Mile Delivery** (Supporting, logistics tier).
 
 Runs each delivery station: publishes delivery waves (induct cutoff, delivery window, stop capacity) that the promise relies on, plans routes for delivery service partners, and records every delivery attempt.
