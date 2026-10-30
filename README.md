@@ -30,6 +30,10 @@ warehouse-systems fleet; the fleet reaches the network only through the `vendor-
 
 `cmd/mcp` (ADR 0006) is a second deployable: the same read use cases the REST adapter serves, exposed to AI agents over the official MCP Go SDK on Streamable HTTP (`/mcp` and `/`, plus an open `/healthz`). Three tools, one per REST GET: `list_waves(stationNodeId, serviceDate)`, `get_wave_stops(waveId)`, `get_route(routeId)`; every input required, results camelCase like the REST bodies, typed errors carrying the REST problem slugs (`not-found`, `validation-failed`). Read-only is structural: no write use case is wired, no outbox, no consumer, Kafka never dialled, no auth (fleet decision). Boot mirrors `cmd/api`: mandatory `DATABASE_URL`, idempotent embedded migrations (optional `MIGRATIONS_DATABASE_URL`), `MCP_ADDR` (`:8090`), `LOG_LEVEL`, `SERVICE_VERSION`, `ENVIRONMENT`. The chart deploys it as an optional `mcp` component (Service `:8090`, opt-in Kong route `/api/mcp/last-mile-delivery` -> `/mcp`).
 
+## A2A (read-only agent)
+
+`cmd/a2a` (ADR 0009) is a third deployable: the same read use cases again, offered to peer agents as a goal-delegation surface over the official A2A Go SDK (JSON-RPC at `/` and `/a2a`, the Agent Card at `/.well-known/agent-card.json`, plus an open `/healthz`). Two skills derived from the MCP tools, sent as `{"skill": "<id>", "arguments": {...}}` in a data part: `list_waves(stationNodeId, serviceDate)` (a station's waves for a day) and `get_route(routeId)` (where one route stands). Input is strict (unknown arguments and trailing data are refused) and rejections are answered in-band as RFC 7807-shaped problems with the REST statuses (`not-found` 404, `validation-failed` 422, `internal-error` 500; request-shape problems 400), never as JSON-RPC errors. Read-only is structural, like MCP: no write use case, no outbox, no consumer, Kafka never dialled, no outbound A2A client, no auth (fleet decision). Mandatory `DATABASE_URL` and `A2A_AGENT_URL` (the absolute URL the card advertises); `A2A_ADDR` (`:8093`), `MIGRATIONS_DATABASE_URL`, `LOG_LEVEL`, `SERVICE_VERSION`, `ENVIRONMENT`. The chart deploys it as an optional `a2a` component (Service `:8093`, `A2A_AGENT_URL` defaulting to the in-cluster Service DNS, opt-in Kong route `/api/a2a/last-mile-delivery` -> `/`).
+
 ## Web remote (console MFE)
 
 `web/` (ADR 0007) is the console's Module Federation remote (`last_mile_mfe`, exposes `./App`, dev/preview port `4014`, asset base `/mfes/last-mile-delivery/` on build). It is a small READ-ONLY React UI over this context's three GETs, resolved from the shell's runtime config (`apiOrigin` + `/api/last-mile-delivery`): Waves (a station + service date search), Wave stops (packages grouped by `stopKey`) and Routes (stops with derived outcomes and every attempt). No write path, no sibling API, no address ever shown. `npm ci && npm run lint && npx tsc -b && npm test && npm run build` inside `web/` is the gate (the CI `web` job); the image builds with `docker build --build-context uikit=../../warehouse-ui-kit .` and the chart deploys it as an optional `frontend` component (own nginx pod, ClusterIP only; the Nginx web gateway owns the public path).
@@ -45,14 +49,14 @@ Runtime: Go, hexagonal, real PostgreSQL and Kafka only. Mandatory environment: `
 ## Observability
 
 Logs, metrics and traces follow the fleet standard ([ADR 0008](docs/adr/0008-fleet-observability-standard.md)): JSON logs on stdout carry `trace_id`/`span_id`
-and a `request_id`; `cmd/api` and `cmd/mcp` export OTLP/gRPC to the Collector (`OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`, `SERVICE_VERSION`, `ENVIRONMENT`;
+and a `request_id`; `cmd/api`, `cmd/mcp` and `cmd/a2a` export OTLP/gRPC to the Collector (`OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`, `SERVICE_VERSION`, `ENVIRONMENT`;
 export never blocks, so no Collector costs telemetry, nothing else) with HTTP request duration, Go runtime metrics and the business counter
 `last_mile_delivery.package.attempted` (`outcome`, `reason`); the trace continues across Kafka in the `traceparent` header of each published event and is picked up by the
 consumers. The chart's `otel.*` values render the env.
 
 ## Deployment
 
-The Helm chart is `charts/last-mile-delivery/` (one `api` Deployment, Service, ConfigMap, optional Secret, ServiceAccount; HPA, Ingress and Gateway API HTTPRoute are off by default, as are the optional `mcp` and `frontend` components of ADR 0006/0007 — `charts/last-mile-delivery/ci/all-components-values.yaml` renders them all together). The `release` job packages it as `last-mile-delivery-<version>.tgz` and pushes it to `oci://ghcr.io/iqvo`.
+The Helm chart is `charts/last-mile-delivery/` (one `api` Deployment, Service, ConfigMap, optional Secret, ServiceAccount; HPA, Ingress and Gateway API HTTPRoute are off by default, as are the optional `mcp`, `a2a` and `frontend` components of ADR 0006/0009/0007 — `charts/last-mile-delivery/ci/all-components-values.yaml` renders them all together). The `release` job packages it as `last-mile-delivery-<version>.tgz` and pushes it to `oci://ghcr.io/iqvo`.
 
 ```sh
 helm template r charts/last-mile-delivery -f charts/last-mile-delivery/ci/default-values.yaml
