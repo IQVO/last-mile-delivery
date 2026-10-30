@@ -195,3 +195,11 @@ ADR 0006). Component label mcp: the api Service must never select it.
 {{- define "last-mile-delivery.mcpFullname" -}}
 {{- include "last-mile-delivery.fullname" . }}-mcp
 {{- end }}
+
+{{/*
+Fully qualified name of the read-only A2A agent Deployment/Service (cmd/a2a,
+docs/adr/0009). Component label a2a: the api Service must never select it.
+*/}}
+{{- define "last-mile-delivery.a2aFullname" -}}
+{{- include "last-mile-delivery.fullname" . }}-a2a
+{{- end }}
