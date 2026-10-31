@@ -88,7 +88,8 @@ These are constants in the source; changing them needs a code change.
 | Consumer retry backoff | 200 ms doubling to a 5 s cap, at most 5 handling attempts, then `<topic>.dlq` | `internal/adapters/inbound/kafka/kafka.go`, `deadletter.go` |
 | Broker connection blips in a consumer | up to 10 consecutive transient fetch failures are slept off; the 11th ends the consumer and the process exits | `internal/adapters/inbound/kafka/kafka.go` (`maxTransientFetchFailures`) |
 | `/readyz` verdict cache / check timeout | 3 s / 2 s | `internal/adapters/inbound/http/readiness.go` |
-| Idempotency key retention | 24 h | `internal/adapters/outbound/memory/idempotency.go` (`IdempotencyTTL`), table `idempotency_keys` |
+| Idempotency key retention | 24 h (older rows are ignored by the lookup; the code has no purge job) | `internal/adapters/outbound/postgres/idempotency.go`, table `idempotency_keys` |
+| `Idempotency-Key` length / request body limit | 1 to 200 characters / 64 KiB | `internal/adapters/inbound/http/idempotency.go`, `response.go` (`maxBodyBytes`) |
 | Topics produced | `retailnetwork.last-mile-delivery.events`, `retailnetwork.last-mile-delivery.analytics` | `internal/adapters/outbound/kafka/encoder.go` |
 | Topics consumed | `retailnetwork.linehaul-transportation.events`, `retailnetwork.node-topology.events`, `retailnetwork.shipping-and-tracking.events` | `internal/adapters/inbound/kafka/consumer.go` |
 
