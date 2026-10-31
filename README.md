@@ -16,16 +16,40 @@ This project is a domain-driven design study. It is not associated with, endorse
 
 ## Documentation
 
-This repository has no docs site of its own. Its design documentation lives on the warehouse-docs retail-network pages:
+This service has its own documentation site: **<https://iqvo.github.io/last-mile-delivery/>** (built from `docs/` with Docusaurus; the `Docs` workflow builds it on every pull request and deploys it on push to `main`). Its design context also lives on the warehouse-docs retail-network pages: [Last-Mile Delivery](https://iqvo.github.io/warehouse-docs/network/contexts/last-mile-delivery) and the [Network overview](https://iqvo.github.io/warehouse-docs/network).
 
-| Area | Pages |
+| Section | Page |
 |---|---|
-| Retail network | [Network overview](https://iqvo.github.io/warehouse-docs/network) |
-| This context | [Index / service facts](https://iqvo.github.io/warehouse-docs/network/contexts/last-mile-delivery), [Business context](https://iqvo.github.io/warehouse-docs/network/contexts/last-mile-delivery/business-context), [Domain events](https://iqvo.github.io/warehouse-docs/network/contexts/last-mile-delivery/domain-events), [Use cases](https://iqvo.github.io/warehouse-docs/network/contexts/last-mile-delivery/use-cases) |
-| DDD artifact pack | [Ubiquitous language](https://iqvo.github.io/warehouse-docs/network/contexts/last-mile-delivery/ubiquitous-language), [Context map](https://iqvo.github.io/warehouse-docs/network/contexts/last-mile-delivery/context-map), [Core domain chart](https://iqvo.github.io/warehouse-docs/network/contexts/last-mile-delivery/core-domain-chart), [Bounded context canvas](https://iqvo.github.io/warehouse-docs/network/contexts/last-mile-delivery/bounded-context-canvas), [Aggregate design canvas](https://iqvo.github.io/warehouse-docs/network/contexts/last-mile-delivery/aggregate-design-canvas), [EventStorming](https://iqvo.github.io/warehouse-docs/network/contexts/last-mile-delivery/eventstorming), [Class diagram](https://iqvo.github.io/warehouse-docs/network/contexts/last-mile-delivery/class-diagram), [Sequence diagrams](https://iqvo.github.io/warehouse-docs/network/contexts/last-mile-delivery/sequence-diagrams), [ER diagram](https://iqvo.github.io/warehouse-docs/network/contexts/last-mile-delivery/entity-relationship), [Domain message flow](https://iqvo.github.io/warehouse-docs/network/contexts/last-mile-delivery/domain-message-flow) |
-| Decisions | [Network ADRs](https://iqvo.github.io/warehouse-docs/network/adr) |
+| Overview | [Introduction](https://iqvo.github.io/last-mile-delivery/docs/overview/introduction) |
+| Overview | [Architecture](https://iqvo.github.io/last-mile-delivery/docs/overview/architecture) |
+| Overview | [Quickstart](https://iqvo.github.io/last-mile-delivery/docs/overview/quickstart) |
+| Operations | [Configuration](https://iqvo.github.io/last-mile-delivery/docs/operations/configuration) |
+| Operations | [Runbook](https://iqvo.github.io/last-mile-delivery/docs/operations/runbook) |
+| Operations | [Observability](https://iqvo.github.io/last-mile-delivery/docs/operations/observability) |
+| Operations | [Troubleshooting](https://iqvo.github.io/last-mile-delivery/docs/operations/troubleshooting) |
+| Operations | [Before the first release](https://iqvo.github.io/last-mile-delivery/docs/operations/before-first-release) |
+| Development | [Testing](https://iqvo.github.io/last-mile-delivery/docs/development/testing) |
+| Domain-driven design | [Ubiquitous language](https://iqvo.github.io/last-mile-delivery/docs/ddd/ubiquitous-language) |
+| Domain-driven design | [Use cases](https://iqvo.github.io/last-mile-delivery/docs/ddd/use-cases) |
+| Domain-driven design | [Subdomain classification](https://iqvo.github.io/last-mile-delivery/docs/ddd/subdomain-classification) |
+| Domain-driven design | [DDD artifacts index](https://iqvo.github.io/last-mile-delivery/docs/ddd/ddd-artifacts) |
+| DDD artifacts | [Core domain chart](https://iqvo.github.io/last-mile-delivery/docs/ddd/core-domain-chart) |
+| DDD artifacts | [Bounded context canvas](https://iqvo.github.io/last-mile-delivery/docs/ddd/bounded-context-canvas) |
+| DDD artifacts | [Context map](https://iqvo.github.io/last-mile-delivery/docs/ddd/context-map) |
+| DDD artifacts | [Aggregate design canvas](https://iqvo.github.io/last-mile-delivery/docs/ddd/aggregate-design-canvas) |
+| DDD artifacts | [Domain message flow](https://iqvo.github.io/last-mile-delivery/docs/ddd/domain-message-flow) |
+| DDD artifacts | [EventStorming](https://iqvo.github.io/last-mile-delivery/docs/ddd/eventstorming) |
+| DDD artifacts | [Class diagram](https://iqvo.github.io/last-mile-delivery/docs/ddd/class-diagram) |
+| DDD artifacts | [Entity-relationship diagram](https://iqvo.github.io/last-mile-delivery/docs/ddd/entity-relationship) |
+| DDD artifacts | [Sequence diagrams](https://iqvo.github.io/last-mile-delivery/docs/ddd/sequence-diagrams) |
+| DDD artifacts | [Domain events](https://iqvo.github.io/last-mile-delivery/docs/ddd/domain-events) |
+| API reference | [API overview (REST, events, MCP, A2A)](https://iqvo.github.io/last-mile-delivery/docs/api-reference) |
+| API reference | [Event catalogue](https://iqvo.github.io/last-mile-delivery/docs/api-reference/events) |
+| Ecosystem | [Integration](https://iqvo.github.io/last-mile-delivery/docs/ecosystem/integration) |
+| Ecosystem | [MCP tools](https://iqvo.github.io/last-mile-delivery/docs/mcp/tools) |
+| Decisions | [ADR index](https://iqvo.github.io/last-mile-delivery/docs/adr) |
 
-In-tree: [docs/adr/](docs/adr/index.md) (decisions, index), `docs/before-first-release.md` (packaging checklist).
+In-tree: [docs/adr/](docs/adr/index.md) (the nine ADRs and their index), [docs/docs/operations/before-first-release.md](docs/docs/operations/before-first-release.md) (the packaging checklist).
 
 ## Architecture
 
@@ -62,7 +86,7 @@ internal/
   architecture/              the fitness tests below
 apis/                        openapi.yaml (REST) + asyncapi.yaml (events)
 docs/adr/                    9 ADRs + index
-features/                    10 godog feature files
+features/                    5 godog feature files (36 scenarios)
 charts/last-mile-delivery/   the Helm chart
 web/                         the operator micro-frontend remote
 ```
@@ -200,7 +224,7 @@ lefthook wires the same targets as hooks (`lefthook install` once per clone): pr
 ## Tests
 
 - **Unit**: `make test` — domain, use cases, handlers, adapters.
-- **BDD**: `make bdd` — godog scenarios in `features/` (10 feature files).
+- **BDD**: `make bdd` — godog scenarios in `features/` (5 feature files, 36 scenarios).
 - **Integration**: `make integration` — testcontainers Postgres + Kafka (incl. the `/readyz` 503 proof).
 - **Mutation**: `make mutation` (blocking subset) / `make mutation-full` — gremlins, config in `.gremlins.yaml`.
 - **Architecture fitness**: `make arch-test` — `internal/architecture/` (hexagonal rule, CloudEvents-only, catalogue, Kafka rules, outbox cap, read-only MCP/A2A).
@@ -210,7 +234,7 @@ CI (`.github/workflows/ci.yml`) runs `lint`, `guide-lint`, `complexity`, `test`,
 
 ## Architecture Decision Records
 
-[docs/adr/](docs/adr/index.md) — index plus 9 ADRs (0001–0009: bounded context, aggregates and invariants, consumed contracts and local read models, CloudEvents envelope and type catalogue, runtime/outbox/HTTP and readiness, MCP server adoption, console remote, fleet observability standard, A2A inbound adapter). `docs/before-first-release.md` is the packaging checklist (rows 5 to 9, the chart, are done; row 11, the registry secrets, is for the repo admin).
+[docs/adr/](docs/adr/index.md) — index plus 9 ADRs (0001–0009: bounded context, aggregates and invariants, consumed contracts and local read models, CloudEvents envelope and type catalogue, runtime/outbox/HTTP and readiness, MCP server adoption, console remote, fleet observability standard, A2A inbound adapter). `docs/docs/operations/before-first-release.md` is the packaging checklist (rows 5 to 9, the chart, are done; row 11, the registry secrets, is for the repo admin).
 
 ## License
 

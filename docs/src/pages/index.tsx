@@ -35,7 +35,12 @@ function HomepageHeader() {
           {siteConfig.title}
         </Heading>
         <p className={styles.heroSubtitle}>{siteConfig.tagline}</p>
-        <p className={styles.heroLead}>TODO-LEAD</p>
+        <p className={styles.heroLead}>
+          Runs each delivery station of the retail network: it publishes the delivery waves (induct cutoff,
+          delivery window, stop capacity) that the promise plans the last leg on, inducts arriving packages into
+          them, plans routes for delivery service partners and records every delivery attempt. Go, hexagonal,
+          real PostgreSQL and Kafka, CloudEvents through a transactional outbox, with read-only MCP and A2A surfaces.
+        </p>
         <div className={styles.buttons}>
           <Link className="button button--primary button--lg" to="/docs/overview/introduction">
             Read the docs

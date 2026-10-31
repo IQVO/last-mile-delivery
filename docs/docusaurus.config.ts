@@ -6,7 +6,7 @@ import type * as OpenApiPlugin from 'docusaurus-plugin-openapi-docs';
 const config: Config = {
   title: 'Last-Mile Delivery',
   tagline:
-    'Last-Mile Delivery: a Supporting bounded context of the retail-network domain (warehouse-systems).',
+    'Delivery waves, DSP routes and delivery attempts of the retail network: a Supporting bounded context.',
   favicon: 'img/favicon.svg',
 
   future: {
