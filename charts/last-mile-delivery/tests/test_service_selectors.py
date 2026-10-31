@@ -11,10 +11,10 @@ fails if that ever stops being true.
 last-mile-delivery has one always-on component, `api`; the optional resources
 (HPA, Ingress, HTTPRoute) are rendered ON together with it, and the api env is
 checked against the variables cmd/api reads. The optional components (ADR 0006
-`mcp`, the `frontend` web remote) are rendered in a second pass: three
-Deployments and three Services, each Service selecting exactly its own
-Deployment, the mcp HTTPRoute targeting the mcp Service, and nothing routing to
-the frontend from this chart.
+`mcp`, ADR 0009 `a2a`, the `frontend` web remote) are rendered in a second pass:
+four Deployments and four Services, each Service selecting exactly its own
+Deployment, the mcp and a2a HTTPRoutes targeting their own Service, and nothing
+routing to the frontend from this chart.
 
 Run: python3 charts/last-mile-delivery/tests/test_service_selectors.py
 Needs: helm, PyYAML.
@@ -194,12 +194,16 @@ def check_refusals(failures: list[str]) -> None:
 
 
 def check_optional_components(failures: list[str]) -> None:
-    """api + mcp + frontend together: every Service selects exactly one Deployment."""
+    """api + mcp + a2a + frontend together: every Service selects exactly one Deployment."""
     args = BASE + [
         "--set", "mcp.enabled=true",
         "--set", "mcp.route.enabled=true",
         "--set", "mcp.route.parentRefs[0].name=warehouse-gateway",
         "--set", "mcp.route.parentRefs[0].namespace=kong",
+        "--set", "a2a.enabled=true",
+        "--set", "a2a.route.enabled=true",
+        "--set", "a2a.route.parentRefs[0].name=warehouse-gateway",
+        "--set", "a2a.route.parentRefs[0].namespace=kong",
         "--set", "frontend.enabled=true",
     ]
     docs = render(args)
@@ -207,8 +211,8 @@ def check_optional_components(failures: list[str]) -> None:
         d["spec"]["template"]["metadata"]["labels"].get("app.kubernetes.io/component"): d
         for d in docs if d.get("kind") == "Deployment"
     }
-    if set(by_component) != {"api", "mcp", "frontend"}:
-        failures.append(f"expected the api, mcp and frontend Deployments, got {sorted(by_component)}")
+    if set(by_component) != {"api", "mcp", "a2a", "frontend"}:
+        failures.append(f"expected the api, mcp, a2a and frontend Deployments, got {sorted(by_component)}")
         return
 
     services = {d["metadata"]["name"]: d for d in docs if d.get("kind") == "Service"}
@@ -226,22 +230,29 @@ def check_optional_components(failures: list[str]) -> None:
         if "app.kubernetes.io/component" not in match_labels:
             failures.append(f"Deployment {name} selector.matchLabels lacks app.kubernetes.io/component")
 
-    # The mcp HTTPRoute targets the mcp Service by name and port; nothing in
-    # this chart routes to the frontend (the Nginx web gateway owns it).
-    mcp_service = next((s for n, s in services.items() if selector_of(s).get("app.kubernetes.io/component") == "mcp"), None)
-    if mcp_service is None:
-        failures.append("the mcp Service was not rendered with mcp.enabled=true")
-        return
-    mcp_name = mcp_service["metadata"]["name"]
-    mcp_port = mcp_service["spec"]["ports"][0]["port"]
+    # The mcp and a2a HTTPRoutes each target their own Service by name and
+    # port; nothing in this chart routes to the frontend (the Nginx web gateway
+    # owns it).
+    by_name: dict[str, dict] = {}
+    for component in ("mcp", "a2a"):
+        service = next((s for s in services.values() if selector_of(s).get("app.kubernetes.io/component") == component), None)
+        if service is None:
+            failures.append(f"the {component} Service was not rendered with {component}.enabled=true")
+            return
+        by_name[service["metadata"]["name"]] = {"component": component, "port": service["spec"]["ports"][0]["port"]}
     for d in docs:
-        if d.get("kind") == "HTTPRoute":
-            refs = [b for r in d["spec"]["rules"] for b in r["backendRefs"]]
-            if d["metadata"]["name"] == mcp_name:
-                if any(b["name"] != mcp_name or b["port"] != mcp_port for b in refs):
-                    failures.append("the mcp HTTPRoute must target the mcp Service and its port")
-            elif any(b["name"] == mcp_name or "frontend" in b["name"] for b in refs):
-                failures.append(f"HTTPRoute {d['metadata']['name']} must not target the mcp or frontend Service")
+        if d.get("kind") != "HTTPRoute":
+            continue
+        refs = [b for r in d["spec"]["rules"] for b in r["backendRefs"]]
+        own = by_name.get(d["metadata"]["name"])
+        if own is not None:
+            if any(b["name"] != d["metadata"]["name"] or b["port"] != own["port"] for b in refs):
+                failures.append(f"the {own['component']} HTTPRoute must target the {own['component']} Service and its port")
+        elif any(b["name"] in by_name or "frontend" in b["name"] for b in refs):
+            failures.append(f"HTTPRoute {d['metadata']['name']} must not target the mcp, a2a or frontend Service")
+    routes = {d["metadata"]["name"] for d in docs if d.get("kind") == "HTTPRoute"}
+    if not set(by_name) <= routes:
+        failures.append(f"expected an HTTPRoute for the mcp and a2a Services, got {sorted(routes)}")
 
 
 def main() -> int:
@@ -273,8 +284,8 @@ def main() -> int:
 
     print("PASS: the api Service selects exactly one Deployment; HPA, Ingress and HTTPRoute are off by default and target the api; "
           "every cmd/api env var is rendered once; the chart refuses to render without a database source, brokers or any consumer "
-          "group, with a *_MODE in extraEnv, or with a grace period under the shutdown bounds; with mcp and frontend enabled each "
-          "Service still selects exactly one Deployment, the mcp HTTPRoute targets the mcp Service and nothing routes to the frontend")
+          "group, with a *_MODE in extraEnv, or with a grace period under the shutdown bounds; with mcp, a2a and frontend enabled each "
+          "Service still selects exactly one Deployment, the mcp and a2a HTTPRoutes target their own Service and nothing routes to the frontend")
     return 0
 
 

@@ -13,3 +13,5 @@ The *Status* column is copied from each ADR's own `## Status` section.
 | [0005](./0005-runtime-outbox-http-and-readiness.md) | runtime, outbox, HTTP and readiness | Accepted (2026-10-23) |
 | [0006](./0006-mcp-server-adoption.md) | a read-only MCP server | Accepted (2026-10-24) |
 | [0007](./0007-console-remote.md) | a console web remote | Accepted (2026-10-24) |
+| [0008](./0008-fleet-observability-standard.md) | the fleet observability standard (logs, metrics, traces) | Accepted (2026-10-26) |
+| [0009](./0009-a2a-inbound-adapter.md) | A2A inbound adapter (a read-only agent) | Accepted (2026-10-29) |

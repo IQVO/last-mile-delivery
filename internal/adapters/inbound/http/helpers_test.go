@@ -44,7 +44,7 @@ func newApp(t *testing.T) *app {
 		PlanRoute: usecases.NewPlanRoute(deps), StartRoute: usecases.NewStartRoute(deps), RecordAttempt: usecases.NewRecordAttempt(deps),
 		GetRoute: usecases.NewGetRoute(deps), ContractPartner: usecases.NewContractPartner(deps), DeactivatePartner: usecases.NewDeactivatePartner(deps),
 		Idempotency: handler.RequireIdempotencyKey(idem),
-	})
+	}, nil, "")
 	if err := deps.Stations.Save(context.Background(), views.Station{NodeID: "node-ds-01", NodeType: views.DeliveryStation, RegionID: "region-se"}); err != nil {
 		t.Fatal(err)
 	}

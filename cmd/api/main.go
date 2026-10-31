@@ -1,5 +1,11 @@
 // Command api is the last-mile-delivery service: the REST API, the three
 // consumers and the always-on outbox relay in one process.
+//
+// Observability environment (docs/adr/0008): OTEL_SERVICE_NAME (default
+// last-mile-delivery), OTEL_EXPORTER_OTLP_ENDPOINT (default
+// telemetry.DefaultEndpoint; export never blocks), SERVICE_VERSION (default
+// dev), ENVIRONMENT (default local) and LOG_LEVEL (debug|info|warn|error,
+// default info).
 package main
 
 import (
@@ -16,6 +22,7 @@ import (
 	inboundhttp "github.com/claudioed/last-mile-delivery/internal/adapters/inbound/http"
 	outboundkafka "github.com/claudioed/last-mile-delivery/internal/adapters/outbound/kafka"
 	outboxrelay "github.com/claudioed/last-mile-delivery/internal/adapters/outbound/outbox"
+	"github.com/claudioed/last-mile-delivery/internal/adapters/outbound/telemetry"
 )
 
 const (
@@ -39,16 +46,33 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	// Telemetry comes up before the router is built (otelchimetric binds the
+	// global MeterProvider at construction) and is flushed LAST: deferred before
+	// everything below, so the final spans of the drain still leave the process.
+	tel := loadTelemetryEnv(os.Getenv)
+	flushTelemetry, err := startTelemetry(logger, tel)
+	if err != nil {
+		return err
+	}
+	defer flushTelemetry()
+
 	ad, closeAdapters, err := buildAdapters(ctx, rt.databaseURL, logger)
 	if err != nil {
 		return err
 	}
 	defer closeAdapters()
 
+	// The business counter binds to the MeterProvider telemetry.Setup installed.
+	attemptMetrics, err := telemetry.NewAttemptMetrics()
+	if err != nil {
+		return err
+	}
+	ad.deps.Metrics = attemptMetrics
+
 	readiness := newReadiness(ad.pool.Ping, rt.brokers)
 	httpServer := &http.Server{
 		Addr:              getenv("HTTP_ADDR", ":8080"),
-		Handler:           inboundhttp.NewRouter(buildServer(ad, readiness)),
+		Handler:           inboundhttp.NewRouter(buildServer(ad, readiness), logger, tel.serviceName),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	consumers, closeConsumers := startConsumers(ad, rt, logger)
