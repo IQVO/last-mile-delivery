@@ -1,0 +1,70 @@
+---
+id: get-wave-stops
+title: "List the stops of a wave (packages grouped by stopKey)"
+description: "Returns the packages inducted into the wave grouped into stops by the opaque stopKey (Gap Register G11), ordered by the first induction of each stop. A package with no label data is its own stop. The planner builds PlanRoute from this list. No address is ever returned."
+sidebar_label: "List the stops of a wave (packages grouped by stopKey)"
+hide_title: true
+hide_table_of_contents: true
+api: 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
+sidebar_class_name: "get api-method"
+info_path: docs/api-reference/rest/last-mile-delivery-api
+custom_edit_url: null
+hide_send_button: true
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+import Translate from "@docusaurus/Translate";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"List the stops of a wave (packages grouped by stopKey)"}
+>
+</Heading>
+
+<MethodEndpoint
+  method={"get"}
+  path={"/waves/{waveId}/stops"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+
+
+Returns the packages inducted into the wave grouped into stops by the opaque stopKey (Gap Register G11), ordered by the first induction of each stop. A package with no label data is its own stop. The planner builds PlanRoute from this list. No address is ever returned.
+
+<Heading
+  id={"request"}
+  as={"h2"}
+  className={"openapi-tabs__heading"}
+>
+  <Translate id="theme.openapi.request.title">Request</Translate>
+</Heading>
+
+<ParamsDetails
+  {...require("./get-wave-stops.ParamsDetails.json")}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  {...require("./get-wave-stops.RequestSchema.json")}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  {...require("./get-wave-stops.StatusCodes.json")}
+>
+  
+</StatusCodes>
+
+
+      

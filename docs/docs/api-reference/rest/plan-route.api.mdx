@@ -1,0 +1,70 @@
+---
+id: plan-route
+title: "Plan a DSP van route in a wave (PlanRoute)"
+description: "Creates a PLANNED route and publishes RoutePlanned (analytics stream only). The wave must be INDUCTION_CLOSED (illegal-transition), the partner ACTIVE, of the wave's station and the stops at most the partner's van capacity (ErrRouteOverCapacity, 409 route-over-capacity). Every package must be inducted in the wave and not on another route, and the packages of one stop must share one stopKey (G34)."
+sidebar_label: "Plan a DSP van route in a wave (PlanRoute)"
+hide_title: true
+hide_table_of_contents: true
+api: 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
+sidebar_class_name: "post api-method"
+info_path: docs/api-reference/rest/last-mile-delivery-api
+custom_edit_url: null
+hide_send_button: true
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+import Translate from "@docusaurus/Translate";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"Plan a DSP van route in a wave (PlanRoute)"}
+>
+</Heading>
+
+<MethodEndpoint
+  method={"post"}
+  path={"/routes"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+
+
+Creates a PLANNED route and publishes RoutePlanned (analytics stream only). The wave must be INDUCTION_CLOSED (illegal-transition), the partner ACTIVE, of the wave's station and the stops at most the partner's van capacity (ErrRouteOverCapacity, 409 route-over-capacity). Every package must be inducted in the wave and not on another route, and the packages of one stop must share one stopKey (G34).
+
+<Heading
+  id={"request"}
+  as={"h2"}
+  className={"openapi-tabs__heading"}
+>
+  <Translate id="theme.openapi.request.title">Request</Translate>
+</Heading>
+
+<ParamsDetails
+  {...require("./plan-route.ParamsDetails.json")}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  {...require("./plan-route.RequestSchema.json")}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  {...require("./plan-route.StatusCodes.json")}
+>
+  
+</StatusCodes>
+
+
+      
