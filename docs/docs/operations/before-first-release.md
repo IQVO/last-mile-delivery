@@ -1,3 +1,10 @@
+---
+id: before-first-release
+title: Before the first release
+sidebar_label: Before the first release
+sidebar_position: 5
+---
+
 # Before the first release: last-mile-delivery
 
 The first merge to `main` runs `docker-publish` and `release`. Two services built from

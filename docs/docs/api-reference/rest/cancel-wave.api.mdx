@@ -1,0 +1,70 @@
+---
+id: cancel-wave
+title: "Cancel a wave (CancelWave)"
+description: "OPEN to CANCELLED, publishes DeliveryWaveCancelled (an integration event, Gap Register G5). Every package inducted in the wave is re-inducted onto the next eligible wave in the same transaction (Gap Register G17); a package with no eligible wave is deferred (PackageInductionDeferred)."
+sidebar_label: "Cancel a wave (CancelWave)"
+hide_title: true
+hide_table_of_contents: true
+api: eJztGV1v2zjyrwz4UhsnOW42vW7dp5yT7QXNJrkk7T0UwXosjSVuKFIlqSRG4P9+GFKS7djd3gL3cFi0D25Mzjfn28/CY+HE5Iv4Nz6QE3eJMDVZ9NLos1xMRIY6I8WXIhE5uczKmi/FRFxenV6ANzA9vpienp+fniRQN3MlXUkOTkjJB7JLxpwGGopyGKAGqT0VkQPQA2mfwAes4ZoK6TxZ+PBmOIJTxoUas3ssCKTOm8xTDlKDLwke8YFAOrCU9ldGexMuNT15ICULOVcdaERzWBF4i9phFtgPthm/fjt8D9hzfZS+BG1e0nKQ04KsZXWuIuhZEEIafdLeDEciETVarMiTZfs+C40ViYlgIme5SIRkG9boS5EIS18baSkXE28bSoTLSqpQTJ6FX9aM5byVuhCrVdITOsupqo0nnS3Tj7TsKJaEOdk9NLcfb6okaZ9mpXGk4Z6WrLmlmpCNybjkfDRBb7p7WoLZMKU1jSew5BurXTz2xgZ0VxvtCFDnkJWoC3KgjS+lLkbwkZYO0DK92sPhEZSmsY4t9i21E1FJfU668KWYvE5EhU/dt8PxeLW6i9qS8/8w+ZLxXyqfGe1Je77CulYyC/538LtjYzzvMjbz3ynzW1b8Iiwhw98lorYcJV6Si8ywpfPnxE6El14xwrSPsuuoh1it+L4zZGBzOB7zf9vvyDiQdQHGRvyfqNp7qfMB/cLk7XeyDzKjE/QUPI4df9p4s1gcM41HqXPzeOPRrr+d6kjI1FOsMZOefRWdk4Wm/Mab2gXmFUotddEdMGPatXUr2G5kvBR1L8SG8Htea2FshV5MRM4Aqx31voeSelkFvE0r/EkkNtZ/jbJl0zVWyLAhB1RSy6qpxGS8emny74K/eJHvwscH2yM7aQb5EuqFSMTZxcmn6e3Z5cVv0/PLm9MTkYiTs5ur49vpP8OX6eWvV+ent/HvrrSwI3TBwi5/49sniq5//c0I3I6WK0uOtAejVUhluC5eIbuPxGZUbtawNiCPxke7MXjblqQkZsQEarRekwVjYbAwFlADek9V7YchTXYVpk2mMY/mJiZJoCfp/AiurJkrqoA1cjDTxqcL0+h8lsCsJZDyodFpIDD7g+CvI62/fT8JbGt2/csU3h29eQstAcjJo1QhWW+mi0ClM1x0hcbtBm9k9v1HWisOTjVFAmxEesKqVgQzNnW6aJQKGrfHbWUN52L9hnu8sYfvng1KZMNz8aoha8MJFC18l1Wa/e7fkzoav1uxFmybvYlHaufZUfdW9N7fWsV7V3u362pToxdKZhuVGYvCUoGeXjkIIche12nxwosmMJNKUYEqDW2QZKrsT5nRWWMtdwRNzSmGD4NXpeaBbNrRWx+z5zlOcBQcEpUlzJdpHkOmPYw+n3aXljJjc9rx4K6H2zzvcZhbuOHnSe9pmVbSVeizMoKHSEul5pbugTbP2nqwBR+Flzoz/HIcNHBqLQf4L41SMNhwrmHoXk6t7bu7qTKOu76Z7E7SLBwxrCWwKF3oRNUS5kuojZLZMs2tfCANPU4Cj6XMys7rgkQ/QvevFbqHh7uh+xmVzOPYs0DJzdpOcD70IGkEmcGgQsXFn3KYm3wZakucKjjOH1A1lEYPANsoGiYwkzrQSYNRuVVwMxgEPw7n7Oy3fLoJ+4B6HeSb0J9Rdx0Gwzf6XptH3cVWBP0UD2/iWSC7MZtwyFpqOEx+uPlfyM1XiajIl4a3BLVxPky8PNuIA5bZHTzHXn01iT1aOzx043BjFU+r3teTgwNlMlSlcX7y8/jnseCBjh3hej3UnXaarMetLekXJkjeynmOzqe/SkX9HgKOr85EIph9fMPx6PVo3PojZsEf28FaMXIlFXXVbAncCXuUmoVPNkR3k4ODQvqymY8yUx2c/evz5cEuuljteO3pzS0wZ4uZB7MIlXwP3zk3fJQHUF5rtJA2vCNo8o/G3sNAGV5hyMyBl2SHCeTERSeHhTVVC5220GluMgeVyUkdhM/REisFg5aF+7Irxt3IkvMJjPpewyUw6nc9CYvHixxptBuRtca6WDwx/71xvE+YL4PcxmYlOW/RG/vK9QZwzMljQNnayFhyRjWBLgw+vEngw+vX/PF3/nibwIefjoYj4CjpDGSbdhPRavuKtzWtMduc5SYgPXB+yRtFG/fBa2EQCzVkYepLNq7DfJZsB+EwaQs7bzSizdsOxvGiK2ykqgRqhdrFUu9CqlgLFUfSbmRwMDi5uWrNF/ulDQnbhsqN4MIA6bw2UnvImDO5MGXkuSXnIMwcSzC+JAtXZ2eTtVTcqMicX2sh25exmN1LXYBuqjnZwLqwpqnDws3HtOP6N6zxa0OxHftIyxn4Ej24Uta11EWKOk97gtENHaAHhXNSwNUoCI+NL1mGmP2DBzl+c73R2bLTdR7fPme3GIyNbtgsMZ+ry5tb8HjPrKDL+jB7sSGbQdyNwcAjr/M2itRv97R0SdhFDSeAUEnnmLCxEPpfZXQR1l/SwdF4vK/ARaazBDAAxooXlUEdH4IL+PYCjZxpbBaWikeHh9+sm0mMpt39nKVa4XJr93b49LTev/W2bDVfm8Sn1wGX8gnwiiw2wsZGB+mr6uxbNXr2PtCdca2YsfwYCmGMRlcii8IHkd7G9AqDo/FR6BF2JxG+ezfcO4/Eq2CHvW3S0eHhkOOscWB0LMpQk42JjlUDzu4wuKc5ztMMW+OYxkc9Tq2dQW1pIZ/alLKQ1nkgWZQe+p24iw4pHSy4urBujB64vHIQ8rqSzr+HWUE+bipM7cKM1e/4+FtB/jpM7VGlnML8gp6uYiKY9bQxz2XP+sXCOmTDtzFx/nQEg+OTaxiPx4fDEdccrsoV6o3SFveMgLGrGKzXjsOXPc7zulH7sej/zqK/7Ze4AB3UCqVm44cm4bltieJClXuH564r6tuiu0Rw58NAz89zdPTJqtWKj7823DxMvtwl4gGt5KTF31ZJt+TnPiqXji9yMVmgci/3/JvPOLhuk9QQ/i+3/3vNeE/Lvb91hMlHTITgX0Qi0DRqmt7GVr+D2FmCrzGOs4xq/4ewdxtdLpcZkYh5+xsDB72YCIuPPGvgI0vDP5+FYA2NKp89C4W6aLBg2EiT//0HCKqdvQ==
+sidebar_class_name: "post api-method"
+info_path: docs/api-reference/rest/last-mile-delivery-api
+custom_edit_url: null
+hide_send_button: true
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+import Translate from "@docusaurus/Translate";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"Cancel a wave (CancelWave)"}
+>
+</Heading>
+
+<MethodEndpoint
+  method={"post"}
+  path={"/waves/{waveId}:cancel"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+
+
+OPEN to CANCELLED, publishes DeliveryWaveCancelled (an integration event, Gap Register G5). Every package inducted in the wave is re-inducted onto the next eligible wave in the same transaction (Gap Register G17); a package with no eligible wave is deferred (PackageInductionDeferred).
+
+<Heading
+  id={"request"}
+  as={"h2"}
+  className={"openapi-tabs__heading"}
+>
+  <Translate id="theme.openapi.request.title">Request</Translate>
+</Heading>
+
+<ParamsDetails
+  {...require("./cancel-wave.ParamsDetails.json")}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  {...require("./cancel-wave.RequestSchema.json")}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  {...require("./cancel-wave.StatusCodes.json")}
+>
+  
+</StatusCodes>
+
+
+      

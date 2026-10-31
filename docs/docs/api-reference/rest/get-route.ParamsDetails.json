@@ -1,0 +1,1 @@
+{"parameters":[{"name":"routeId","in":"path","required":true,"schema":{"type":"string"}}]}
