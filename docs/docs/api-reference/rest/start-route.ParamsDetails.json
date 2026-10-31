@@ -1,0 +1,1 @@
+{"parameters":[{"name":"routeId","in":"path","required":true,"schema":{"type":"string"}},{"name":"Idempotency-Key","in":"header","required":true,"description":"Client-chosen key; a repeated request with the same key on the same route returns the stored response and changes nothing. Keys are kept 24 hours.","schema":{"type":"string","minLength":1,"maxLength":200}}]}
