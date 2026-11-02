@@ -41,6 +41,8 @@ type WaveStop struct {
 	StopKey                 string
 	DestinationPostalPrefix string
 	TrackingNumbers         []string
+	// FirstInductedAt is the keyset sort key of a page of stops (with StopKey).
+	FirstInductedAt time.Time
 }
 
 // Stop is one stop of a route with its derived outcome (empty until decided).

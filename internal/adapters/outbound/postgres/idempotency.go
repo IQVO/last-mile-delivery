@@ -8,68 +8,77 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/claudioed/last-mile-delivery/internal/adapters/outbound/postgres/pgtx"
+	"github.com/claudioed/last-mile-delivery/internal/application/idempotency"
 )
 
+// httpServerError is the first status that is never stored (a 5xx).
+const httpServerError = 500
+
 // IdempotencyStore is the Postgres idempotency_keys store (24 h) of the
-// Idempotency-Key middleware. Run holds a transaction-level advisory lock on
-// (scope, key) for the whole request, in a connection of its own: a concurrent
-// request with the same key waits for the first one and then replays its stored
-// response, so a key never runs twice. Only 2xx responses are stored.
-type IdempotencyStore struct {
-	pool   *pgxpool.Pool
-	reused error
+// Idempotency-Key middleware. Do takes a transaction-level advisory lock on the
+// key and runs fn inside that same transaction (carried in the ctx fn gets), so
+// the key row, the aggregate change and the outbox rows commit together; a
+// concurrent request with the same key waits and then replays the stored
+// answer. A 4xx is stored, a 5xx or a panic rolls back and is never stored.
+type IdempotencyStore struct{ pool *pgxpool.Pool }
+
+var _ idempotency.Store = (*IdempotencyStore)(nil)
+
+// NewIdempotencyStore builds the store.
+func NewIdempotencyStore(pool *pgxpool.Pool) *IdempotencyStore {
+	return &IdempotencyStore{pool: pool}
 }
 
-// NewIdempotencyStore builds the store; reused is returned for a key stored
-// with another request hash (the HTTP adapter's ErrKeyReused).
-func NewIdempotencyStore(pool *pgxpool.Pool, reused error) *IdempotencyStore {
-	return &IdempotencyStore{pool: pool, reused: reused}
-}
-
-func lockID(scope, key string) int64 {
+func lockID(key string) int64 {
 	h := fnv.New64a()
-	_, _ = h.Write([]byte(scope))
-	_, _ = h.Write([]byte{0})
 	_, _ = h.Write([]byte(key))
 	return int64(h.Sum64()) //nolint:gosec // the 64 bits are only a lock key: wrapping to negative is fine
 }
 
-// Run implements the HTTP adapter's IdempotencyStore.
-func (s *IdempotencyStore) Run(ctx context.Context, scope, key, hash string, fn func(context.Context) (int, []byte)) (int, []byte, bool, error) {
+// Do implements idempotency.Store.
+func (s *IdempotencyStore) Do(ctx context.Context, key, hash string, fn func(context.Context) (idempotency.Record, error)) (idempotency.Record, bool, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return 0, nil, false, fmt.Errorf("idempotency begin: %w", err)
+		return idempotency.Record{}, false, fmt.Errorf("idempotency begin: %w", err)
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, lockID(scope, key)); err != nil {
-		return 0, nil, false, fmt.Errorf("idempotency lock: %w", err)
+	// A rollback after Commit is a harmless no-op; it also covers a panic in fn.
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, lockID(key)); err != nil {
+		return idempotency.Record{}, false, fmt.Errorf("idempotency lock: %w", err)
 	}
-	var storedHash string
-	var status int
-	var body []byte
-	err = tx.QueryRow(ctx, `SELECT request_hash, response_status, response_body FROM idempotency_keys
-		WHERE route = $1 AND idempotency_key = $2 AND created_at > now() - interval '24 hours'`, scope, key).Scan(&storedHash, &status, &body)
+	var rec idempotency.Record
+	err = tx.QueryRow(ctx, `SELECT request_hash, response_status, content_type, response_body FROM idempotency_keys
+		WHERE idempotency_key = $1 AND created_at > now() - interval '24 hours'`, key).
+		Scan(&rec.RequestHash, &rec.Status, &rec.ContentType, &rec.Body)
 	switch {
 	case err == nil:
-		if storedHash != hash {
-			return 0, nil, false, s.reused
-		}
-		return status, body, true, nil
+		return rec, true, nil
 	case !errors.Is(err, pgx.ErrNoRows):
-		return 0, nil, false, fmt.Errorf("idempotency lookup: %w", err)
+		return idempotency.Record{}, false, fmt.Errorf("idempotency lookup: %w", err)
 	}
-	status, body = fn(ctx)
-	if status >= 200 && status < 300 {
-		if _, err := tx.Exec(ctx, `INSERT INTO idempotency_keys (route, idempotency_key, request_hash, response_status, response_body)
-			VALUES ($1, $2, $3, $4, $5)
-			ON CONFLICT (route, idempotency_key) DO UPDATE SET request_hash = EXCLUDED.request_hash,
-				response_status = EXCLUDED.response_status, response_body = EXCLUDED.response_body, created_at = now()`,
-			scope, key, hash, status, body); err != nil {
-			return 0, nil, false, fmt.Errorf("idempotency store: %w", err)
-		}
+	if rec, err = fn(pgtx.With(ctx, tx)); err != nil {
+		return idempotency.Record{}, false, err
+	}
+	if rec.Status >= httpServerError {
+		return rec, false, nil
+	}
+	body := rec.Body
+	if body == nil {
+		body = []byte{}
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO idempotency_keys (idempotency_key, request_hash, response_status, content_type, response_body)
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (idempotency_key) DO UPDATE SET request_hash = EXCLUDED.request_hash,
+			response_status = EXCLUDED.response_status, content_type = EXCLUDED.content_type,
+			response_body = EXCLUDED.response_body, created_at = now()`,
+		key, hash, rec.Status, rec.ContentType, body); err != nil {
+		return idempotency.Record{}, false, fmt.Errorf("idempotency store: %w", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return 0, nil, false, fmt.Errorf("idempotency commit: %w", err)
+		return idempotency.Record{}, false, fmt.Errorf("idempotency commit: %w", err)
 	}
-	return status, body, false, nil
+	rec.RequestHash = hash
+	return rec, false, nil
 }

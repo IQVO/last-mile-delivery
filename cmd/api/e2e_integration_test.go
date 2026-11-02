@@ -135,7 +135,7 @@ func TestADeliveryDayOverRealPostgresAndKafka(t *testing.T) {
 	})
 
 	// 3. the day runs through REST
-	for _, step := range []struct{ path, body string }{{"/waves/" + waveID + ":close-induction", ""}} {
+	for _, step := range []struct{ path, body string }{{"/waves/" + waveID + "/induction-closures", ""}} {
 		if code, b := c.call("POST", step.path, step.body); code != 200 {
 			t.Fatalf("%s = %d %v", step.path, code, b)
 		}
@@ -145,7 +145,7 @@ func TestADeliveryDayOverRealPostgresAndKafka(t *testing.T) {
 	if code != http.StatusCreated {
 		t.Fatalf("plan = %d %v", code, rt)
 	}
-	for _, path := range []string{"/waves/" + waveID + ":dispatch", "/routes/" + routeID + ":start"} {
+	for _, path := range []string{"/waves/" + waveID + "/dispatches", "/routes/" + routeID + "/starts"} {
 		if code, b := c.call("POST", path, ""); code != 200 {
 			t.Fatalf("%s = %d %v", path, code, b)
 		}
@@ -168,8 +168,8 @@ func TestADeliveryDayOverRealPostgresAndKafka(t *testing.T) {
 	req2.Header.Set("Idempotency-Key", "same-key")
 	second, _ := http.DefaultClient.Do(req2)
 	_ = second.Body.Close()
-	if first.StatusCode != 201 || second.StatusCode != 201 || second.Header.Get("Idempotent-Replayed") != "true" {
-		t.Fatalf("replay: %d then %d (replayed %q)", first.StatusCode, second.StatusCode, second.Header.Get("Idempotent-Replayed"))
+	if first.StatusCode != 201 || second.StatusCode != 201 || second.Header.Get("Idempotency-Replayed") != "true" {
+		t.Fatalf("replay: %d then %d (replayed %q)", first.StatusCode, second.StatusCode, second.Header.Get("Idempotency-Replayed"))
 	}
 	var partners int
 	if err := pool.QueryRow(ctx, `SELECT count(*) FROM delivery_service_partners`).Scan(&partners); err != nil || partners != 2 {

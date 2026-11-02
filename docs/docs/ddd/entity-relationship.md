@@ -165,6 +165,6 @@ Source: same migration.
 
 - `outbox_events` is the transactional outbox. `event_id` is the CloudEvents id minted at encode time, so a relay retry republishes the same id; `(event_id, topic)` is unique; the partial index `idx_outbox_events_unpublished` on `id WHERE published_at IS NULL` serves the relay's claim; `attempts` and `last_error` carry the failure count the attempt cap reads.
 - `processed_events` is the inbox: the consumer claims the CloudEvents id with `INSERT ... ON CONFLICT DO NOTHING` in the same transaction as the effect, so a rollback un-claims it.
-- `idempotency_keys` holds the `Idempotency-Key` middleware's stored 2xx responses, keyed by `(route, key)` where `route` is `METHOD path`; rows older than 24 hours are ignored by the lookup (there is no purge job).
+- `idempotency_keys` holds the `Idempotency-Key` middleware's stored 2xx and 4xx answers (status, content type, body), keyed by the key alone (global; the request hash decides replay or 409); rows older than 24 hours are ignored by the lookup (there is no purge job).
 
 Down migration: `0001_last_mile_delivery_schema.down.sql` in the same directory.

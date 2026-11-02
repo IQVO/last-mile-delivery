@@ -24,7 +24,7 @@ sequenceDiagram
     HTTP->>DB: lock and look up key
     alt key stored with the same body
         DB-->>HTTP: stored 201 response
-        HTTP-->>SP: 201 replay with Idempotent-Replayed true
+        HTTP-->>SP: 201 replay with Idempotency-Replayed true
     else new key
         HTTP->>UC: Execute(command)
         UC->>DB: begin, read rm_stations
@@ -101,9 +101,9 @@ sequenceDiagram
         UC->>DB: insert route PLANNED, append RoutePlanned (analytics topic)
         HTTP-->>SP: 201 route
     end
-    SP->>HTTP: POST /waves/{id}:dispatch
+    SP->>HTTP: POST /waves/{id}/dispatches
     Note over HTTP,DB: wave DISPATCHED, packages held by no route are re-inducted
-    Driver->>HTTP: POST /routes/{id}:start
+    Driver->>HTTP: POST /routes/{id}/starts
     HTTP->>UC: StartRoute
     UC->>DB: read route and its wave
     alt wave not DISPATCHED or route not PLANNED
@@ -162,7 +162,7 @@ sequenceDiagram
     participant HTTP
     participant UC as CancelWave
     participant DB as Postgres
-    SP->>HTTP: POST /waves/{id}:cancel (reason)
+    SP->>HTTP: POST /waves/{id}/cancellations (reason)
     HTTP->>UC: Execute
     UC->>DB: load wave
     alt wave is not OPEN

@@ -53,6 +53,9 @@ func TestGetWaveStopsGroupsByStopKey(t *testing.T) {
 	e.arrive(t, "ev-1", "TRK-1", "TRK-3", "TRK-2", "TRK-4") // TRK-4 has no label data
 	got, err := usecases.NewGetWaveStops(e.deps).Execute(context.Background(), "wave-1")
 	noErr(t, err)
+	for i := range got {
+		got[i].FirstInductedAt = time.Time{} // the keyset sort key, covered by the paging tests
+	}
 	want := []views.WaveStop{
 		{StopKey: "k-a", DestinationPostalPrefix: "01310", TrackingNumbers: []string{"TRK-1", "TRK-2"}},
 		{StopKey: "k-b", DestinationPostalPrefix: "01310", TrackingNumbers: []string{"TRK-3"}},

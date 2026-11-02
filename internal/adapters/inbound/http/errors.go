@@ -29,7 +29,11 @@ var internalProblem = problem{http.StatusInternalServerError, "internal-error", 
 
 var (
 	idempotencyKeyRequired = problem{http.StatusBadRequest, "idempotency-key-required", "Idempotency-Key header is required"}
-	idempotencyKeyReused   = problem{http.StatusUnprocessableEntity, "idempotency-key-reused", "Idempotency-Key was already used with a different request"}
+	idempotencyKeyInvalid  = problem{http.StatusBadRequest, "idempotency-key-invalid", "Idempotency-Key header is invalid"}
+	idempotencyKeyReused   = problem{http.StatusConflict, "idempotency-key-reused", "Idempotency-Key was already used with a different request"}
+	invalidLimit           = problem{http.StatusBadRequest, "invalid-limit", "The limit is invalid"}
+	invalidCursor          = problem{http.StatusBadRequest, "invalid-cursor", "The cursor is invalid"}
+	unknownQueryParameter  = problem{http.StatusBadRequest, "unknown-query-parameter", "The query parameter is not declared by this collection"}
 	validationFailed       = problem{http.StatusUnprocessableEntity, "validation-failed", "Validation failed"}
 )
 

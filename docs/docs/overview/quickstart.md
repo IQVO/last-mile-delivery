@@ -91,7 +91,7 @@ docker exec lmd-pg psql -U postgres -d last_mile_delivery -c "INSERT INTO rm_sta
 
 ## First calls
 
-Schedule a wave (state-changing calls need an `Idempotency-Key` of 1 to 200 characters; without one the answer is `400 idempotency-key-required`):
+Schedule a wave (state-changing calls need an `Idempotency-Key` of 1 to 128 printable ASCII characters; without one the answer is `400 idempotency-key-required`):
 
 ```sh
 curl -i -X POST localhost:8080/waves -H "Content-Type: application/json" -H "Idempotency-Key: quickstart-wave-1" \

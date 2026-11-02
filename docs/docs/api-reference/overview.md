@@ -24,22 +24,23 @@ sidebar_position: 1
 | Waves | `POST /waves` | `scheduleWave` | `201`, the wave `OPEN`; `Idempotency-Key` required |
 | Waves | `GET /waves?stationNodeId=&serviceDate=` | `listWaves` | `200 {items}` ordered by `inductCutoffAt`; an empty list when none |
 | Waves | `GET /waves/{waveId}/stops` | `getWaveStops` | `200 {items}`, packages grouped by `stopKey` |
-| Waves | `POST /waves/{waveId}:close-induction` | `closeInduction` | `200`, the wave `INDUCTION_CLOSED` |
-| Waves | `POST /waves/{waveId}:dispatch` | `dispatchWave` | `200`, the wave `DISPATCHED` (or `COMPLETED` when it has no route to run) |
-| Waves | `POST /waves/{waveId}:cancel` | `cancelWave` | `200`, the wave `CANCELLED`, its packages re-inducted; body `{reason}` |
+| Waves | `POST /waves/{waveId}/induction-closures` | `closeInduction` | `200`, the wave `INDUCTION_CLOSED` |
+| Waves | `POST /waves/{waveId}/dispatches` | `dispatchWave` | `200`, the wave `DISPATCHED` (or `COMPLETED` when it has no route to run) |
+| Waves | `POST /waves/{waveId}/cancellations` | `cancelWave` | `200`, the wave `CANCELLED`, its packages re-inducted; body `{reason}` |
 | Routes | `POST /routes` | `planRoute` | `201`, the route `PLANNED`; body `{waveId, dspId, stops[{stopNo, trackingNumbers[]}]}` |
 | Routes | `GET /routes/{routeId}` | `getRoute` | `200`, stops with derived outcome and every attempt |
-| Routes | `POST /routes/{routeId}:start` | `startRoute` | `200`, the route `OUT_FOR_DELIVERY` |
+| Routes | `POST /routes/{routeId}/starts` | `startRoute` | `200`, the route `OUT_FOR_DELIVERY` |
 | Routes | `POST /routes/{routeId}/attempts` | `recordAttempt` | `201`, the attempt; body `{trackingNumber, outcome, failureReason?, at}` |
 | Partners | `POST /partners` | `contractPartner` | `201`, the partner `ACTIVE`; body `{stationNodeId, vanCapacity}` |
-| Partners | `POST /partners/{dspId}:deactivate` | `deactivatePartner` | `200`, the partner `INACTIVE` |
+| Partners | `POST /partners/{dspId}/deactivations` | `deactivatePartner` | `200`, the partner `INACTIVE` |
 | Health | `GET /healthz`, `GET /readyz` | none (not in the spec) | `200`; `/readyz` is `503` while draining or when Postgres or Kafka is unreachable |
 
 Source: `internal/adapters/inbound/http/server.go`, `handlers.go`, `dto.go`.
 
 ## Conventions in the contract
 
-- **`Idempotency-Key`.** Required on every state-changing `POST` (the nine in the table above). Header of 1 to 200 characters; missing or longer is `400 idempotency-key-required`. The scope is `METHOD path`, so a key is valid only on the resource it was first used on. The same key with a different body is `422 idempotency-key-reused`; an equal request within 24 hours replays the stored 2xx response with the header `Idempotent-Replayed: true`. Concurrent calls with one key are serialised by a Postgres advisory lock. Only 2xx responses are stored. Table `idempotency_keys`.
+- **`Idempotency-Key`.** Required on every state-changing `POST` (the nine in the table above). Header of 1 to 128 printable ASCII characters; missing is `400 idempotency-key-required`, malformed or longer is `400 idempotency-key-invalid`. The key is global: the fingerprint is method + path + SHA-256 of the body. The same key with another method, path or body is `409 idempotency-key-reused`; an equal request within 24 hours replays the stored answer with the header `Idempotency-Replayed: true`. Concurrent calls with one key are serialised by a Postgres advisory lock, and the key row commits in the same transaction as the aggregate and its outbox rows. 2xx and 4xx answers are stored; a 5xx is not. Table `idempotency_keys`.
+- **Paging.** `GET /waves` and `GET /waves/{waveId}/stops` take `limit` (1 to 500, default 100) and `cursor` and answer `{items, nextCursor}` (`nextCursor` is absent on the last page). `400 invalid-limit`, `400 invalid-cursor`, and `400 unknown-query-parameter` for any parameter the collection does not declare.
 - **Errors** are RFC 9457 `application/problem+json` with `type` = the slug, `title`, `status`, `detail`, `instance`. Shared slugs: `not-found`, `illegal-transition`, `concurrent-update`, `validation-failed`, `internal-error`, plus one kebab-case slug per domain error (`wave-full`, `induction-closed`, `already-inducted`, `invalid-wave-times`, `invalid-van-capacity`, `unknown-station`, `route-over-capacity`, `route-not-started`, `already-delivered`, `attempt-already-recorded`, `package-not-on-route`, `package-not-inducted`, `package-already-routed`, `stop-key-mismatch`, `partner-inactive`, `partner-station-mismatch`, `route-incomplete`) and the idempotency slugs. The full mapping with status codes is on [Use cases](/docs/ddd/use-cases#error-mapping); remedies are on [Troubleshooting](/docs/operations/troubleshooting).
 - **NUL bytes.** A NUL in the path is `404`; in the query or body it is `422 validation-failed`.
 - **Body limit.** 64 KiB per request.
