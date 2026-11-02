@@ -112,7 +112,7 @@ func replay(w http.ResponseWriter, r *http.Request, rec idempotency.Record, hash
 	}
 	w.Header().Set(ReplayedHeader, "true")
 	w.WriteHeader(rec.Status)
-	_, _ = w.Write(rec.Body) //nolint:gosec // a body this adapter produced and stored, not user markup
+	_, _ = w.Write(rec.Body)
 }
 
 // capture records the handler's response so it is stored before anything
@@ -153,5 +153,5 @@ func (c *capture) flushTo(w http.ResponseWriter) {
 		}
 	}
 	w.WriteHeader(c.code)
-	_, _ = w.Write(c.body.Bytes()) //nolint:gosec // a JSON body this adapter produced, not user markup
+	_, _ = w.Write(c.body.Bytes())
 }

@@ -21,12 +21,12 @@ var inboxCases = []named{
 }
 
 func stationCase(t *testing.T, f Fixture) {
-	_, err := f.Stations.Get(ctxb(), "node-ds-01")
+	_, err := f.Stations.Get(ctxb(), station1)
 	wantErr(t, err, ports.ErrNotFound)
-	first := views.Station{NodeID: "node-ds-01", NodeType: views.DeliveryStation, RegionID: "region-se", Timezone: "America/Sao_Paulo"}
+	first := views.Station{NodeID: station1, NodeType: views.DeliveryStation, RegionID: "region-se", Timezone: "America/Sao_Paulo"}
 	noErr(t, f.Stations.Save(ctxb(), first))
-	noErr(t, f.Stations.Save(ctxb(), views.Station{NodeID: "node-ds-01", NodeType: views.DeliveryStation, RegionID: "region-x", Timezone: "UTC"}))
-	got, err := f.Stations.Get(ctxb(), "node-ds-01")
+	noErr(t, f.Stations.Save(ctxb(), views.Station{NodeID: station1, NodeType: views.DeliveryStation, RegionID: "region-x", Timezone: "UTC"}))
+	got, err := f.Stations.Get(ctxb(), station1)
 	noErr(t, err)
 	if got != first {
 		t.Fatalf("station = %+v, want the first save %+v", got, first)
@@ -41,59 +41,59 @@ func serviceAreaCase(t *testing.T, f Fixture) {
 		noErr(t, err)
 		return applied
 	}
-	if !save("node-ds-01", 2) {
+	if !save(station1, 2) {
 		t.Fatal("the first assignment must be applied")
 	}
-	if save("node-ds-02", 1) || save("node-ds-02", 2) {
+	if save(station2, 1) || save(station2, 2) {
 		t.Fatal("a lower or equal version must not be applied")
 	}
 	got, err := f.ServiceAreas.Get(ctxb(), "01310")
 	noErr(t, err)
-	if got.StationNodeID != "node-ds-01" || got.AssignmentVersion != 2 {
+	if got.StationNodeID != station1 || got.AssignmentVersion != 2 {
 		t.Fatalf("area = %+v", got)
 	}
-	if !save("node-ds-02", 3) {
+	if !save(station2, 3) {
 		t.Fatal("a higher version must be applied")
 	}
 	got, err = f.ServiceAreas.Get(ctxb(), "01310")
 	noErr(t, err)
-	if got.StationNodeID != "node-ds-02" || got.AssignmentVersion != 3 {
+	if got.StationNodeID != station2 || got.AssignmentVersion != 3 {
 		t.Fatalf("area = %+v", got)
 	}
 }
 
 func packageStopCase(t *testing.T, f Fixture) {
-	_, err := f.PackageStops.Get(ctxb(), "TRK-1")
+	_, err := f.PackageStops.Get(ctxb(), trk1)
 	wantErr(t, err, ports.ErrNotFound)
-	first := views.PackageStop{TrackingNumber: "TRK-1", StopKey: "k-a", DestinationPostalPrefix: "01310", AssignmentID: "asg-1"}
+	first := views.PackageStop{TrackingNumber: trk1, StopKey: stopKeyA, DestinationPostalPrefix: "01310", AssignmentID: "asg-1"}
 	noErr(t, f.PackageStops.Save(ctxb(), first))
-	noErr(t, f.PackageStops.Save(ctxb(), views.PackageStop{TrackingNumber: "TRK-1", StopKey: "k-b"}))
-	got, err := f.PackageStops.Get(ctxb(), "TRK-1")
+	noErr(t, f.PackageStops.Save(ctxb(), views.PackageStop{TrackingNumber: trk1, StopKey: stopKeyB}))
+	got, err := f.PackageStops.Get(ctxb(), trk1)
 	noErr(t, err)
 	if got != first {
 		t.Fatalf("package stop = %+v, want %+v", got, first)
 	}
-	noErr(t, f.PackageStops.Save(ctxb(), views.PackageStop{TrackingNumber: "TRK-2", StopKey: "k-c"}))
-	got, err = f.PackageStops.Get(ctxb(), "TRK-2")
+	noErr(t, f.PackageStops.Save(ctxb(), views.PackageStop{TrackingNumber: trk2, StopKey: stopKeyC}))
+	got, err = f.PackageStops.Get(ctxb(), trk2)
 	noErr(t, err)
-	if got.StopKey != "k-c" || got.DestinationPostalPrefix != "" || got.AssignmentID != "" {
+	if got.StopKey != stopKeyC || got.DestinationPostalPrefix != "" || got.AssignmentID != "" {
 		t.Fatalf("optional fields must round-trip empty: %+v", got)
 	}
 }
 
 func inboundCase(t *testing.T, f Fixture) {
-	_, err := f.Inbound.Get(ctxb(), "load-1", "TRK-1")
+	_, err := f.Inbound.Get(ctxb(), "load-1", trk1)
 	wantErr(t, err, ports.ErrNotFound)
-	first := views.InboundPackage{LoadID: "load-1", TrackingNumber: "TRK-1", DepartureID: "dep-1", StationNodeID: "node-ds-01", ArrivedAt: Now}
+	first := views.InboundPackage{LoadID: "load-1", TrackingNumber: trk1, DepartureID: "dep-1", StationNodeID: station1, ArrivedAt: Now}
 	noErr(t, f.Inbound.Save(ctxb(), first))
-	noErr(t, f.Inbound.Save(ctxb(), views.InboundPackage{LoadID: "load-1", TrackingNumber: "TRK-1", DepartureID: "dep-2", StationNodeID: "node-ds-02", ArrivedAt: Now.Add(1)}))
-	got, err := f.Inbound.Get(ctxb(), "load-1", "TRK-1")
+	noErr(t, f.Inbound.Save(ctxb(), views.InboundPackage{LoadID: "load-1", TrackingNumber: trk1, DepartureID: "dep-2", StationNodeID: station2, ArrivedAt: Now.Add(1)}))
+	got, err := f.Inbound.Get(ctxb(), "load-1", trk1)
 	noErr(t, err)
-	if got.DepartureID != "dep-1" || !got.ArrivedAt.Equal(Now) || got.StationNodeID != "node-ds-01" {
+	if got.DepartureID != "dep-1" || !got.ArrivedAt.Equal(Now) || got.StationNodeID != station1 {
 		t.Fatalf("inbound = %+v, want the first save", got)
 	}
-	noErr(t, f.Inbound.Save(ctxb(), views.InboundPackage{LoadID: "load-2", TrackingNumber: "TRK-1", StationNodeID: "node-ds-01", ArrivedAt: Now}))
-	if _, err := f.Inbound.Get(ctxb(), "load-2", "TRK-1"); err != nil {
+	noErr(t, f.Inbound.Save(ctxb(), views.InboundPackage{LoadID: "load-2", TrackingNumber: trk1, StationNodeID: station1, ArrivedAt: Now}))
+	if _, err := f.Inbound.Get(ctxb(), "load-2", trk1); err != nil {
 		t.Fatalf("the same package in another load is a new arrival: %v", err)
 	}
 }

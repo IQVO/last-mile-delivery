@@ -194,7 +194,7 @@ func (w *world) assertRefused(want string) error {
 		return fmt.Errorf("the request succeeded, want it refused with %q", want)
 	}
 	if !strings.Contains(strings.ToLower(w.err.Error()), want) {
-		return fmt.Errorf("the request was refused with %q, want %q", w.err, want)
+		return fmt.Errorf("the request was refused with %w, want %q", w.err, want)
 	}
 	return nil
 }

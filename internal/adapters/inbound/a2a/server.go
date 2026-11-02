@@ -77,8 +77,8 @@ func Card(cfg Config) *a2a.AgentCard {
 		SupportedInterfaces: []*a2a.AgentInterface{
 			a2a.NewAgentInterface(cfg.AgentURL, a2a.TransportProtocolJSONRPC),
 		},
-		DefaultInputModes:  []string{"application/json", "text/plain"},
-		DefaultOutputModes: []string{"application/json", "text/plain"},
+		DefaultInputModes:  []string{mediaTypeJSON, "text/plain"},
+		DefaultOutputModes: []string{mediaTypeJSON, "text/plain"},
 		Capabilities:       a2a.AgentCapabilities{Streaming: false},
 		Skills: []a2a.AgentSkill{
 			{
@@ -86,7 +86,7 @@ func Card(cfg Config) *a2a.AgentCard {
 				Name:        "List a station's delivery waves for a day",
 				Description: "Read the delivery waves of one station on one service date, ordered by inductCutoffAt: state (OPEN, INDUCTION_CLOSED, DISPATCHED, COMPLETED or CANCELLED), the induct cutoff and delivery window, the stop capacity with assignedStops and remainingStops, and cancelReason on a cancelled wave. A station and date with no wave is an empty list. A station id or serviceDate that is not YYYY-MM-DD answers a 422 validation-failed problem. Persists nothing.",
 				Tags:        []string{"delivery-wave", "station", "read"},
-				InputModes:  []string{"application/json"},
+				InputModes:  []string{mediaTypeJSON},
 				Examples: []string{
 					`{"skill":"list_waves","arguments":{"stationNodeId":"node-ds-01","serviceDate":"2026-10-24"}}`,
 				},
@@ -96,7 +96,7 @@ func Card(cfg Config) *a2a.AgentCard {
 				Name:        "Look up where one route stands",
 				Description: "Read one route of a delivery service partner: its state (PLANNED, OUT_FOR_DELIVERY or COMPLETED), its numbered stops with the trackingNumbers of each and the outcome derived from the per-package attempts (omitted until every package of the stop has one), and every recorded attempt (trackingNumber, DELIVERED or FAILED, failureReason, at). Answers a 404 not-found problem when no route has that id. Persists nothing.",
 				Tags:        []string{"route", "delivery-attempt", "read"},
-				InputModes:  []string{"application/json"},
+				InputModes:  []string{mediaTypeJSON},
 				Examples: []string{
 					`{"skill":"get_route","arguments":{"routeId":"route-1"}}`,
 				},

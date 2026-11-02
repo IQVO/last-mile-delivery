@@ -2,6 +2,7 @@ package kafka_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -152,7 +153,7 @@ func TestPoisonMessagesGoToTheDeadLetterTopicAtOnce(t *testing.T) {
 	c.DLQ = dlq
 	bad := [][]byte{[]byte(`<<<`), envelope("e2", kafkaconsumer.TypeNodeRegistered, `{"nodeId":7}`), []byte(`{"hello":"world"}`)}
 	reader := newFakeReader(bad...)
-	if err := runUntilCommits(t, c, reader, len(bad)); err != context.Canceled {
+	if err := runUntilCommits(t, c, reader, len(bad)); !errors.Is(err, context.Canceled) {
 		t.Fatalf("Run = %v", err)
 	}
 	got := dlq.published()
@@ -173,7 +174,7 @@ func TestRunCommitsAfterTheEffectAndRetriesTransientFailures(t *testing.T) {
 		envelope("e1", kafkaconsumer.TypeLabelIssued, `{"trackingNumber":"TRK-1","stopKey":"k1:a"}`),
 		envelope("e2", kafkaconsumer.TypeLabelIssued, `{"trackingNumber":"TRK-2","stopKey":"k1:b"}`),
 	)
-	if err := runUntilCommits(t, c, reader, 2); err != context.Canceled {
+	if err := runUntilCommits(t, c, reader, 2); !errors.Is(err, context.Canceled) {
 		t.Fatalf("Run = %v", err)
 	}
 	if n := s.store.Counts().PackageStops; n != 2 {
