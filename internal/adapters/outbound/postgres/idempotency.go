@@ -16,6 +16,9 @@ import (
 // httpServerError is the first status that is never stored (a 5xx).
 const httpServerError = 500
 
+// httpClientError is the first status that is an error answer (a 4xx).
+const httpClientError = 400
+
 // IdempotencyStore is the Postgres idempotency_keys store (24 h) of the
 // Idempotency-Key middleware. Do takes a transaction-level advisory lock on the
 // key and runs fn inside that same transaction (carried in the ctx fn gets), so
@@ -35,6 +38,34 @@ func lockID(key string) int64 {
 	h := fnv.New64a()
 	_, _ = h.Write([]byte(key))
 	return int64(h.Sum64()) //nolint:gosec // the 64 bits are only a lock key: wrapping to negative is fine
+}
+
+// healAbortedHandler releases the handler_run savepoint fn ran behind.
+//
+// A mapped domain conflict (a lost race on a unique index, 23505 -> 409) fails
+// a statement on the server and leaves the shared transaction ABORTED even
+// though the handler answers a truthful 4xx; storing that answer would then hit
+// SQLSTATE 25P02 and the client would see a 500. The release fails in that
+// case: ROLLBACK TO SAVEPOINT discards only the handler's partial writes and
+// heals the transaction, so the 4xx is stored and committed like any other. A
+// success answer (status < 400) over an aborted transaction is a lie, its
+// writes are gone: it is returned as an error, the deferred rollback drops
+// everything and the same key retries the real work.
+func healAbortedHandler(ctx context.Context, tx pgx.Tx, status int) error {
+	releaseErr := func() error {
+		_, err := tx.Exec(ctx, `RELEASE SAVEPOINT handler_run`)
+		return err
+	}()
+	if releaseErr == nil {
+		return nil
+	}
+	if _, err := tx.Exec(ctx, `ROLLBACK TO SAVEPOINT handler_run`); err != nil {
+		return fmt.Errorf("idempotency heal: %w", errors.Join(releaseErr, err))
+	}
+	if status < httpClientError {
+		return fmt.Errorf("idempotency: a %d answer over an aborted transaction is not stored: %w", status, releaseErr)
+	}
+	return nil
 }
 
 // Do implements idempotency.Store.
@@ -58,11 +89,17 @@ func (s *IdempotencyStore) Do(ctx context.Context, key, hash string, fn func(con
 	case !errors.Is(err, pgx.ErrNoRows):
 		return idempotency.Record{}, false, fmt.Errorf("idempotency lookup: %w", err)
 	}
+	if _, err := tx.Exec(ctx, `SAVEPOINT handler_run`); err != nil {
+		return idempotency.Record{}, false, fmt.Errorf("idempotency savepoint: %w", err)
+	}
 	if rec, err = fn(pgtx.With(ctx, tx)); err != nil {
 		return idempotency.Record{}, false, err
 	}
 	if rec.Status >= httpServerError {
 		return rec, false, nil
+	}
+	if err := healAbortedHandler(ctx, tx, rec.Status); err != nil {
+		return idempotency.Record{}, false, err
 	}
 	body := rec.Body
 	if body == nil {
