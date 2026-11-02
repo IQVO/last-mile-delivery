@@ -30,7 +30,15 @@ info:
     the `type` is a slug. The shared slugs are `not-found` (404),
     `illegal-transition` (409), `concurrent-update` (409) and
     `validation-failed` (422), plus one slug per model Err name (kebab-case
-    without the `Err` prefix). The first eight operations of this file are the
+    without the `Err` prefix). Request bodies are decoded strictly (unknown
+    fields, an empty body, trailing data and a body over 64 KiB are 422
+    `validation-failed`); a NUL character (U+0000) in the query string or a
+    body is 422 `validation-failed`, in the path it is 404
+    `resource-not-found`. A path no route serves is 404 `resource-not-found`,
+    a method a path does not serve is 405 `method-not-allowed` (problem+json),
+    and an unmapped failure is an opaque 500 `internal-error` (never stored for
+    replay; every 4xx answer is). Every problem body carries `type`, `title`,
+    `status`, `detail` and `instance`. The first eight operations of this file are the
     model's REST list; `getWaveStops`, `cancelWave`, `getRoute` and
     `deactivatePartner` are the additions of Gap Register G11, G17 and G34
     (ADR 0002).
@@ -80,6 +88,8 @@ paths:
           $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
     get:
       tags: [Waves]
       operationId: listWaves
@@ -115,6 +125,8 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '422':
           $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /waves/{waveId}/stops:
     get:
       tags: [Waves]
@@ -140,6 +152,10 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /waves/{waveId}/induction-closures:
     post:
       tags: [Waves]
@@ -165,6 +181,10 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /waves/{waveId}/dispatches:
     post:
       tags: [Waves]
@@ -195,6 +215,10 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /waves/{waveId}/cancellations:
     post:
       tags: [Waves]
@@ -233,6 +257,8 @@ paths:
           $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /routes:
     post:
       tags: [Routes]
@@ -272,6 +298,8 @@ paths:
           $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /routes/{routeId}:
     get:
       tags: [Routes]
@@ -289,6 +317,10 @@ paths:
                 $ref: '#/components/schemas/Route'
         '404':
           $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /routes/{routeId}/starts:
     post:
       tags: [Routes]
@@ -317,6 +349,10 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /routes/{routeId}/attempts:
     post:
       tags: [Routes]
@@ -358,6 +394,8 @@ paths:
           $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /partners:
     post:
       tags: [Partners]
@@ -391,6 +429,8 @@ paths:
           $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /partners/{dspId}/deactivations:
     post:
       tags: [Partners]
@@ -484,6 +524,8 @@ components:
         `idempotency-key-required` (no Idempotency-Key header),
         `idempotency-key-invalid` (not 1 to 128 printable ASCII characters),
         `invalid-limit`, `invalid-cursor`, `unknown-query-parameter`.
+        `invalid-limit` is a limit outside 1 to 500, empty or repeated;
+        `invalid-cursor` a cursor that is not a page token or is repeated.
       content:
         application/problem+json:
           schema:
@@ -491,7 +533,11 @@ components:
     NotFound:
       description: >-
         The wave, route, partner or (for an attempt) the package on the route
-        does not exist. Problem types `not-found`, `package-not-on-route`.
+        does not exist, or the path matches no route or holds a NUL character.
+        Problem types `not-found`, `package-not-on-route`, `resource-not-found`.
+      headers:
+        Idempotency-Replayed:
+          $ref: '#/components/headers/IdempotencyReplayed'
       content:
         application/problem+json:
           schema:
@@ -504,18 +550,36 @@ components:
         `package-not-inducted`, `package-already-routed`, `stop-key-mismatch`,
         `partner-inactive`, `partner-station-mismatch`, `route-incomplete`.
         `idempotency-key-reused` (the Idempotency-Key was already used with a
-        different method, path or body). ErrWaveFull (`wave-full`) and ErrInductionClosed (`induction-closed`)
-        are raised only by policy-driven induction, which has no route.
+        different method, path or body). ErrWaveFull (`wave-full`),
+        ErrInductionClosed (`induction-closed`) and ErrAlreadyInducted
+        (`already-inducted`) are raised only by policy-driven induction, which
+        has no route.
+      headers:
+        Idempotency-Replayed:
+          $ref: '#/components/headers/IdempotencyReplayed'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    InternalError:
+      description: >-
+        Unexpected failure: problem type `internal-error`, detail "an
+        unexpected error occurred". Never stored for idempotent replay.
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/Problem'
     Unprocessable:
       description: >-
-        Validation failed. Problem types: `validation-failed` (malformed body,
-        parameter or value-object rule), `invalid-wave-times`
+        Validation failed. Problem types: `validation-failed` (body that is not
+        valid JSON for the operation, with an unknown field, empty, with
+        trailing data or over 64 KiB; a NUL character in the query or body; a
+        missing or malformed query filter; a value-object rule), `invalid-wave-times`
         (ErrInvalidWaveTimes), `invalid-van-capacity` (ErrInvalidVanCapacity),
         `unknown-station` (ErrUnknownStation).
+      headers:
+        Idempotency-Replayed:
+          $ref: '#/components/headers/IdempotencyReplayed'
       content:
         application/problem+json:
           schema:
@@ -546,7 +610,7 @@ components:
     Problem:
       type: object
       description: RFC 9457 problem details.
-      required: [type, title, status]
+      required: [type, title, status, detail, instance]
       properties:
         type:
           type: string
@@ -562,11 +626,13 @@ components:
           type: string
         instance:
           type: string
+          description: The escaped request path.
     WaveState:
       type: string
       enum: [OPEN, INDUCTION_CLOSED, DISPATCHED, COMPLETED, CANCELLED]
     ScheduleWaveRequest:
       type: object
+      additionalProperties: false
       required: [stationNodeId, serviceDate, inductCutoffAt, windowStart, windowEnd, stopCapacity]
       properties:
         stationNodeId:
@@ -592,12 +658,14 @@ components:
           maximum: 2147483647
     CancelWaveRequest:
       type: object
+      additionalProperties: false
       required: [reason]
       properties:
         reason:
           type: string
           minLength: 1
           maxLength: 200
+          description: Trimmed text without control characters.
     DeliveryWave:
       type: object
       required: [waveId, stationNodeId, serviceDate, inductCutoffAt, windowStart, windowEnd, stopCapacity, assignedStops, remainingStops, state]
@@ -654,6 +722,7 @@ components:
       enum: [DELIVERED, FAILED]
     StopInput:
       type: object
+      additionalProperties: false
       required: [stopNo, trackingNumbers]
       properties:
         stopNo:
@@ -685,6 +754,7 @@ components:
             all were delivered, else FAILED.
     PlanRouteRequest:
       type: object
+      additionalProperties: false
       required: [waveId, dspId, stops]
       properties:
         waveId:
@@ -724,6 +794,7 @@ components:
             $ref: '#/components/schemas/Attempt'
     RecordAttemptRequest:
       type: object
+      additionalProperties: false
       required: [trackingNumber, outcome, at]
       properties:
         trackingNumber:
@@ -734,7 +805,7 @@ components:
           type: string
           minLength: 1
           maxLength: 200
-          description: Required when outcome is FAILED and forbidden when DELIVERED; free text, the model defines no vocabulary.
+          description: Required when outcome is FAILED and forbidden when DELIVERED; free text (trimmed, no control characters), the model defines no vocabulary.
         at:
           type: string
           format: date-time
@@ -758,6 +829,7 @@ components:
       enum: [ACTIVE, INACTIVE]
     ContractPartnerRequest:
       type: object
+      additionalProperties: false
       required: [stationNodeId, vanCapacity]
       properties:
         stationNodeId:
@@ -781,3 +853,7 @@ components:
           minimum: 1
         state:
           $ref: '#/components/schemas/PartnerState'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
