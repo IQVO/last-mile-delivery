@@ -14,15 +14,15 @@ Route -> use case, kept in sync with `apis/openapi.yaml` (registered in
 - `POST /waves` -> `ScheduleWave` (201)
 - `GET /waves?stationNodeId=&serviceDate=` -> `ListWaves` (`{"items":[...]}`)
 - `GET /waves/{waveId}/stops` -> `GetWaveStops` (`{"items":[...]}`)
-- `POST /waves/{waveId}:close-induction` -> `CloseInduction`
-- `POST /waves/{waveId}:dispatch` -> `DispatchWave`
-- `POST /waves/{waveId}:cancel` -> `CancelWave` (body `{"reason"}`)
+- `POST /waves/{waveId}/induction-closures` -> `CloseInduction`
+- `POST /waves/{waveId}/dispatches` -> `DispatchWave`
+- `POST /waves/{waveId}/cancellations` -> `CancelWave` (body `{"reason"}`)
 - `POST /routes` -> `PlanRoute` (201)
 - `GET /routes/{routeId}` -> `GetRoute`
-- `POST /routes/{routeId}:start` -> `StartRoute`
+- `POST /routes/{routeId}/starts` -> `StartRoute`
 - `POST /routes/{routeId}/attempts` -> `RecordAttempt` (201)
 - `POST /partners` -> `ContractPartner` (201)
-- `POST /partners/{dspId}:deactivate` -> `DeactivatePartner`
+- `POST /partners/{dspId}/deactivations` -> `DeactivatePartner`
 - `GET /healthz` (liveness), `GET /readyz` (readiness): not business operations.
 
 ## Conventions
@@ -37,7 +37,7 @@ Route -> use case, kept in sync with `apis/openapi.yaml` (registered in
 - **Idempotency-Key** is required on all nine state-changing routes
   (`idempotency.go`, store `postgres/idempotency.go`, table `idempotency_keys`,
   24 h): same key + same body replays the stored 2xx with
-  `Idempotent-Replayed: true`, same key + other body is 422
+  `Idempotency-Replayed: true`, same key + other body is 409
   `idempotency-key-reused`, a missing key 400 `idempotency-key-required`; the key
   is scoped to `METHOD path`; only 2xx responses are stored; concurrent requests
   with one key run once (advisory lock). A new state-changing route goes in the

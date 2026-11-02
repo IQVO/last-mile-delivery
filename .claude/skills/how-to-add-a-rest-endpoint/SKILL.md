@@ -8,7 +8,7 @@ description: Add or change a REST endpoint in this service in the hexagonal orde
 Follow this order: domain first, adapter last. A handler written before the
 invariant it relies on validates nothing and gets bypassed.
 
-The worked example is `POST /waves/{waveId}:cancel`:
+The worked example is `POST /waves/{waveId}/cancellations`:
 `internal/domain/wave/wave.go` `Cancel` -> `internal/application/usecases/waves.go`
 `CancelWave` -> `internal/adapters/inbound/http/handlers.go` `handleCancelWave`. The
 read side example is `GET /routes/{routeId}` (`usecases/queries.go` `GetRoute`
