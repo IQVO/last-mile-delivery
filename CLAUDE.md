@@ -23,7 +23,7 @@ The outbox relay is always on (`OUTBOX_MAX_ATTEMPTS` default 20, 0 = unlimited; 
 Shutdown: /readyz 503, `SHUTDOWN_DRAIN_DELAY` (5s), drain HTTP, stop consumers and relay. cmd/** never imports internal/adapters/outbound/memory or repocontract. No authentication on REST. See docs/adr/0005.
 
 ## REST
-chi router implementing every operation of apis/openapi.yaml (12 routes) plus /healthz, /readyz. Every state-changing POST takes `Idempotency-Key` (table `idempotency_keys`, key = (route, key), 24h, replays the first response, same key + other request = 422 `idempotency-key-reused`).
+chi router implementing every operation of apis/openapi.yaml (12 routes) plus /healthz, /readyz. Every POST takes `Idempotency-Key` (table `idempotency_keys`, key GLOBAL — looked up alone, fingerprint = method + path + body hash, 24h, replays the stored answer; same key + other request = 409 `idempotency-key-reused`; replay carries `Idempotency-Replayed: true`; fleet REST guideline, ADR 0010). List GETs page with `limit` + keyset `cursor`, body `{items,nextCursor}`.
 NUL: 404 in the path, 422 `validation-failed` in query/body. Errors are RFC 9457 problem+json, `type` = slug: not-found, illegal-transition, concurrent-update, validation-failed + one kebab-case slug per model Err (internal/adapters/inbound/http/errors.go).
 
 ## Events: CloudEvents 1.0 is MANDATORY

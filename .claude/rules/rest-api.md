@@ -14,15 +14,15 @@ Route -> use case, kept in sync with `apis/openapi.yaml` (registered in
 - `POST /waves` -> `ScheduleWave` (201)
 - `GET /waves?stationNodeId=&serviceDate=` -> `ListWaves` (`{"items":[...]}`)
 - `GET /waves/{waveId}/stops` -> `GetWaveStops` (`{"items":[...]}`)
-- `POST /waves/{waveId}:close-induction` -> `CloseInduction`
-- `POST /waves/{waveId}:dispatch` -> `DispatchWave`
-- `POST /waves/{waveId}:cancel` -> `CancelWave` (body `{"reason"}`)
+- `POST /waves/{waveId}/induction-closures` -> `CloseInduction` (keyed)
+- `POST /waves/{waveId}/dispatches` -> `DispatchWave` (keyed)
+- `POST /waves/{waveId}/cancellations` -> `CancelWave` (keyed; body `{"reason"}`)
 - `POST /routes` -> `PlanRoute` (201)
 - `GET /routes/{routeId}` -> `GetRoute`
-- `POST /routes/{routeId}:start` -> `StartRoute`
+- `POST /routes/{routeId}/starts` -> `StartRoute`
 - `POST /routes/{routeId}/attempts` -> `RecordAttempt` (201)
 - `POST /partners` -> `ContractPartner` (201)
-- `POST /partners/{dspId}:deactivate` -> `DeactivatePartner`
+- `POST /partners/{dspId}/deactivations` -> `DeactivatePartner`
 - `GET /healthz` (liveness), `GET /readyz` (readiness): not business operations.
 
 ## Conventions
@@ -34,14 +34,18 @@ Route -> use case, kept in sync with `apis/openapi.yaml` (registered in
   (`route-over-capacity`, `already-delivered`, `invalid-wave-times`, ...); an
   unmapped error is an opaque 500 `internal-error`. A new `Err` needs a catalogue
   row and a row in `TestProblemMapping` (`handlers_test.go`).
-- **Idempotency-Key** is required on all nine state-changing routes
+- **Idempotency-Key** is required on all nine POSTs
   (`idempotency.go`, store `postgres/idempotency.go`, table `idempotency_keys`,
-  24 h): same key + same body replays the stored 2xx with
-  `Idempotent-Replayed: true`, same key + other body is 422
-  `idempotency-key-reused`, a missing key 400 `idempotency-key-required`; the key
-  is scoped to `METHOD path`; only 2xx responses are stored; concurrent requests
-  with one key run once (advisory lock). A new state-changing route goes in the
-  `r.Group` of `server.go` that applies the middleware, never outside it.
+  24 h): same key + same request replays the stored answer with
+  `Idempotency-Replayed: true`, same key + other request is 409
+  `idempotency-key-reused`, a missing key 400 `idempotency-key-required`, a key
+  outside 1-128 printable ASCII 400 `idempotency-key-invalid`; the key is GLOBAL
+  (looked up alone, fingerprint = method + path + body hash); every 4xx is
+  stored, 5xx is not; the key row commits with the aggregate + outbox in ONE
+  transaction; concurrent requests with one key run once (advisory lock). A new
+  POST goes in the `r.Group` of `server.go` that applies the middleware, never
+  outside it. List GETs are paged `{items,nextCursor}` (`limit` + keyset
+  `cursor`).
 - **NUL** (U+0000) is rejected before anything else (`nul.go`): 404 in the path,
   422 `validation-failed` in the query or body.
 - Bodies are decoded strictly (`decodeJSON`): unknown fields, an empty body and
