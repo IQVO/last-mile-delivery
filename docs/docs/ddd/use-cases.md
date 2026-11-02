@@ -16,14 +16,14 @@ Source: `internal/application/usecases/{waves,routes,partners,induct,consumers,q
 | Use case | Aggregate | Trigger | Inbound adapter |
 | --- | --- | --- | --- |
 | `ScheduleWave` | `DeliveryWave` (+ waiting `PackageAttemptHistory`) | station planner | REST `POST /waves` |
-| `CloseInduction` | `DeliveryWave` | station planner | REST `POST /waves/{waveId}:close-induction` |
-| `DispatchWave` | `DeliveryWave` (+ leftovers, completion) | station planner | REST `POST /waves/{waveId}:dispatch` |
-| `CancelWave` | `DeliveryWave` (+ re-induction) | station planner | REST `POST /waves/{waveId}:cancel` |
+| `CloseInduction` | `DeliveryWave` | station planner | REST `POST /waves/{waveId}/induction-closures` |
+| `DispatchWave` | `DeliveryWave` (+ leftovers, completion) | station planner | REST `POST /waves/{waveId}/dispatches` |
+| `CancelWave` | `DeliveryWave` (+ re-induction) | station planner | REST `POST /waves/{waveId}/cancellations` |
 | `PlanRoute` | `Route` (reads wave, partner) | station planner | REST `POST /routes` |
-| `StartRoute` | `Route` (reads wave) | DSP driver app | REST `POST /routes/{routeId}:start` |
+| `StartRoute` | `Route` (reads wave) | DSP driver app | REST `POST /routes/{routeId}/starts` |
 | `RecordAttempt` | `Route` + `PackageAttemptHistory` (+ wave, completion) | DSP driver app | REST `POST /routes/{routeId}/attempts` |
 | `ContractPartner` | `DeliveryServicePartner` | station planner | REST `POST /partners` |
-| `DeactivatePartner` | `DeliveryServicePartner` | station planner | REST `POST /partners/{dspId}:deactivate` |
+| `DeactivatePartner` | `DeliveryServicePartner` | station planner | REST `POST /partners/{dspId}/deactivations` |
 | `InductOnArrival` (policy) | `PackageAttemptHistory`, `DeliveryWave` | `LoadArrived` | Kafka consumer `linehaul` |
 | `ApplyNodeRegistered`, `ApplyServiceAreaAssigned` | read models `rm_stations`, `rm_station_service_areas` | `NodeRegistered`, `ServiceAreaAssigned` | Kafka consumer `node-topology` |
 | `ApplyLabelIssued` | read model `rm_package_stops` | `LabelIssued` | Kafka consumer `shipping` |
@@ -41,8 +41,10 @@ REST errors are RFC 9457 `application/problem+json`; the `type` is the slug (`in
 | `wave.ErrInvalidWaveTimes` | 422 | `invalid-wave-times` |
 | `partner.ErrInvalidVanCapacity` | 422 | `invalid-van-capacity` |
 | `usecases.ErrUnknownStation` | 422 | `unknown-station` |
-| missing or over-long `Idempotency-Key` | 400 | `idempotency-key-required` |
-| key reused with another body | 422 | `idempotency-key-reused` |
+| missing `Idempotency-Key` | 400 | `idempotency-key-required` |
+| `Idempotency-Key` not 1 to 128 printable ASCII characters | 400 | `idempotency-key-invalid` |
+| key reused with another method, path or body | 409 | `idempotency-key-reused` |
+| bad `limit`, bad `cursor`, undeclared query parameter | 400 | `invalid-limit`, `invalid-cursor`, `unknown-query-parameter` |
 | `ports.ErrNotFound` | 404 | `not-found` |
 | `route.ErrPackageNotOnRoute` | 404 | `package-not-on-route` |
 | `wave.ErrWaveFull` | 409 | `wave-full` |
@@ -72,20 +74,20 @@ REST errors are RFC 9457 `application/problem+json`; the `type` is the slug (`in
 
 ## CloseInduction
 
-- **Trigger**: station planner, `POST /waves/{waveId}:close-induction`.
+- **Trigger**: station planner, `POST /waves/{waveId}/induction-closures`.
 - **Invariant**: the wave is `OPEN` (`OPEN` to `INDUCTION_CLOSED`, else `illegal-transition`).
 - **Events**: none.
 
 ## DispatchWave
 
-- **Trigger**: station planner, `POST /waves/{waveId}:dispatch`.
+- **Trigger**: station planner, `POST /waves/{waveId}/dispatches`.
 - **Invariant**: the wave is `INDUCTION_CLOSED` (to `DISPATCHED`).
 - **Flow**: dispatch; **re-induct leftovers** (A11): every package inducted in the wave that no route of it holds is placed on the next eligible `OPEN` wave, or becomes `AT_STATION` again; then **`CompleteWaveOnLastRoute`** (A9): complete the wave at once when no route is left uncompleted.
 - **Events**: `DeliveryWaveCapacityChanged` on the receiving waves, `PackageInductionDeferred` for a package no wave takes.
 
 ## CancelWave
 
-- **Trigger**: station planner, `POST /waves/{waveId}:cancel` with `reason` (1 to `MaxReason` characters, trimmed).
+- **Trigger**: station planner, `POST /waves/{waveId}/cancellations` with `reason` (1 to `MaxReason` characters, trimmed).
 - **Invariant**: the wave is `OPEN` (to `CANCELLED`).
 - **Flow**: cancel, then **re-induct every package it held** onto the next eligible wave (G17); a package no wave takes is deferred.
 - **Events**: `DeliveryWaveCancelled` (an integration event, G5), `DeliveryWaveCapacityChanged`, `PackageInductionDeferred`.
@@ -99,7 +101,7 @@ REST errors are RFC 9457 `application/problem+json`; the `type` is the slug (`in
 
 ## StartRoute
 
-- **Trigger**: DSP driver app, `POST /routes/{routeId}:start`.
+- **Trigger**: DSP driver app, `POST /routes/{routeId}/starts`.
 - **Invariants**: the route is `PLANNED` and its wave is `DISPATCHED` (else `illegal-transition`).
 - **Events**: one `PackageOutForDelivery` per tracking number, in stop order (A14).
 
@@ -115,7 +117,7 @@ REST errors are RFC 9457 `application/problem+json`; the `type` is the slug (`in
 ## ContractPartner and DeactivatePartner
 
 - `ContractPartner` (`POST /partners`): the station must be known (`unknown-station`), `vanCapacity > 0` (`invalid-van-capacity`); saves an `ACTIVE` partner. No event.
-- `DeactivatePartner` (`POST /partners/{dspId}:deactivate`, G34): `ACTIVE` to `INACTIVE`; an inactive partner cannot be given a new route (`partner-inactive`). No event.
+- `DeactivatePartner` (`POST /partners/{dspId}/deactivations`, G34): `ACTIVE` to `INACTIVE`; an inactive partner cannot be given a new route (`partner-inactive`). No event.
 
 ## InductOnArrival (policy, consumer `linehaul`)
 

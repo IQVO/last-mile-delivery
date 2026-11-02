@@ -97,10 +97,6 @@ type partnerBody struct {
 	State         string `json:"state"`
 }
 
-type itemsBody[T any] struct {
-	Items []T `json:"items"`
-}
-
 func toWaveBody(w views.Wave) waveBody {
 	return waveBody{
 		WaveID: w.WaveID, StationNodeID: w.StationNodeID, ServiceDate: w.ServiceDate, InductCutoffAt: w.InductCutoffAt.UTC(),

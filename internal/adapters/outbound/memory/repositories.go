@@ -57,6 +57,18 @@ func (r *WaveRepository) List(ctx context.Context, f repository.WaveFilter) ([]*
 		}
 		return snaps[i].ID < snaps[j].ID
 	})
+	if f.After != nil {
+		keep := snaps[:0:0]
+		for _, s := range snaps {
+			if s.InductCutoffAt.After(f.After.InductCutoffAt) || (s.InductCutoffAt.Equal(f.After.InductCutoffAt) && string(s.ID) > f.After.WaveID) {
+				keep = append(keep, s)
+			}
+		}
+		snaps = keep
+	}
+	if f.Limit > 0 && len(snaps) > f.Limit {
+		snaps = snaps[:f.Limit]
+	}
 	out := make([]*wave.DeliveryWave, 0, len(snaps))
 	for _, s := range snaps {
 		w, err := wave.Restore(s)

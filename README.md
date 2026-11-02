@@ -165,22 +165,22 @@ Logs, metrics and traces follow the fleet standard ([ADR 0008](docs/adr/0008-fle
 
 ## API
 
-REST contract: [`apis/openapi.yaml`](apis/openapi.yaml) — 12 operations plus `/healthz` and `/readyz`. State-changing calls need `Idempotency-Key`; errors are RFC 9457 problem+json.
+REST contract: [`apis/openapi.yaml`](apis/openapi.yaml) — 12 operations plus `/healthz` and `/readyz`. Every `POST` needs `Idempotency-Key` (1 to 128 printable ASCII characters, global; a replay carries `Idempotency-Replayed: true`, the key reused with another request is 409 `idempotency-key-reused`). The two lists are keyset-paged (`limit`, `cursor`, `{items, nextCursor}`); errors are RFC 9457 problem+json. See [ADR 0010](docs/adr/0010-adopt-the-fleet-rest-api-guideline.md).
 
 | Method | Route | Purpose |
 |---|---|---|
 | `POST` | `/waves` | Schedule a delivery wave (Idempotency-Key) |
-| `GET` | `/waves` | List waves (station + service date) |
-| `GET` | `/waves/{waveId}/stops` | The wave's stops |
-| `POST` | `/waves/{waveId}:close-induction` | Close induction (Idempotency-Key) |
-| `POST` | `/waves/{waveId}:dispatch` | Dispatch (Idempotency-Key) |
-| `POST` | `/waves/{waveId}:cancel` | Cancel; re-inducts packages onto the next wave (Idempotency-Key) |
+| `GET` | `/waves` | List waves (station + service date; paged) |
+| `GET` | `/waves/{waveId}/stops` | The wave's stops (paged) |
+| `POST` | `/waves/{waveId}/induction-closures` | Close induction (Idempotency-Key) |
+| `POST` | `/waves/{waveId}/dispatches` | Dispatch (Idempotency-Key) |
+| `POST` | `/waves/{waveId}/cancellations` | Cancel; re-inducts packages onto the next wave (Idempotency-Key) |
 | `POST` | `/routes` | Plan a route (Idempotency-Key) |
 | `GET` | `/routes/{routeId}` | One route |
-| `POST` | `/routes/{routeId}:start` | Start out for delivery (Idempotency-Key) |
+| `POST` | `/routes/{routeId}/starts` | Start out for delivery (Idempotency-Key) |
 | `POST` | `/routes/{routeId}/attempts` | Record one delivery attempt per package (Idempotency-Key) |
 | `POST` | `/partners` | Register a delivery service partner (Idempotency-Key) |
-| `POST` | `/partners/{dspId}:deactivate` | Deactivate a partner (Idempotency-Key) |
+| `POST` | `/partners/{dspId}/deactivations` | Deactivate a partner (Idempotency-Key) |
 
 ## Helm chart
 

@@ -88,7 +88,7 @@ Feature: The REST contract of the delivery station
       """
       {"stationNodeId":"node-ds-01","serviceDate":"2026-10-24","inductCutoffAt":"2026-10-24T09:00:00Z","windowStart":"2026-10-24T12:00:00Z","windowEnd":"2026-10-24T20:00:00Z","stopCapacity":9}
       """
-    Then the response is 422
+    Then the response is 409
     And the response problem is "idempotency-key-reused"
 
   Scenario: A body that is not JSON fails validation
@@ -101,7 +101,7 @@ Feature: The REST contract of the delivery station
 
   Scenario: Cancelling a wave needs a reason
     Given a wave "wave-1" with its cutoff in 2 hours and capacity 5
-    When the client sends a "POST" to "/waves/wave-1:cancel" with key "k-3" and body:
+    When the client sends a "POST" to "/waves/wave-1/cancellations" with key "k-3" and body:
       """
       {"reason":""}
       """

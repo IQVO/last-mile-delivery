@@ -2,67 +2,66 @@ package memory
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"time"
+
+	"github.com/claudioed/last-mile-delivery/internal/application/idempotency"
 )
 
-// IdempotencyTTL is how long a stored response is replayed.
-const IdempotencyTTL = 24 * time.Hour
+// IdempotencyTTL is how long a stored answer is replayed.
+const IdempotencyTTL = idempotency.TTL
 
-// storedResponse is one stored 2xx response.
-type storedResponse struct {
-	hash    string
-	status  int
-	body    []byte
+type storedAnswer struct {
+	rec     idempotency.Record
 	created time.Time
 }
 
-// Idempotency is the in-memory double of the HTTP adapter's IdempotencyStore:
-// the same contract as the Postgres store (see the http package), serialised by
-// one mutex.
+// Idempotency is the in-memory double of idempotency.Store: the same contract
+// as the Postgres store, serialised by one mutex. There is no transaction to
+// join, so a 4xx or 5xx handler leaves whatever it wrote in the memory
+// repositories (their own writes are atomic per call).
 type Idempotency struct {
-	mu     sync.Mutex
-	rows   map[[2]string]storedResponse
-	now    func() time.Time
-	reused error
+	mu   sync.Mutex
+	rows map[string]storedAnswer
+	now  func() time.Time
 }
 
-// NewIdempotency returns an empty store. reused is the error returned for a key
-// stored with another request hash (the http package's ErrKeyReused); now is the
-// clock (time.Now when nil).
-func NewIdempotency(reused error, now func() time.Time) *Idempotency {
+var _ idempotency.Store = (*Idempotency)(nil)
+
+// NewIdempotency returns an empty store; now is the clock (time.Now when nil).
+func NewIdempotency(now func() time.Time) *Idempotency {
 	if now == nil {
 		now = time.Now
 	}
-	if reused == nil {
-		reused = errors.New("idempotency key reused")
-	}
-	return &Idempotency{rows: map[[2]string]storedResponse{}, now: now, reused: reused}
+	return &Idempotency{rows: map[string]storedAnswer{}, now: now}
 }
 
-// Run implements the IdempotencyStore contract.
-func (s *Idempotency) Run(ctx context.Context, scope, key, hash string, fn func(context.Context) (int, []byte)) (int, []byte, bool, error) {
+// Do implements idempotency.Store.
+func (s *Idempotency) Do(ctx context.Context, key, hash string, fn func(context.Context) (idempotency.Record, error)) (idempotency.Record, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	id := [2]string{scope, key}
-	if row, ok := s.rows[id]; ok {
+	if row, ok := s.rows[key]; ok {
 		if s.now().Sub(row.created) < IdempotencyTTL {
-			if row.hash != hash {
-				return 0, nil, false, s.reused
-			}
-			return row.status, append([]byte(nil), row.body...), true, nil
+			rec := row.rec
+			rec.Body = append([]byte(nil), rec.Body...)
+			return rec, true, nil
 		}
-		delete(s.rows, id)
+		delete(s.rows, key)
 	}
-	status, body := fn(ctx)
-	if status >= 200 && status < 300 {
-		s.rows[id] = storedResponse{hash: hash, status: status, body: append([]byte(nil), body...), created: s.now()}
+	rec, err := fn(ctx)
+	if err != nil {
+		return idempotency.Record{}, false, err
 	}
-	return status, body, false, nil
+	rec.RequestHash = hash
+	if rec.Status < 500 {
+		stored := rec
+		stored.Body = append([]byte(nil), rec.Body...)
+		s.rows[key] = storedAnswer{rec: stored, created: s.now()}
+	}
+	return rec, false, nil
 }
 
-// Stored returns how many responses are stored.
+// Stored returns how many answers are stored.
 func (s *Idempotency) Stored() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()

@@ -117,6 +117,9 @@ func waveList(t *testing.T, f Fixture) {
 		{"open after a cutoff (strictly)", repository.WaveFilter{StationNodeID: "node-ds-01", State: wave.StateOpen, InductCutoffAfter: Now.Add(2 * time.Hour)}, []wave.ID{"wave-a", "wave-b"}},
 		{"after the last cutoff", repository.WaveFilter{InductCutoffAfter: Now.Add(4 * time.Hour)}, []wave.ID{}},
 		{"no match", repository.WaveFilter{StationNodeID: "node-x"}, []wave.ID{}},
+		{"limit", repository.WaveFilter{Limit: 2}, []wave.ID{"wave-e", "wave-c"}},
+		{"after a position with a tied cutoff", repository.WaveFilter{After: &repository.WaveAfter{InductCutoffAt: Now.Add(3 * time.Hour), WaveID: "wave-a"}}, []wave.ID{"wave-b", "wave-d"}},
+		{"after and limit", repository.WaveFilter{After: &repository.WaveAfter{InductCutoffAt: Now.Add(2 * time.Hour), WaveID: "wave-c"}, Limit: 1}, []wave.ID{"wave-a"}},
 	}
 	for _, c := range cases {
 		if got := waveIDs(t, f, c.filter); !reflect.DeepEqual(got, c.want) {

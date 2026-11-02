@@ -32,7 +32,7 @@ type Server struct {
 	ContractPartner   *usecases.ContractPartner
 	DeactivatePartner *usecases.DeactivatePartner
 
-	// Idempotency wraps every state changing POST; nil disables it (tests).
+	// Idempotency wraps every POST; nil disables it (tests).
 	Idempotency func(http.Handler) http.Handler
 	// Readiness gates /readyz; nil is always ready.
 	Readiness *Readiness
@@ -81,14 +81,14 @@ func NewRouter(s *Server, logger *slog.Logger, serviceName string) http.Handler 
 			r.Use(s.Idempotency)
 		}
 		r.Post("/waves", s.handleScheduleWave)
-		r.Post("/waves/{waveId}:close-induction", s.handleCloseInduction)
-		r.Post("/waves/{waveId}:dispatch", s.handleDispatchWave)
-		r.Post("/waves/{waveId}:cancel", s.handleCancelWave)
+		r.Post("/waves/{waveId}/induction-closures", s.handleCloseInduction)
+		r.Post("/waves/{waveId}/dispatches", s.handleDispatchWave)
+		r.Post("/waves/{waveId}/cancellations", s.handleCancelWave)
 		r.Post("/routes", s.handlePlanRoute)
-		r.Post("/routes/{routeId}:start", s.handleStartRoute)
+		r.Post("/routes/{routeId}/starts", s.handleStartRoute)
 		r.Post("/routes/{routeId}/attempts", s.handleRecordAttempt)
 		r.Post("/partners", s.handleContractPartner)
-		r.Post("/partners/{dspId}:deactivate", s.handleDeactivatePartner)
+		r.Post("/partners/{dspId}/deactivations", s.handleDeactivatePartner)
 	})
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		writeProblem(w, r, notFoundResource, "no resource matches the requested path")

@@ -87,7 +87,7 @@ The van capacity belongs to another aggregate: `PlanRoute` reads the partner whe
 | Command | Transition | Issued by | Event |
 | --- | --- | --- | --- |
 | `PlanRoute` | creates `PLANNED` | REST `POST /routes` | `RoutePlanned` (analytics topic) |
-| `StartRoute` | `PLANNED` to `OUT_FOR_DELIVERY` | REST `POST /routes/{routeId}:start` | `PackageOutForDelivery` per package |
+| `StartRoute` | `PLANNED` to `OUT_FOR_DELIVERY` | REST `POST /routes/{routeId}/starts` | `PackageOutForDelivery` per package |
 | `RecordAttempt` | records the attempt | REST `POST /routes/{routeId}/attempts` | `DeliveryAttempted` |
 | `Complete` | `OUT_FOR_DELIVERY` to `COMPLETED` | inside `RecordAttempt` when the last package is attempted | none |
 
@@ -115,7 +115,7 @@ Source: `internal/domain/partner/partner.go` (`Contract`, `Deactivate`).
 | van capacity `> 0` | `ErrInvalidVanCapacity`, check `delivery_service_partners_van_capacity_check` |
 | `ACTIVE` to `INACTIVE` only (G34) | `shared.ErrIllegalTransition` |
 
-Commands: `ContractPartner` (REST `POST /partners`), `DeactivatePartner` (REST `POST /partners/{dspId}:deactivate`). **Events**: none. Throughput rare, one row per partner.
+Commands: `ContractPartner` (REST `POST /partners`), `DeactivatePartner` (REST `POST /partners/{dspId}/deactivations`). **Events**: none. Throughput rare, one row per partner.
 
 ## PackageAttemptHistory
 

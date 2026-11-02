@@ -58,6 +58,15 @@ info:
     optional fields are omitted when absent (never null); evolution is additive
     only. No address and no other PII appears in any event.
 
+    **Consumer behaviour.** One consumer per consumed topic, each under the
+    consumer group named by a mandatory environment variable
+    (`LINEHAUL_CONSUMER_GROUP`, `NODE_TOPOLOGY_CONSUMER_GROUP`,
+    `SHIPPING_CONSUMER_GROUP`). A message that is not a valid CloudEvents 1.0
+    event, or whose `data` cannot be decoded or breaks a value rule, goes to
+    `<topic>.dlq` at once; a transient failure is retried with backoff and goes
+    to `<topic>.dlq` after five attempts. The offset is committed only after
+    the effect and its inbox row (`processed_events`) committed.
+
 servers:
   production:
     host: "{brokers}"
@@ -226,6 +235,8 @@ components:
       summary: A delivery wave was scheduled in state OPEN.
       description: "`type` = `com.retailnetwork.logistics.last-mile-delivery.wave.DeliveryWaveScheduled`; subject and key = the waveId. Raised by ScheduleWave. delivery-promise and order-sourcing plan the last leg on it."
       contentType: application/cloudevents+json
+      headers:
+        $ref: "#/components/schemas/KafkaHeaders"
       tags:
         - name: wave
       payload:
@@ -257,6 +268,8 @@ components:
       summary: The assigned stops of a wave changed.
       description: "`type` = `com.retailnetwork.logistics.last-mile-delivery.wave.DeliveryWaveCapacityChanged`; subject and key = the waveId. Raised when an induction adds a NEW stop to the wave (a package joining a stop already in the wave changes no count and raises nothing). `remainingStops` = `stopCapacity` - `assignedStops`. A wave with no remaining stops is no longer a candidate."
       contentType: application/cloudevents+json
+      headers:
+        $ref: "#/components/schemas/KafkaHeaders"
       tags:
         - name: wave
       payload:
@@ -285,6 +298,8 @@ components:
       summary: An OPEN wave was cancelled; its packages moved to the next wave.
       description: "`type` = `com.retailnetwork.logistics.last-mile-delivery.wave.DeliveryWaveCancelled`; subject and key = the waveId. Raised by CancelWave. An INTEGRATION event on the events topic (Gap Register G5, contracts-delta E5): delivery-promise (view and RepromiseOnRisk) and order-sourcing (NetworkGraphView) consume it."
       contentType: application/cloudevents+json
+      headers:
+        $ref: "#/components/schemas/KafkaHeaders"
       tags:
         - name: wave
       payload:
@@ -311,6 +326,8 @@ components:
       summary: A DSP van route was planned in a wave (analytics only).
       description: "`type` = `com.retailnetwork.logistics.last-mile-delivery.route.RoutePlanned`; subject and key = the routeId. Raised by PlanRoute. ANALYTICS ONLY: written to `retailnetwork.last-mile-delivery.analytics` and never to the events topic; dataschema stream is `analytics`."
       contentType: application/cloudevents+json
+      headers:
+        $ref: "#/components/schemas/KafkaHeaders"
       tags:
         - name: route
       payload:
@@ -339,6 +356,8 @@ components:
       summary: A package left the station on a started route.
       description: "`type` = `com.retailnetwork.logistics.last-mile-delivery.route.PackageOutForDelivery`; subject = the routeId, key = the routeId. Raised by StartRoute, one event per tracking number on the route. shipping-and-tracking records the AT_STATION to OUT_FOR_DELIVERY scan."
       contentType: application/cloudevents+json
+      headers:
+        $ref: "#/components/schemas/KafkaHeaders"
       tags:
         - name: route
       payload:
@@ -367,6 +386,8 @@ components:
       summary: One delivery attempt of one package was recorded.
       description: "`type` = `com.retailnetwork.logistics.last-mile-delivery.route.DeliveryAttempted`; subject = the routeId, key = the routeId. Raised by RecordAttempt, per package (Gap Register G17: outcomes are per package, the stop outcome is derived). `outcome` is DELIVERED or FAILED; `failureReason` is present only when FAILED. A FAILED attempt re-inducts the package onto the next wave, or after the third failure raises PackageReturnInitiated."
       contentType: application/cloudevents+json
+      headers:
+        $ref: "#/components/schemas/KafkaHeaders"
       tags:
         - name: route
       payload:
@@ -396,6 +417,8 @@ components:
       summary: A package at the station could not be inducted into any wave.
       description: "`type` = `com.retailnetwork.logistics.last-mile-delivery.packageattempthistory.PackageInductionDeferred`; subject and key = the trackingNumber. Raised when no OPEN wave of the station with stop capacity accepts the package (LoadArrived, a failed attempt, a cancelled wave or a dispatch leftover; Gap Register G16, contracts-delta E15). delivery-promise treats it as a risk. The package is inducted later when a wave is scheduled. `assignmentId` comes from the package's LabelIssued and is omitted only when no label data was received."
       contentType: application/cloudevents+json
+      headers:
+        $ref: "#/components/schemas/KafkaHeaders"
       tags:
         - name: packageattempthistory
       payload:
@@ -422,6 +445,8 @@ components:
       summary: The third delivery attempt of a package failed; return it to sender.
       description: "`type` = `com.retailnetwork.logistics.last-mile-delivery.packageattempthistory.PackageReturnInitiated`; subject and key = the trackingNumber. Raised by the third failed attempt of a package (Gap Register G16, contracts-delta E15). shipping-and-tracking consumes it into ReturnToSender. The package is not re-inducted."
       contentType: application/cloudevents+json
+      headers:
+        $ref: "#/components/schemas/KafkaHeaders"
       tags:
         - name: packageattempthistory
       payload:
@@ -445,7 +470,7 @@ components:
       name: LoadArrived
       title: Load arrived (consumed)
       summary: linehaul-transportation LoadArrived, as this service reads it.
-      description: "`type` = `com.retailnetwork.logistics.linehaul-transportation.load.LoadArrived`. Fields relied on: `destinationNodeId`, `trackingNumbers`, `arrivedAt`, `loadId`, `departureId`, and (contracts-delta E3) `nodeType` of the node where it happened. Only fields listed here are read; unknown fields are ignored."
+      description: "`type` = `com.retailnetwork.logistics.linehaul-transportation.load.LoadArrived`. Fields relied on: `destinationNodeId`, `trackingNumbers`, `arrivedAt`, `loadId`, `departureId`, and (contracts-delta E3) `nodeType` of the node where it happened. Only fields listed here are read; unknown fields are ignored. A load whose destination is not a delivery station (or whose `destinationNodeId` is not a valid id) is ignored; a tracking number that is not a valid id is skipped; a missing `arrivedAt` is replaced by the processing time."
       contentType: application/cloudevents+json
       tags:
         - name: last-mile-delivery
@@ -528,7 +553,7 @@ components:
       name: LabelIssued
       title: Label issued (consumed)
       summary: shipping-and-tracking LabelIssued, as this service reads it.
-      description: "`type` = `com.retailnetwork.logistics.shipping-and-tracking.label.LabelIssued`. Fields relied on: `trackingNumber`, `stopKey` and `destinationPostalPrefix` (contracts-delta E10), `assignmentId`. A label without `stopKey` is ignored (the package becomes its own stop)."
+      description: "`type` = `com.retailnetwork.logistics.shipping-and-tracking.label.LabelIssued`. Fields relied on: `trackingNumber`, `stopKey` and `destinationPostalPrefix` (contracts-delta E10), `assignmentId`; no other field is read. A label whose `trackingNumber` is not a valid id or whose `stopKey` is missing or not a valid stop key is ignored (the package becomes its own stop)."
       contentType: application/cloudevents+json
       tags:
         - name: last-mile-delivery
@@ -565,6 +590,13 @@ components:
         time: { type: string, format: date-time }
         datacontenttype: { type: string, const: application/json }
         dataschema: { type: string }
+
+    KafkaHeaders:
+      type: object
+      description: Kafka record headers of every published message (the record key is the CloudEvents subject, partitioned with kafka-go Hash).
+      required: [content-type]
+      properties:
+        content-type: { type: string, const: "application/cloudevents+json; charset=UTF-8" }
 
     Outcome:
       type: string
@@ -686,14 +718,14 @@ components:
           properties:
             data:
               type: object
-              required: [destinationNodeId, trackingNumbers, arrivedAt]
+              required: [destinationNodeId, trackingNumbers]
               properties:
                 loadId: { type: string }
                 departureId: { type: string }
                 destinationNodeId: { type: string }
                 nodeType: { type: string, description: Type of the node where the arrival happened (contracts-delta E3). }
                 trackingNumbers: { type: array, items: { type: string } }
-                arrivedAt: { type: string, format: date-time }
+                arrivedAt: { type: string, format: date-time, description: Optional; the processing time is used when absent. }
 
     NodeRegisteredEvent:
       allOf:
@@ -732,7 +764,6 @@ components:
               type: object
               required: [trackingNumber]
               properties:
-                labelRef: { type: string }
                 trackingNumber: { type: string }
                 assignmentId: { type: string }
                 stopKey: { type: string, description: Opaque keyed hash of the normalized address. }

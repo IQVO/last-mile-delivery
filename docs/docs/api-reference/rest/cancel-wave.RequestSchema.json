@@ -1,1 +1,1 @@
-{"title":"Body","body":{"required":true,"content":{"application/json":{"schema":{"type":"object","required":["reason"],"properties":{"reason":{"type":"string","minLength":1,"maxLength":200}},"title":"CancelWaveRequest"}}}}}
+{"title":"Body","body":{"required":true,"content":{"application/json":{"schema":{"type":"object","additionalProperties":false,"required":["reason"],"properties":{"reason":{"type":"string","minLength":1,"maxLength":200,"description":"Trimmed text without control characters."}},"title":"CancelWaveRequest"}}}}}

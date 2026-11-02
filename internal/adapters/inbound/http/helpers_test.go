@@ -36,7 +36,7 @@ func newApp(t *testing.T) *app {
 		ServiceAreas: store.ServiceAreas(), PackageStops: store.PackageStops(), Inbound: store.Inbound(), Inbox: store.Inbox(),
 		Outbox: store.Outbox(), UoW: store.UnitOfWork(), Clock: memory.NewClock(t0), IDs: &memory.SequentialIDs{},
 	}
-	idem := memory.NewIdempotency(handler.ErrKeyReused, nil)
+	idem := memory.NewIdempotency(nil)
 	a := &app{t: t, store: store, deps: deps, idem: idem}
 	a.srv = handler.NewRouter(&handler.Server{
 		ScheduleWave: usecases.NewScheduleWave(deps), CloseInduction: usecases.NewCloseInduction(deps), DispatchWave: usecases.NewDispatchWave(deps),

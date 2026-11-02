@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (2026-10-23)
+Accepted (2026-10-23). The REST idempotency and list details below (per-route key, 422 on reuse, `Idempotent-Replayed`, 200-character keys, unpaged lists) are superseded by [ADR 0010](./0010-adopt-the-fleet-rest-api-guideline.md).
 
 ## Context
 

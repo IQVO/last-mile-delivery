@@ -71,10 +71,19 @@ func (r *WaveRepository) List(ctx context.Context, f repository.WaveFilter) ([]*
 	if !f.InductCutoffAfter.IsZero() {
 		after = f.InductCutoffAfter
 	}
+	var afterAt, afterID, limit any
+	if f.After != nil {
+		afterAt, afterID = f.After.InductCutoffAt, f.After.WaveID
+	}
+	if f.Limit > 0 {
+		limit = f.Limit
+	}
 	rows, err := q.Query(ctx, `SELECT `+waveColumns+` FROM delivery_waves
 		WHERE ($1 = '' OR station_node_id = $1) AND ($2 = '' OR service_date::text = $2) AND ($3 = '' OR state = $3)
 		  AND ($4::timestamptz IS NULL OR induct_cutoff_at > $4)
-		ORDER BY induct_cutoff_at, wave_id`, f.StationNodeID, f.ServiceDate, string(f.State), after)
+		  AND ($5::timestamptz IS NULL OR (induct_cutoff_at, wave_id) > ($5::timestamptz, $6::text))
+		ORDER BY induct_cutoff_at, wave_id
+		LIMIT $7::int`, f.StationNodeID, f.ServiceDate, string(f.State), after, afterAt, afterID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("list waves: %w", err)
 	}

@@ -12,6 +12,7 @@ import (
 	outboxrelay "github.com/claudioed/last-mile-delivery/internal/adapters/outbound/outbox"
 	"github.com/claudioed/last-mile-delivery/internal/adapters/outbound/postgres"
 	"github.com/claudioed/last-mile-delivery/internal/adapters/outbound/system"
+	"github.com/claudioed/last-mile-delivery/internal/application/idempotency"
 	"github.com/claudioed/last-mile-delivery/internal/application/usecases"
 	"github.com/claudioed/last-mile-delivery/internal/bootretry"
 )
@@ -20,7 +21,7 @@ import (
 type adapters struct {
 	deps        usecases.Deps
 	outboxStore outboxrelay.Store
-	idempotency inboundhttp.IdempotencyStore
+	idempotency idempotency.Store
 	pool        *pgxpool.Pool
 }
 
@@ -60,7 +61,7 @@ func postgresAdapters(pool *pgxpool.Pool) adapters {
 			Clock: system.Clock{}, IDs: system.IDs{},
 		},
 		outboxStore: postgres.NewOutboxRepo(pool),
-		idempotency: postgres.NewIdempotencyStore(pool, inboundhttp.ErrKeyReused),
+		idempotency: postgres.NewIdempotencyStore(pool),
 		pool:        pool,
 	}
 }

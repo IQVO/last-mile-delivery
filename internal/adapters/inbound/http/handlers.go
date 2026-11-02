@@ -39,41 +39,6 @@ func (s *Server) handleScheduleWave(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, toWaveBody(v))
 }
 
-func (s *Server) handleListWaves(w http.ResponseWriter, r *http.Request) {
-	station, date := r.URL.Query().Get("stationNodeId"), r.URL.Query().Get("serviceDate")
-	if station == "" {
-		writeError(w, r, validationError("stationNodeId is required"))
-		return
-	}
-	if _, err := time.Parse(time.DateOnly, date); err != nil {
-		writeError(w, r, validationError("serviceDate is required and must be a date (YYYY-MM-DD)"))
-		return
-	}
-	waves, err := s.ListWaves.Execute(r.Context(), station, date)
-	if err != nil {
-		writeError(w, r, err)
-		return
-	}
-	body := itemsBody[waveBody]{Items: make([]waveBody, 0, len(waves))}
-	for _, v := range waves {
-		body.Items = append(body.Items, toWaveBody(v))
-	}
-	writeJSON(w, http.StatusOK, body)
-}
-
-func (s *Server) handleGetWaveStops(w http.ResponseWriter, r *http.Request) {
-	stops, err := s.GetWaveStops.Execute(r.Context(), wave.ID(chi.URLParam(r, "waveId")))
-	if err != nil {
-		writeError(w, r, err)
-		return
-	}
-	body := itemsBody[waveStopBody]{Items: make([]waveStopBody, 0, len(stops))}
-	for _, st := range stops {
-		body.Items = append(body.Items, waveStopBody{StopKey: st.StopKey, DestinationPostalPrefix: st.DestinationPostalPrefix, TrackingNumbers: nonNil(st.TrackingNumbers)})
-	}
-	writeJSON(w, http.StatusOK, body)
-}
-
 func (s *Server) handleCloseInduction(w http.ResponseWriter, r *http.Request) {
 	v, err := s.CloseInduction.Execute(r.Context(), wave.ID(chi.URLParam(r, "waveId")))
 	if err != nil {

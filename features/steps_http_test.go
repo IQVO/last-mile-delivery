@@ -43,7 +43,7 @@ type httpReply struct {
 // reset wires a fresh router over the (already reset) scenario world.
 func (h *httpWorld) reset(w *world) {
 	h.w = w
-	h.idem = memory.NewIdempotency(handler.ErrKeyReused, nil)
+	h.idem = memory.NewIdempotency(nil)
 	h.srv = handler.NewRouter(&handler.Server{
 		ScheduleWave: usecases.NewScheduleWave(w.deps), CloseInduction: usecases.NewCloseInduction(w.deps), DispatchWave: usecases.NewDispatchWave(w.deps),
 		CancelWave: usecases.NewCancelWave(w.deps), ListWaves: usecases.NewListWaves(w.deps), GetWaveStops: usecases.NewGetWaveStops(w.deps),
@@ -198,8 +198,8 @@ func comparePackages(key string, got any, want []string) error {
 }
 
 func (h *httpWorld) assertReplayed() error {
-	if v := h.reply.header.Get("Idempotent-Replayed"); v != "true" {
-		return fmt.Errorf("Idempotent-Replayed is %q, want true (%s)", v, h.reply.body)
+	if v := h.reply.header.Get("Idempotency-Replayed"); v != "true" {
+		return fmt.Errorf("Idempotency-Replayed is %q, want true (%s)", v, h.reply.body)
 	}
 	return nil
 }

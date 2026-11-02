@@ -87,22 +87,38 @@ async function get<T>(path: string): Promise<T> {
 
 const seg = encodeURIComponent;
 
-/** A waves page as the UI uses it: the item list is never undefined. */
-function normalizeWavePage(body: { items?: DeliveryWave[] }): { items: DeliveryWave[] } {
-  return { items: body.items ?? [] };
+/** One page of a collection: `nextCursor` is absent on the last page. */
+interface Page<T> {
+  items?: T[];
+  nextCursor?: string;
 }
 
-/** GET /waves?stationNodeId=&serviceDate= -- ordered by inductCutoffAt. */
+/** Safety bound of the cursor loop (pages of PAGE_LIMIT rows each). */
+const MAX_PAGES = 200;
+const PAGE_LIMIT = 500;
+
+/** Reads every page of a collection: follows `nextCursor` until it is absent. */
+async function getAll<T>(path: string, query: Record<string, string | undefined> = {}): Promise<T[]> {
+  const items: T[] = [];
+  let cursor: string | undefined;
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const body = await get<Page<T>>(withQuery(path, { ...query, limit: PAGE_LIMIT, cursor }));
+    items.push(...(body.items ?? []));
+    if (!body.nextCursor) return items;
+    cursor = body.nextCursor;
+  }
+  throw new ApiError(0, null, `${path}: more than ${MAX_PAGES} pages`);
+}
+
+/** GET /waves?stationNodeId=&serviceDate= -- every page, ordered by inductCutoffAt. */
 export async function listWaves(stationNodeId: string, serviceDate: string): Promise<{ items: DeliveryWave[] }> {
-  return normalizeWavePage(
-    await get<{ items?: DeliveryWave[] }>(withQuery("/waves", { stationNodeId, serviceDate })),
-  );
+  return { items: await getAll<DeliveryWave>("/waves", { stationNodeId, serviceDate }) };
 }
 
-/** GET /waves/{waveId}/stops -- packages grouped by stopKey, first induction first. */
+/** GET /waves/{waveId}/stops -- every page, packages grouped by stopKey, first induction first. */
 export async function getWaveStops(waveId: string): Promise<{ items: WaveStop[] }> {
-  const body = await get<{ items?: WaveStop[] }>(`/waves/${seg(waveId)}/stops`);
-  return { items: (body.items ?? []).map((s) => ({ ...s, trackingNumbers: s.trackingNumbers ?? [] })) };
+  const items = await getAll<WaveStop>(`/waves/${seg(waveId)}/stops`);
+  return { items: items.map((s) => ({ ...s, trackingNumbers: s.trackingNumbers ?? [] })) };
 }
 
 /** GET /routes/{routeId} -- the route with its stops and attempts. */

@@ -1,1 +1,1 @@
-{"parameters":[{"name":"waveId","in":"path","required":true,"schema":{"type":"string"}}]}
+{"parameters":[{"name":"waveId","in":"path","required":true,"schema":{"type":"string"}},{"name":"limit","in":"query","required":false,"description":"Page size, 1 to 500 (default 100).","schema":{"type":"integer","minimum":1,"maximum":500,"default":100}},{"name":"cursor","in":"query","required":false,"description":"Opaque cursor from the `nextCursor` of the previous page; repeat the filters on every page.","schema":{"type":"string"}}]}

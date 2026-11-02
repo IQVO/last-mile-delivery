@@ -19,14 +19,26 @@ info:
     opaque `stopKey` that shipping-and-tracking derives at label time. No
     authentication, consistent with the rest of the network. Every state
     changing POST takes a required `Idempotency-Key` header (table
-    idempotency_keys, 24 h): a missing or over-long key is 400
-    `idempotency-key-required`, a key reused with another body on the same
-    resource is 422 `idempotency-key-reused`, and a repeated request replays the
-    stored 2xx response with the header `Idempotent-Replayed: true`. Errors are RFC 9457 `application/problem+json`;
+    idempotency_keys, 24 h): a missing key is 400
+    `idempotency-key-required`, a key that is not 1 to 128 printable ASCII
+    characters is 400 `idempotency-key-invalid`, a key reused with another
+    method, path or body is 409 `idempotency-key-reused`, and a repeated request
+    replays the stored answer with the header `Idempotency-Replayed: true`.
+    Every collection is paged with `limit` and `cursor` and answers
+    `{items, nextCursor}`; an undeclared query parameter is 400
+    `unknown-query-parameter`. Errors are RFC 9457 `application/problem+json`;
     the `type` is a slug. The shared slugs are `not-found` (404),
     `illegal-transition` (409), `concurrent-update` (409) and
     `validation-failed` (422), plus one slug per model Err name (kebab-case
-    without the `Err` prefix). The first eight operations of this file are the
+    without the `Err` prefix). Request bodies are decoded strictly (unknown
+    fields, an empty body, trailing data and a body over 64 KiB are 422
+    `validation-failed`); a NUL character (U+0000) in the query string or a
+    body is 422 `validation-failed`, in the path it is 404
+    `resource-not-found`. A path no route serves is 404 `resource-not-found`,
+    a method a path does not serve is 405 `method-not-allowed` (problem+json),
+    and an unmapped failure is an opaque 500 `internal-error` (never stored for
+    replay; every 4xx answer is). Every problem body carries `type`, `title`,
+    `status`, `detail` and `instance`. The first eight operations of this file are the
     model's REST list; `getWaveStops`, `cancelWave`, `getRoute` and
     `deactivatePartner` are the additions of Gap Register G11, G17 and G34
     (ADR 0002).
@@ -63,21 +75,32 @@ paths:
       responses:
         '201':
           description: Wave scheduled.
+          headers:
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/DeliveryWave'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
     get:
       tags: [Waves]
       operationId: listWaves
       summary: List the waves of a station for a service date
       description: >-
         Returns the waves of the station on the service date ordered by
-        inductCutoffAt then waveId. A station or date with no wave is an empty
-        list.
+        inductCutoffAt then waveId, one keyset page at a time. A station or date
+        with no wave is an empty list.
       parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
         - name: stationNodeId
           in: query
           required: true
@@ -97,15 +120,13 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required: [items]
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/DeliveryWave'
+                $ref: '#/components/schemas/DeliveryWavePage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '422':
           $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /waves/{waveId}/stops:
     get:
       tags: [Waves]
@@ -118,22 +139,24 @@ paths:
         builds PlanRoute from this list. No address is ever returned.
       parameters:
         - $ref: '#/components/parameters/WaveId'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
       responses:
         '200':
-          description: The stops of the wave.
+          description: One page of the stops of the wave.
           content:
             application/json:
               schema:
-                type: object
-                required: [items]
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/WaveStop'
+                $ref: '#/components/schemas/WaveStopPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
-  /waves/{waveId}:close-induction:
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /waves/{waveId}/induction-closures:
     post:
       tags: [Waves]
       operationId: closeInduction
@@ -145,15 +168,24 @@ paths:
       responses:
         '200':
           description: Induction closed.
+          headers:
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/DeliveryWave'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
-  /waves/{waveId}:dispatch:
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /waves/{waveId}/dispatches:
     post:
       tags: [Waves]
       operationId: dispatchWave
@@ -170,15 +202,24 @@ paths:
       responses:
         '200':
           description: Wave dispatched.
+          headers:
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/DeliveryWave'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
-  /waves/{waveId}:cancel:
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /waves/{waveId}/cancellations:
     post:
       tags: [Waves]
       operationId: cancelWave
@@ -201,16 +242,23 @@ paths:
       responses:
         '200':
           description: Wave cancelled.
+          headers:
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/DeliveryWave'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /routes:
     post:
       tags: [Routes]
@@ -235,16 +283,23 @@ paths:
       responses:
         '201':
           description: Route planned.
+          headers:
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Route'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /routes/{routeId}:
     get:
       tags: [Routes]
@@ -262,7 +317,11 @@ paths:
                 $ref: '#/components/schemas/Route'
         '404':
           $ref: '#/components/responses/NotFound'
-  /routes/{routeId}:start:
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /routes/{routeId}/starts:
     post:
       tags: [Routes]
       operationId: startRoute
@@ -277,14 +336,23 @@ paths:
       responses:
         '200':
           description: Route out for delivery.
+          headers:
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Route'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /routes/{routeId}/attempts:
     post:
       tags: [Routes]
@@ -311,16 +379,23 @@ paths:
       responses:
         '201':
           description: Attempt recorded.
+          headers:
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Attempt'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /partners:
     post:
       tags: [Partners]
@@ -341,13 +416,22 @@ paths:
       responses:
         '201':
           description: Partner contracted.
+          headers:
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/DeliveryServicePartner'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/Unprocessable'
-  /partners/{dspId}:deactivate:
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /partners/{dspId}/deactivations:
     post:
       tags: [Partners]
       operationId: deactivatePartner
@@ -361,14 +445,20 @@ paths:
       responses:
         '200':
           description: Partner deactivated.
+          headers:
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/DeliveryServicePartner'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+
 components:
   parameters:
     IdempotencyKey:
@@ -376,13 +466,33 @@ components:
       in: header
       required: true
       description: >-
-        Client-chosen key; a repeated request with the same key on the same
-        route returns the stored response and changes nothing. Keys are kept
-        24 hours.
+        Client-generated key (a UUID) per logical submit, 1 to 128 printable
+        ASCII characters. A retry with the same method, path and body replays
+        the stored answer with `Idempotency-Replayed: true` and changes
+        nothing; the same key with another method, path or body is 409
+        `idempotency-key-reused`. Keys are global and kept 24 hours.
       schema:
         type: string
         minLength: 1
-        maxLength: 200
+        maxLength: 128
+        pattern: '^[\x20-\x7e]+$'
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Page size, 1 to 500 (default 100).
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 500
+        default: 100
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Opaque cursor from the `nextCursor` of the previous page; repeat the filters on every page.
+      schema:
+        type: string
     WaveId:
       name: waveId
       in: path
@@ -401,11 +511,33 @@ components:
       required: true
       schema:
         type: string
+  headers:
+    IdempotencyReplayed:
+      description: Present, with the value `true`, only when the answer is a replay of the stored first answer.
+      schema:
+        type: string
+        enum: ['true']
   responses:
+    BadRequest:
+      description: >-
+        The request is malformed at the HTTP level. Problem types
+        `idempotency-key-required` (no Idempotency-Key header),
+        `idempotency-key-invalid` (not 1 to 128 printable ASCII characters),
+        `invalid-limit`, `invalid-cursor`, `unknown-query-parameter`.
+        `invalid-limit` is a limit outside 1 to 500, empty or repeated;
+        `invalid-cursor` a cursor that is not a page token or is repeated.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
     NotFound:
       description: >-
         The wave, route, partner or (for an attempt) the package on the route
-        does not exist. Problem types `not-found`, `package-not-on-route`.
+        does not exist, or the path matches no route or holds a NUL character.
+        Problem types `not-found`, `package-not-on-route`, `resource-not-found`.
+      headers:
+        Idempotency-Replayed:
+          $ref: '#/components/headers/IdempotencyReplayed'
       content:
         application/problem+json:
           schema:
@@ -417,27 +549,68 @@ components:
         `route-not-started`, `already-delivered`, `attempt-already-recorded`,
         `package-not-inducted`, `package-already-routed`, `stop-key-mismatch`,
         `partner-inactive`, `partner-station-mismatch`, `route-incomplete`.
-        ErrWaveFull (`wave-full`) and ErrInductionClosed (`induction-closed`)
-        are raised only by policy-driven induction, which has no route.
+        `idempotency-key-reused` (the Idempotency-Key was already used with a
+        different method, path or body). ErrWaveFull (`wave-full`),
+        ErrInductionClosed (`induction-closed`) and ErrAlreadyInducted
+        (`already-inducted`) are raised only by policy-driven induction, which
+        has no route.
+      headers:
+        Idempotency-Replayed:
+          $ref: '#/components/headers/IdempotencyReplayed'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    InternalError:
+      description: >-
+        Unexpected failure: problem type `internal-error`, detail "an
+        unexpected error occurred". Never stored for idempotent replay.
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/Problem'
     Unprocessable:
       description: >-
-        Validation failed. Problem types: `validation-failed` (malformed body,
-        parameter or value-object rule), `invalid-wave-times`
+        Validation failed. Problem types: `validation-failed` (body that is not
+        valid JSON for the operation, with an unknown field, empty, with
+        trailing data or over 64 KiB; a NUL character in the query or body; a
+        missing or malformed query filter; a value-object rule), `invalid-wave-times`
         (ErrInvalidWaveTimes), `invalid-van-capacity` (ErrInvalidVanCapacity),
-        `unknown-station` (ErrUnknownStation), `idempotency-key-reused`.
+        `unknown-station` (ErrUnknownStation).
+      headers:
+        Idempotency-Replayed:
+          $ref: '#/components/headers/IdempotencyReplayed'
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/Problem'
   schemas:
+    DeliveryWavePage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeliveryWave'
+        nextCursor:
+          type: string
+          description: Absent on the last page.
+    WaveStopPage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/WaveStop'
+        nextCursor:
+          type: string
+          description: Absent on the last page.
     Problem:
       type: object
       description: RFC 9457 problem details.
-      required: [type, title, status]
+      required: [type, title, status, detail, instance]
       properties:
         type:
           type: string
@@ -453,11 +626,13 @@ components:
           type: string
         instance:
           type: string
+          description: The escaped request path.
     WaveState:
       type: string
       enum: [OPEN, INDUCTION_CLOSED, DISPATCHED, COMPLETED, CANCELLED]
     ScheduleWaveRequest:
       type: object
+      additionalProperties: false
       required: [stationNodeId, serviceDate, inductCutoffAt, windowStart, windowEnd, stopCapacity]
       properties:
         stationNodeId:
@@ -483,12 +658,14 @@ components:
           maximum: 2147483647
     CancelWaveRequest:
       type: object
+      additionalProperties: false
       required: [reason]
       properties:
         reason:
           type: string
           minLength: 1
           maxLength: 200
+          description: Trimmed text without control characters.
     DeliveryWave:
       type: object
       required: [waveId, stationNodeId, serviceDate, inductCutoffAt, windowStart, windowEnd, stopCapacity, assignedStops, remainingStops, state]
@@ -545,6 +722,7 @@ components:
       enum: [DELIVERED, FAILED]
     StopInput:
       type: object
+      additionalProperties: false
       required: [stopNo, trackingNumbers]
       properties:
         stopNo:
@@ -576,6 +754,7 @@ components:
             all were delivered, else FAILED.
     PlanRouteRequest:
       type: object
+      additionalProperties: false
       required: [waveId, dspId, stops]
       properties:
         waveId:
@@ -615,6 +794,7 @@ components:
             $ref: '#/components/schemas/Attempt'
     RecordAttemptRequest:
       type: object
+      additionalProperties: false
       required: [trackingNumber, outcome, at]
       properties:
         trackingNumber:
@@ -625,7 +805,7 @@ components:
           type: string
           minLength: 1
           maxLength: 200
-          description: Required when outcome is FAILED and forbidden when DELIVERED; free text, the model defines no vocabulary.
+          description: Required when outcome is FAILED and forbidden when DELIVERED; free text (trimmed, no control characters), the model defines no vocabulary.
         at:
           type: string
           format: date-time
@@ -649,6 +829,7 @@ components:
       enum: [ACTIVE, INACTIVE]
     ContractPartnerRequest:
       type: object
+      additionalProperties: false
       required: [stationNodeId, vanCapacity]
       properties:
         stationNodeId:

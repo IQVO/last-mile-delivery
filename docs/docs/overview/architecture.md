@@ -92,7 +92,7 @@ Source: `cmd/api/main.go`, `cmd/mcp/main.go`, `cmd/a2a/main.go`, `cmd/api/wiring
 
 `run(ctx)` validates the environment (before anything is dialled), starts telemetry, runs the migrations with retry, opens the pgx pool (10 connections, `statement_timeout = 5s`), pings Postgres with retry, builds the router, starts the three consumers and the relay as goroutines and serves HTTP. On SIGINT/SIGTERM it flips `/readyz` to not-ready, waits `SHUTDOWN_DRAIN_DELAY`, shuts HTTP down, then stops the consumers and the relay, and flushes telemetry last. See the [Runbook](/docs/operations/runbook).
 
-Request path: `RequestID`, `otelchi` span, request-duration histogram, access log, `Recoverer`, NUL rejection; then for state-changing `POST`s the `Idempotency-Key` middleware (a Postgres advisory lock on `(METHOD path, key)`, replay of the stored 2xx response), then the handler, which calls one use case.
+Request path: `RequestID`, `otelchi` span, request-duration histogram, access log, `Recoverer`, NUL rejection; then for state-changing `POST`s the `Idempotency-Key` middleware (a Postgres advisory lock on the key; the handler runs inside the key's transaction, replay of the stored answer), then the handler, which calls one use case.
 
 Write path: a use case runs in `UnitOfWork.Do` (one Postgres transaction): load, apply the command, save with an optimistic `version` check, append the events to `outbox_events` (encoded to CloudEvents at that moment, with `traceparent`), commit. The relay later claims unpublished rows with `FOR UPDATE SKIP LOCKED`, sends them and marks them published; failures count `attempts` up to `OUTBOX_MAX_ATTEMPTS`.
 

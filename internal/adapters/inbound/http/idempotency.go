@@ -5,83 +5,118 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"io"
 	"net/http"
+
+	"github.com/claudioed/last-mile-delivery/internal/application/idempotency"
 )
 
 // IdempotencyKeyHeader is the request header every state changing POST needs.
 const IdempotencyKeyHeader = "Idempotency-Key"
 
-// ErrKeyReused is returned by an IdempotencyStore when the key was stored with
-// a different request body.
-var ErrKeyReused = errors.New("idempotency key reused with a different request")
+// ReplayedHeader marks an answer served from the stored record: set on every
+// replay and only on a replay.
+const ReplayedHeader = "Idempotency-Replayed"
 
-// IdempotencyStore runs a request at most once per (scope, key) and replays the
-// stored 2xx response for a repeat. Run serialises concurrent calls with the
-// same scope and key: the second waits and then replays the first's response.
-// fn is called only when nothing is stored (or the stored row expired); a
-// response is stored only when fn returns a 2xx status. A key stored with
-// another requestHash gives ErrKeyReused.
-type IdempotencyStore interface {
-	Run(ctx context.Context, scope, key, requestHash string, fn func(ctx context.Context) (status int, body []byte)) (status int, body []byte, replayed bool, err error)
-}
+// maxKeyLength bounds an Idempotency-Key.
+const maxKeyLength = 128
 
-// RequireIdempotencyKey is the middleware of the state changing POSTs: the
-// header is mandatory (400 otherwise), the scope is "METHOD path" so a key is
-// only valid on the resource it was first used on.
-func RequireIdempotencyKey(store IdempotencyStore) func(http.Handler) http.Handler {
+// RequireIdempotencyKey is the middleware of every state changing POST (REST
+// guideline section 2). The key is 1 to 128 printable ASCII characters: absent
+// is 400 idempotency-key-required, malformed is 400 idempotency-key-invalid.
+// The key is global; the request fingerprint is the method, the path and the
+// SHA-256 of the body. The store runs the handler inside the transaction that
+// claims the key, so the key row, the aggregate change and the outbox rows
+// commit together. The same key and fingerprint replays the stored answer with
+// Idempotency-Replayed: true, the same key with another fingerprint is 409
+// idempotency-key-reused. A 4xx is stored too; a 5xx or a panic is not.
+func RequireIdempotencyKey(store idempotency.Store) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			key := r.Header.Get(IdempotencyKeyHeader)
-			if key == "" || len(key) > 200 {
-				writeProblem(w, r, idempotencyKeyRequired, "send an Idempotency-Key header of 1 to 200 characters, unique per logical request")
+			key, ok := requestKey(w, r)
+			if !ok {
 				return
 			}
-			body, err := io.ReadAll(io.LimitReader(r.Body, maxBodyBytes))
-			if err != nil {
-				writeError(w, r, errMalformedRequest)
+			body, ok := requestBody(w, r)
+			if !ok {
 				return
 			}
-			_ = r.Body.Close()
-			sum := sha256.Sum256(body)
-			status, out, replayed, err := store.Run(r.Context(), r.Method+" "+r.URL.Path, key, hex.EncodeToString(sum[:]),
-				func(ctx context.Context) (int, []byte) {
-					r.Body = io.NopCloser(bytes.NewReader(body))
-					rec := &capture{header: http.Header{}}
-					next.ServeHTTP(rec, r.WithContext(ctx))
-					if rec.code == 0 {
-						rec.code = http.StatusOK
-					}
-					copyHeader(w.Header(), rec.header)
-					return rec.code, rec.body.Bytes()
-				})
+			hash := requestHash(r, body)
+			var fresh *capture
+			rec, replayed, err := store.Do(r.Context(), key, hash, func(ctx context.Context) (idempotency.Record, error) {
+				fresh = &capture{header: http.Header{}}
+				next.ServeHTTP(fresh, r.WithContext(ctx))
+				return fresh.record(), nil
+			})
 			switch {
-			case errors.Is(err, ErrKeyReused):
-				writeProblem(w, r, idempotencyKeyReused, "the Idempotency-Key was used with a different request body")
 			case err != nil:
 				writeError(w, r, err)
+			case replayed:
+				replay(w, r, rec, hash)
 			default:
-				if replayed {
-					w.Header().Set("Content-Type", "application/json")
-					w.Header().Set("Idempotent-Replayed", "true")
-				}
-				w.WriteHeader(status)
-				_, _ = w.Write(out) //nolint:gosec // out is a JSON body this adapter produced (or stored), not user markup
+				fresh.flushTo(w)
 			}
 		})
 	}
 }
 
-func copyHeader(dst, src http.Header) {
-	for k, vs := range src {
-		for _, v := range vs {
-			dst.Set(k, v)
-		}
+// requestKey returns the Idempotency-Key, or writes the 400 problem.
+func requestKey(w http.ResponseWriter, r *http.Request) (string, bool) {
+	key := r.Header.Get(IdempotencyKeyHeader)
+	switch {
+	case key == "":
+		writeProblem(w, r, idempotencyKeyRequired, "send an Idempotency-Key header of 1 to 128 printable ASCII characters, unique per logical request")
+	case len(key) > maxKeyLength || !printableASCII(key):
+		writeProblem(w, r, idempotencyKeyInvalid, "the Idempotency-Key must be 1 to 128 printable ASCII characters")
+	default:
+		return key, true
 	}
+	return "", false
 }
 
-// capture records a handler's response so the store can persist it.
+func printableASCII(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] < 0x20 || s[i] > 0x7e {
+			return false
+		}
+	}
+	return true
+}
+
+// requestBody reads the whole body (bounded) and restores it for the handler.
+func requestBody(w http.ResponseWriter, r *http.Request) ([]byte, bool) {
+	body, err := io.ReadAll(io.LimitReader(r.Body, maxBodyBytes+1))
+	_ = r.Body.Close()
+	if err != nil || len(body) > maxBodyBytes {
+		writeError(w, r, errMalformedRequest)
+		return nil, false
+	}
+	r.Body = io.NopCloser(bytes.NewReader(body))
+	return body, true
+}
+
+// requestHash is the request fingerprint: method + path + SHA-256 of the body.
+func requestHash(r *http.Request, body []byte) string {
+	sum := sha256.Sum256(body)
+	h := sha256.Sum256([]byte(r.Method + " " + r.URL.EscapedPath() + "\n" + hex.EncodeToString(sum[:])))
+	return hex.EncodeToString(h[:])
+}
+
+func replay(w http.ResponseWriter, r *http.Request, rec idempotency.Record, hash string) {
+	if rec.RequestHash != hash {
+		writeProblem(w, r, idempotencyKeyReused, "the Idempotency-Key was used with a different request")
+		return
+	}
+	if rec.ContentType != "" {
+		w.Header().Set("Content-Type", rec.ContentType)
+	}
+	w.Header().Set(ReplayedHeader, "true")
+	w.WriteHeader(rec.Status)
+	_, _ = w.Write(rec.Body) //nolint:gosec // a body this adapter produced and stored, not user markup
+}
+
+// capture records the handler's response so it is stored before anything
+// reaches the client.
 type capture struct {
 	header http.Header
 	code   int
@@ -101,4 +136,22 @@ func (c *capture) Write(b []byte) (int, error) {
 		c.code = http.StatusOK
 	}
 	return c.body.Write(b)
+}
+
+func (c *capture) record() idempotency.Record {
+	if c.code == 0 {
+		c.code = http.StatusOK
+	}
+	return idempotency.Record{Status: c.code, ContentType: c.header.Get("Content-Type"), Body: c.body.Bytes()}
+}
+
+// flushTo writes the captured first answer to w.
+func (c *capture) flushTo(w http.ResponseWriter) {
+	for k, vs := range c.header {
+		for _, v := range vs {
+			w.Header().Add(k, v)
+		}
+	}
+	w.WriteHeader(c.code)
+	_, _ = w.Write(c.body.Bytes()) //nolint:gosec // a JSON body this adapter produced, not user markup
 }

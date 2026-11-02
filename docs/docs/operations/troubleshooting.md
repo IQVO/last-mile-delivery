@@ -27,8 +27,10 @@ Errors are RFC 9457 `application/problem+json`; the `type` field is the slug.
 
 | Response | Cause | Fix |
 | --- | --- | --- |
-| `400 idempotency-key-required` | a state-changing `POST` without `Idempotency-Key`, or one longer than 200 characters | send a unique key per logical request |
-| `422 idempotency-key-reused` | the same key and path with a different body | use a new key; to retry the same request, resend the identical body (the stored 2xx response is replayed with `Idempotent-Replayed: true`) |
+| `400 idempotency-key-required` | a `POST` without `Idempotency-Key` (a key that is not 1 to 128 printable ASCII characters is `idempotency-key-invalid`) | send a unique key per logical request |
+| `409 idempotency-key-reused` | the same key with a different method, path or body | a client bug: use a new key per logical submit; to retry the same request, resend the identical request (the stored answer is replayed with `Idempotency-Replayed: true`) |
+| `400 idempotency-key-invalid` | the key is not 1 to 128 printable ASCII characters | send a UUID |
+| `400 invalid-limit`, `invalid-cursor`, `unknown-query-parameter` | a bad `limit`, a cursor that was not a `nextCursor`, or a retired paging parameter (`after`, `offset`, `nextToken`) | use `limit` and the `nextCursor` of the previous page |
 | `422 unknown-station` | the station is not in `rm_stations` as a `DELIVERY_STATION` | check `SELECT * FROM rm_stations;`; the node-topology consumer fills it from `NodeRegistered`. Standalone, seed the row (see [Quickstart](/docs/overview/quickstart)) |
 | `422 invalid-wave-times` | the times do not run `inductCutoffAt < windowStart < windowEnd` | fix the body |
 | `422 invalid-van-capacity` | `vanCapacity` is zero or negative | send a positive capacity |
@@ -40,7 +42,7 @@ Errors are RFC 9457 `application/problem+json`; the `type` field is the slug.
 | `409 illegal-transition` | e.g. dispatching a cancelled wave | `GET /waves` for the current `state` |
 | `409 concurrent-update` | another request changed the aggregate (version guard) | re-fetch and retry |
 | `500 internal-error` | untyped failure; the real cause is logged server-side, not returned | find the log line by `request_id`; the business counter records it as `outcome=rejected, reason=internal-error` for attempts |
-| `404 not-found` on an unknown path, `405 method-not-allowed` | wrong route; the colon verbs are `:close-induction`, `:dispatch`, `:cancel`, `:start`, `:deactivate` | see the [API reference](/docs/api-reference) |
+| `404 not-found` on an unknown path, `405 method-not-allowed` | wrong route; commands are POSTs to `/induction-closures`, `/dispatches`, `/cancellations`, `/starts`, `/deactivations` under the wave, route or partner (the `:verb` routes are gone) | see the [API reference](/docs/api-reference) |
 
 ## Events do not flow
 

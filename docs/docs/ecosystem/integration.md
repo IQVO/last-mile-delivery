@@ -66,7 +66,7 @@ Written to `outbox_events` in the aggregate's transaction and published by the r
 | Client | Surface | Notes |
 | --- | --- | --- |
 | Station planner (person or console) | REST on `:8080`, Kong path `/api/last-mile-delivery` | `POST /waves`, `GET /waves`, `GET /waves/{waveId}/stops`, the colon verbs, `POST /routes`, `GET /routes/{routeId}`, `POST /partners` |
-| DSP driver app (external organisation) | REST: `POST /routes/{routeId}:start`, `POST /routes/{routeId}/attempts` | Unauthenticated like all fleet APIs; a partner is an independent business using the published API |
+| DSP driver app (external organisation) | REST: `POST /routes/{routeId}/starts`, `POST /routes/{routeId}/attempts` | Unauthenticated like all fleet APIs; a partner is an independent business using the published API |
 | AI agents | MCP on `:8090` (`/mcp`), Kong `/api/mcp/last-mile-delivery` | three read-only tools, [MCP tools](/docs/mcp/tools) |
 | Peer agents | A2A on `:8093`, Kong `/api/a2a/last-mile-delivery` | two read-only skills, [API reference](/docs/api-reference) |
 | Operator console | `web/` micro-frontend `last_mile_mfe` | read-only screens over the three REST GETs, calls only this context's API |

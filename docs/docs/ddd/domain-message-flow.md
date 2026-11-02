@@ -63,11 +63,11 @@ sequenceDiagram
     actor DR as DSP driver app
     participant LM as last-mile-delivery
     participant ST as shipping-and-tracking
-    SP->>LM: cmd: CloseInduction POST /waves/id:close-induction
+    SP->>LM: cmd: CloseInduction POST /waves/id/induction-closures
     SP->>LM: cmd: PlanRoute POST /routes
     LM-->>SP: reply 201, route PLANNED
-    SP->>LM: cmd: DispatchWave POST /waves/id:dispatch
-    DR->>LM: cmd: StartRoute POST /routes/id:start
+    SP->>LM: cmd: DispatchWave POST /waves/id/dispatches
+    DR->>LM: cmd: StartRoute POST /routes/id/starts
     LM->>ST: evt: route.PackageOutForDelivery per package
     DR->>LM: cmd: RecordAttempt POST /routes/id/attempts DELIVERED
     LM->>ST: evt: route.DeliveryAttempted
