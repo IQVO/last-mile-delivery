@@ -14,7 +14,7 @@ Guides: `python3 scripts/harness/repo_lint.py`, `python3 scripts/harness/guide_l
 ## Layout (hexagonal)
 `internal/domain/{shared,wave,route,partner,history}` pure Go; `internal/application/{ports (interfaces only),repository (filters),views,usecases,outbox}`;
 `internal/adapters/inbound/{http (chi),kafka (consumers, inbox, DLQ)}`; `internal/adapters/outbound/{postgres,kafka,outbox,system,memory,repocontract}`; `internal/adapters/kafka/cloudevents` (the ONLY envelope builder);
-`internal/testing/{pgtest,kafkatest}` (testcontainers helpers); `cmd/api` (composition root, `run(ctx)`); `features/` (godog, never a .go file at the repo root). Migrations are embedded in `internal/adapters/outbound/postgres/migrations`.
+`internal/testing/{pgtest,kafkatest}` (testcontainers helpers); `cmd/api` (composition root, `run(ctx)`), `cmd/mcp` and `cmd/a2a` (read-only composition roots); `docs/` (Docusaurus site: pages in `docs/docs/`, ADRs in `docs/adr/`); `features/` (godog, never a .go file at the repo root). Migrations are embedded in `internal/adapters/outbound/postgres/migrations`.
 
 ## Runtime rule
 Real PostgreSQL and Kafka only. `DATABASE_URL`, `KAFKA_BROKERS`, `LINEHAUL_CONSUMER_GROUP`, `NODE_TOPOLOGY_CONSUMER_GROUP`, `SHIPPING_CONSUMER_GROUP` are mandatory (boot error naming the variable, before the listener binds; `MIGRATIONS_DATABASE_URL` optional).
@@ -37,6 +37,6 @@ Aggregates, invariants and assumptions A1-A29 are in docs/adr/0002; consumed con
 
 ## Workflow
 GitFlow: feature/* -> PR into develop, CI green before merge, never push develop or main. lefthook: pre-commit fmt/vet/lint, pre-push `make check`. Commit and push after each step.
-Chart: charts/last-mile-delivery (api only; renders exactly the env cmd/api reads; refuses empty database, brokers or `*_CONSUMER_GROUP`, any `*_MODE`, and a grace period below `config.shutdownDrainDelay` + 50s). Tests: charts/last-mile-delivery/tests; docs/before-first-release.md rows 5-9 are done, row 11 (registry secrets) is for the repo admin.
+Chart: charts/last-mile-delivery (api only; renders exactly the env cmd/api reads; refuses empty database, brokers or `*_CONSUMER_GROUP`, any `*_MODE`, and a grace period below `config.shutdownDrainDelay` + 50s). Tests: charts/last-mile-delivery/tests; docs/docs/operations/before-first-release.md rows 5-9 are done, row 11 (registry secrets) is for the repo admin.
 
 A2A: `cmd/a2a` (port 8093) is this context's read-only Agent2Agent agent, skills `list_waves` (read), `get_route` (read), decided in `docs/adr/0009-a2a-inbound-adapter.md`; delegation only (facts stay CloudEvents on Kafka), unauthenticated like REST and MCP; rules in `.claude/rules/fleet/a2a.md`.
