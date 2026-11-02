@@ -1,0 +1,70 @@
+---
+id: list-waves
+title: "List the waves of a station for a service date"
+description: "Returns the waves of the station on the service date ordered by inductCutoffAt then waveId. A station or date with no wave is an empty list."
+sidebar_label: "List the waves of a station for a service date"
+hide_title: true
+hide_table_of_contents: true
+api: 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
+sidebar_class_name: "get api-method"
+info_path: docs/api-reference/rest/last-mile-delivery-api
+custom_edit_url: null
+hide_send_button: true
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+import Translate from "@docusaurus/Translate";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"List the waves of a station for a service date"}
+>
+</Heading>
+
+<MethodEndpoint
+  method={"get"}
+  path={"/waves"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+
+
+Returns the waves of the station on the service date ordered by inductCutoffAt then waveId. A station or date with no wave is an empty list.
+
+<Heading
+  id={"request"}
+  as={"h2"}
+  className={"openapi-tabs__heading"}
+>
+  <Translate id="theme.openapi.request.title">Request</Translate>
+</Heading>
+
+<ParamsDetails
+  {...require("./list-waves.ParamsDetails.json")}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  {...require("./list-waves.RequestSchema.json")}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  {...require("./list-waves.StatusCodes.json")}
+>
+  
+</StatusCodes>
+
+
+      

@@ -1,0 +1,70 @@
+---
+id: schedule-wave
+title: "Schedule a delivery wave (ScheduleWave)"
+description: "Creates an OPEN wave and publishes DeliveryWaveScheduled. Enforces inductCutoffAt < windowStart < windowEnd (ErrInvalidWaveTimes, 422 invalid-wave-times) and that stationNodeId is a DELIVERY_STATION known from node-topology (ErrUnknownStation, 422 unknown-station). Packages that arrived while no wave was eligible are inducted into the new wave in arrival order (policy InductDeferredOnSchedule)."
+sidebar_label: "Schedule a delivery wave (ScheduleWave)"
+hide_title: true
+hide_table_of_contents: true
+api: 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
+sidebar_class_name: "post api-method"
+info_path: docs/api-reference/rest/last-mile-delivery-api
+custom_edit_url: null
+hide_send_button: true
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+import Translate from "@docusaurus/Translate";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"Schedule a delivery wave (ScheduleWave)"}
+>
+</Heading>
+
+<MethodEndpoint
+  method={"post"}
+  path={"/waves"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+
+
+Creates an OPEN wave and publishes DeliveryWaveScheduled. Enforces inductCutoffAt &lt; windowStart &lt; windowEnd (ErrInvalidWaveTimes, 422 invalid-wave-times) and that stationNodeId is a DELIVERY_STATION known from node-topology (ErrUnknownStation, 422 unknown-station). Packages that arrived while no wave was eligible are inducted into the new wave in arrival order (policy InductDeferredOnSchedule).
+
+<Heading
+  id={"request"}
+  as={"h2"}
+  className={"openapi-tabs__heading"}
+>
+  <Translate id="theme.openapi.request.title">Request</Translate>
+</Heading>
+
+<ParamsDetails
+  {...require("./schedule-wave.ParamsDetails.json")}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  {...require("./schedule-wave.RequestSchema.json")}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  {...require("./schedule-wave.StatusCodes.json")}
+>
+  
+</StatusCodes>
+
+
+      

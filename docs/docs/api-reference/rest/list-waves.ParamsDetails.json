@@ -1,0 +1,1 @@
+{"parameters":[{"name":"stationNodeId","in":"query","required":true,"description":"The delivery station (node-topology nodeId).","schema":{"type":"string"}},{"name":"serviceDate","in":"query","required":true,"description":"The station's local service date.","schema":{"type":"string","format":"date"}}]}

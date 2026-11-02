@@ -1,0 +1,70 @@
+---
+id: dispatch-wave
+title: "Dispatch a wave (DispatchWave)"
+description: "INDUCTION_CLOSED to DISPATCHED. No event is published for the wave itself. Packages inducted in the wave that no route holds are re-inducted onto the next wave (Gap Register G17 mechanism). A wave with no route left to run completes at once (policy CompleteWaveOnLastRoute), so the response may show COMPLETED."
+sidebar_label: "Dispatch a wave (DispatchWave)"
+hide_title: true
+hide_table_of_contents: true
+api: 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
+sidebar_class_name: "post api-method"
+info_path: docs/api-reference/rest/last-mile-delivery-api
+custom_edit_url: null
+hide_send_button: true
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+import Translate from "@docusaurus/Translate";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"Dispatch a wave (DispatchWave)"}
+>
+</Heading>
+
+<MethodEndpoint
+  method={"post"}
+  path={"/waves/{waveId}:dispatch"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+
+
+INDUCTION_CLOSED to DISPATCHED. No event is published for the wave itself. Packages inducted in the wave that no route holds are re-inducted onto the next wave (Gap Register G17 mechanism). A wave with no route left to run completes at once (policy CompleteWaveOnLastRoute), so the response may show COMPLETED.
+
+<Heading
+  id={"request"}
+  as={"h2"}
+  className={"openapi-tabs__heading"}
+>
+  <Translate id="theme.openapi.request.title">Request</Translate>
+</Heading>
+
+<ParamsDetails
+  {...require("./dispatch-wave.ParamsDetails.json")}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  {...require("./dispatch-wave.RequestSchema.json")}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  {...require("./dispatch-wave.StatusCodes.json")}
+>
+  
+</StatusCodes>
+
+
+      

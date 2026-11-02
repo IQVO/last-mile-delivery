@@ -1,0 +1,70 @@
+---
+id: record-attempt
+title: "Record a delivery attempt (RecordAttempt)"
+description: "Records DELIVERED or FAILED for one package on an OUT_FOR_DELIVERY route and publishes DeliveryAttempted. Errors: ErrRouteNotStarted (409 route-not-started), ErrAlreadyDelivered (409 already-delivered). A FAILED attempt counts in the package's attempt history and re-inducts the package onto the next wave (policy RetryNextWave); the third failure publishes PackageReturnInitiated instead. The attempt that records the last outstanding package completes the route, and the last completed route completes the wave."
+sidebar_label: "Record a delivery attempt (RecordAttempt)"
+hide_title: true
+hide_table_of_contents: true
+api: eJztGV1v2zjyrwz4UhsnOY7XvW7dp1ybFsH22pyb7eGuCNa0NLa4oUiVHDkRAv/3w5CSbMfuHXZxD4tF+5A0w+Fwvr/0KEiuvZh9EXNbE3pxmwhboZOkrLnKxUw4zKzLL4iwrEgkIkefOVXxuZiJeTj18Oby/dXny/nlG7AO3l5cvb98AyvrwBqESmZ3co1gDUgDH3+++eXtx/kv7Y1/geOHQZocqnqplS/QwxvUaoOuaZ/FfASXzlnnZ/w7sPrB0ieSjjCHwXT8MpJJjaXUR/AwYdwL7VDmTUuwQ5YRmuYdeDiCi45vGR+FzNaGPCgDVPRSPPP9eaE8WdcE1h2myuR1Rn4fGawhGwAGHwju5QZhUFmtsgbmSK75gA/0T7nB4auARYVyOayk0rXDPXVcR3JzpNqZK6NISZZbGU8o8xHcFNhzRYUkcK1ZmKiWnsDW5EmaXJl1z1xmy0ojYUQL+kuCMP2tDiNvjXR4g8UZiURU0skSCR370aMwskT2G75xlYtEKHaUSlIhEuHwa60c5mJGrsZE+KzAUorZo6Cm4muenDJrsd0mPaWrHMvKEpqsSX/CpqNYoMzRnaB56KGvtUJDaVZYjwbusHkFEhxWGFTId9ET3CsqglBelshY7K3931F6F9QfZWfLh+u+ssZH980KadbowVgqlFmP4CdsPEjH9CqCyRQKWzvPKvuW2IkolXmPZk2FmJ0nopQP3V+T8Xi7vY3Soqe/2bzh+0+Fz6whNMRHsqq0ykIkn/3qWRmPxw/b5a+Y0YEWvwhyMrtTZv2hLpdBxbamzJYoEiGJU0TlOEmQQh9IHaIfG3NH4ITEaOqSH+1TiEhEjER+iRRpRv/YEtgmoo2POcpWqN+iw+MEFsWG+wINtGyC8n0yMDknsqXKczQRqWf0FawcIhA+UBK8orQ5ashxpUzwA9jYTC5rLV0zYs4lnWJ3ZV3JJyKXhCkplnK7k3y+n4Dn0fpiu2WUzv2CFSbjc/51KF57rU0ImLPz/V9cZBfev9FZuounvOSP5Ui/12BdrYw2mo6nx2a5adNn0qXdSjoy6Lh6DrhuStMl9OGTgrJL1pDbmG0AH5SnEVw7u9RYAvPrYcG1cGVrky8SWLQEQoG0Jg0EFv/FG6pI6y//2yuexNPb1/By+vwFtAQgR5JKh6x3kGKYSqezRHiSVPsTqSU8dmyCw0f3BQev63USmg98kFyvYMGqTle11kHiFixmooeLnflO+FWP35kNChnC25OtIJOVzBQ1oHFFTKiVZUdJGcJ1CI2e1HT8cstSsG5Oeh7XdmmyEwztu1oreO9qL49d7bU1K62yvRIn12uHa0ncyzCvyF7XSfHEi2awUFrjWuqUnDReMVX2p8yarHaOS2tdcRwwMPZgdoMu7ejtwHutGQOPWrAAjD6fdodd2nrqwbHXOoT3d/i1cMLmSe+wSUvlS0lZEdFDpKXKyIzUBvdhrA1lzQF+ZF6ZrvdZhFaUm7a3tdYw2HOuYagWl85dBfaUNa+19dxzLlQHSbMAYlyH4KTic2t0A8sGYmuY5k5t0EB/J4H7QmVF53WBo++h++cK3cnkOHQ/S63yYNMwE/AU9DQ4Nz1KGlEWMCil5gqFOSxt3oTaEvtzjvON1DWm0QPA1RqHCSyUCXTSoFSuZ34Bg+DHAc7OfsPQfdyNNLsg38f+LM3rFs74tbkz9t50sRVRf47ATxEWyO41+RyyDmsOk+9u/idy820iSqTC8lqhsp7C7Mh9uTgLOc2fPbbd4fasrQSeNY9u0w2XtdM8+hFVs7MzbTOpC+tp9uP4x7Hg6YidYb6bkC47aY6HlJ32+pbyoHN80hzu0EPnNxlPpun4RTp5eXP+fPb8fDb5cTR+cf7vqJiVDS+2KngvPaV/Vxr7tQZcXF+JRLBU0T3Go/PRuHV1mQVXb4dfnsPTUmnsCmUDpVSGpDKsk2RPI352drZWVNTLUWbLs6t/fP54dnxdbI8C4vLTDfDLTmYEdtXP/0/eXXIviXlA5XVGi+mCi4BBurfuDgbarpUnlXkghW6YQI5cz3JYOVu22GmLneY283FsOgs/R40sNQzaJ/yXYzZuRw49JTDq2xifwKjflSTM3gYNy+ZHGJZGsS7L/Nfa88y/bALf1mUFenKSrHvmewV4folkuPJOVjBHFgcdz/pW14EuDN49T+Dd+Tn/+Cv/eJHAux+mw7iK6RTk6nZb0Er7zEOvzDYd+hkoAk5dea1x75yD2MMg9gCQ1WRXq2TvWJnc3ieH8T1MoFtCSRd13jZHvMWKm6gygUpL42MX4UMW2jGFbqMy7KYRD4M3n65b9XUrpR65i9ARfLCAJq+sMgQZv4w+DDB57tB7CONMA5YKdHB9dTXbccU9kMrZWivVWqYNUzAhTsPTa2frKuy7KGY039uwkl9rjJ3eT9gs4vbLF6qqlFmn0uRpTzC6Ia/vQMslauBCF5iXNRXMQywswYM829zsNc3sdJ3Ht+YcwWVvSozbH37n+uOnGyB5x09BV1Bg8WSLtYC4v4IByaUOWuiOf7nDxidhXzScgYRSec+EeZ3KrbW2Zh1WVMrDdDw+VTvjo4sEZECMxTQKI000BPcGh0su9LZ2WVh+TCeTb5bkuCM8sUNzWGnZHOzHJg8Pux1Zr8tW8p1KKJ2Hu5jPgNdYi27dGxykL9iLb5X/RVyfLrgMLZh/GWpsjEZfSGaFAZHe3mDM2+BpaD+Oh5ywKR6eHHXiUdDDyQ5sOpkMOc5qHxbg/DRU6Nr90KVzwNkdBne4lMs0k61ybE1RjkvnFlA5XKmHNqWslPMEqNYFQb+f99EhlYcVVxeWrd9CPfMQ8rpWnl7BYo1hz/yJgyeMb1y5NYP4rzVS2Kkvokg5htFIEl7HRLDoacs8V/3TB+mxzYYvYuL8YQqDizdzGI/Hk2HYfXHBL6XZK21xsQXyKKXA4GDnNXzaTT3uWsLvHyC+f4Douk+uuWeVlsqwv4W+6LFtMNt9JfdLs93msu8xbxPBbSTjPT4upcefnd5uGfy15pZp9uU2ERvpFKfq0IfmyvP/czFbSe2ffnTYd9BBt2EewrdYbYHS8LeNMKCJmRCJuMNm70PK9nabdB89fjcLf8ivISeVEoU//vbT64e/EEWk11HS9CZObB3G0XJ7d+MiyzB8zfw27u3esMIlXSRi2X5z4QTLhpH3PDLK+2gtGzQfd9wMexRamnUt14wbafK//wBwxVMR
+sidebar_class_name: "post api-method"
+info_path: docs/api-reference/rest/last-mile-delivery-api
+custom_edit_url: null
+hide_send_button: true
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+import Translate from "@docusaurus/Translate";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"Record a delivery attempt (RecordAttempt)"}
+>
+</Heading>
+
+<MethodEndpoint
+  method={"post"}
+  path={"/routes/{routeId}/attempts"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+
+
+Records DELIVERED or FAILED for one package on an OUT_FOR_DELIVERY route and publishes DeliveryAttempted. Errors: ErrRouteNotStarted (409 route-not-started), ErrAlreadyDelivered (409 already-delivered). A FAILED attempt counts in the package's attempt history and re-inducts the package onto the next wave (policy RetryNextWave); the third failure publishes PackageReturnInitiated instead. The attempt that records the last outstanding package completes the route, and the last completed route completes the wave.
+
+<Heading
+  id={"request"}
+  as={"h2"}
+  className={"openapi-tabs__heading"}
+>
+  <Translate id="theme.openapi.request.title">Request</Translate>
+</Heading>
+
+<ParamsDetails
+  {...require("./record-attempt.ParamsDetails.json")}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  {...require("./record-attempt.RequestSchema.json")}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  {...require("./record-attempt.StatusCodes.json")}
+>
+  
+</StatusCodes>
+
+
+      
