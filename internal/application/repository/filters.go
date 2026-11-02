@@ -17,4 +17,15 @@ type WaveFilter struct {
 	State         wave.State
 	// InductCutoffAfter keeps the waves whose cutoff is strictly after it.
 	InductCutoffAfter time.Time
+	// After is the keyset position of the previous page: only waves strictly
+	// after (inductCutoffAt, waveId) are returned. Nil is the first page.
+	After *WaveAfter
+	// Limit caps the result; zero is no cap.
+	Limit int
+}
+
+// WaveAfter is the (inductCutoffAt, waveId) position a page continues after.
+type WaveAfter struct {
+	InductCutoffAt time.Time
+	WaveID         string
 }
