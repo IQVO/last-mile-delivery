@@ -16,9 +16,9 @@ var historyCases = []named{
 }
 
 func historyRoundTrip(t *testing.T, f Fixture) {
-	h := NewHistory(t, "TRK-1", "node-ds-01", 0)
+	h := NewHistory(t, trk1, station1, 0)
 	noErr(t, f.Histories.Save(ctxb(), h))
-	got, err := f.Histories.Get(ctxb(), "TRK-1")
+	got, err := f.Histories.Get(ctxb(), trk1)
 	noErr(t, err)
 	if !reflect.DeepEqual(got.Snapshot(), h.Snapshot()) {
 		t.Fatalf("snapshot = %+v, want %+v", got.Snapshot(), h.Snapshot())
@@ -31,32 +31,32 @@ func historyGetMiss(t *testing.T, f Fixture) {
 }
 
 func historyConcurrency(t *testing.T, f Fixture) {
-	noErr(t, f.Histories.Save(ctxb(), NewHistory(t, "TRK-1", "node-ds-01", 0)))
-	wantErr(t, f.Histories.Save(ctxb(), NewHistory(t, "TRK-1", "node-ds-01", 0)), ports.ErrConcurrentUpdate)
-	winner, err := f.Histories.Get(ctxb(), "TRK-1")
+	noErr(t, f.Histories.Save(ctxb(), NewHistory(t, trk1, station1, 0)))
+	wantErr(t, f.Histories.Save(ctxb(), NewHistory(t, trk1, station1, 0)), ports.ErrConcurrentUpdate)
+	winner, err := f.Histories.Get(ctxb(), trk1)
 	noErr(t, err)
-	loser, err := f.Histories.Get(ctxb(), "TRK-1")
+	loser, err := f.Histories.Get(ctxb(), trk1)
 	noErr(t, err)
 	noErr(t, winner.Place())
 	noErr(t, loser.Place())
 	noErr(t, f.Histories.Save(ctxb(), winner))
 	wantErr(t, f.Histories.Save(ctxb(), loser), ports.ErrConcurrentUpdate)
-	orphan := NewHistory(t, "TRK-9", "node-ds-01", 0)
+	orphan := NewHistory(t, "TRK-9", station1, 0)
 	noErr(t, orphan.Place()) // version 2 of a package never stored
 	wantErr(t, f.Histories.Save(ctxb(), orphan), ports.ErrConcurrentUpdate)
 }
 
 func historyListWaiting(t *testing.T, f Fixture) {
 	for _, h := range [](func() error){
-		func() error { return f.Histories.Save(ctxb(), NewHistory(t, "TRK-2", "node-ds-01", 2*time.Minute)) },
-		func() error { return f.Histories.Save(ctxb(), NewHistory(t, "TRK-3", "node-ds-01", time.Minute)) },
-		func() error { return f.Histories.Save(ctxb(), NewHistory(t, "TRK-1", "node-ds-01", 2*time.Minute)) }, // same arrival as TRK-2: by number
-		func() error { return f.Histories.Save(ctxb(), NewHistory(t, "TRK-4", "node-ds-02", 0)) },
+		func() error { return f.Histories.Save(ctxb(), NewHistory(t, trk2, station1, 2*time.Minute)) },
+		func() error { return f.Histories.Save(ctxb(), NewHistory(t, trk3, station1, time.Minute)) },
+		func() error { return f.Histories.Save(ctxb(), NewHistory(t, trk1, station1, 2*time.Minute)) }, // same arrival as TRK-2: by number
+		func() error { return f.Histories.Save(ctxb(), NewHistory(t, trk4, station2, 0)) },
 	} {
 		noErr(t, h())
 	}
 	// TRK-5 was inducted: saved at version 1 as waiting, then placed.
-	first := NewHistory(t, "TRK-5", "node-ds-01", 0)
+	first := NewHistory(t, "TRK-5", station1, 0)
 	noErr(t, f.Histories.Save(ctxb(), first))
 	noErr(t, first.Place())
 	noErr(t, f.Histories.Save(ctxb(), first))
@@ -66,9 +66,9 @@ func historyListWaiting(t *testing.T, f Fixture) {
 		limit   int
 		want    []string
 	}{
-		{"all", "node-ds-01", 10, []string{"TRK-3", "TRK-1", "TRK-2"}},
-		{"limited", "node-ds-01", 2, []string{"TRK-3", "TRK-1"}},
-		{"other station", "node-ds-02", 10, []string{"TRK-4"}},
+		{"all", station1, 10, []string{trk3, trk1, trk2}},
+		{"limited", station1, 2, []string{trk3, trk1}},
+		{"other station", station2, 10, []string{trk4}},
 		{"none", "node-x", 10, []string{}},
 	}
 	for _, c := range cases {

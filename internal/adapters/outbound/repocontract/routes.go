@@ -13,28 +13,28 @@ import (
 
 var routeCases = []named{
 	{"save then get round-trips stops and attempts", routeRoundTrip},
-	{"get of an unknown id is ErrNotFound", routeGetMiss},
+	{unknownIDCase, routeGetMiss},
 	{"stale, duplicate and orphan saves are ErrConcurrentUpdate", routeConcurrency},
 	{"packages in a wave and uncompleted routes count every route of the wave only", routeWaveQueries},
 }
 
 var partnerCases = []named{
 	{"save then get round-trips the snapshot", partnerRoundTrip},
-	{"get of an unknown id is ErrNotFound", partnerGetMiss},
+	{unknownIDCase, partnerGetMiss},
 	{"stale saves are ErrConcurrentUpdate", partnerConcurrency},
 }
 
 func routeRoundTrip(t *testing.T, f Fixture) {
-	r := savedStartedRoute(t, f, "route-1", "wave-1")
+	r := savedStartedRoute(t, f, "route-1", wave1)
 	got, err := f.Routes.Get(ctxb(), "route-1")
 	noErr(t, err)
 	if !reflect.DeepEqual(got.Snapshot(), r.Snapshot()) {
 		t.Fatalf("snapshot = %+v, want %+v", got.Snapshot(), r.Snapshot())
 	}
-	_, err = got.RecordAttempt("TRK-1", route.OutcomeFailed, "absent", Now.Add(time.Hour), Now)
+	_, err = got.RecordAttempt(trk1, route.OutcomeFailed, "absent", Now.Add(time.Hour), Now)
 	noErr(t, err)
 	noErr(t, f.Routes.Save(ctxb(), got))
-	_, err = got.RecordAttempt("TRK-2", route.OutcomeDelivered, "", Now.Add(time.Hour), Now)
+	_, err = got.RecordAttempt(trk2, route.OutcomeDelivered, "", Now.Add(time.Hour), Now)
 	noErr(t, err)
 	noErr(t, f.Routes.Save(ctxb(), got))
 	again, err := f.Routes.Get(ctxb(), "route-1")
@@ -50,43 +50,43 @@ func routeGetMiss(t *testing.T, f Fixture) {
 }
 
 func routeConcurrency(t *testing.T, f Fixture) {
-	r := savedStartedRoute(t, f, "route-1", "wave-1")
+	r := savedStartedRoute(t, f, "route-1", wave1)
 	wantErr(t, f.Routes.Save(ctxb(), r), ports.ErrConcurrentUpdate)
 	winner, err := f.Routes.Get(ctxb(), "route-1")
 	noErr(t, err)
 	loser, err := f.Routes.Get(ctxb(), "route-1")
 	noErr(t, err)
-	_, err = winner.RecordAttempt("TRK-1", route.OutcomeDelivered, "", Now, Now)
+	_, err = winner.RecordAttempt(trk1, route.OutcomeDelivered, "", Now, Now)
 	noErr(t, err)
-	_, err = loser.RecordAttempt("TRK-2", route.OutcomeDelivered, "", Now, Now)
+	_, err = loser.RecordAttempt(trk2, route.OutcomeDelivered, "", Now, Now)
 	noErr(t, err)
 	noErr(t, f.Routes.Save(ctxb(), winner))
 	wantErr(t, f.Routes.Save(ctxb(), loser), ports.ErrConcurrentUpdate)
 	orphan, _ := StartedRoute(t, "route-9", "wave-9")
-	_, err = orphan.RecordAttempt("TRK-1", route.OutcomeDelivered, "", Now, Now)
+	_, err = orphan.RecordAttempt(trk1, route.OutcomeDelivered, "", Now, Now)
 	noErr(t, err)
 	wantErr(t, f.Routes.Save(ctxb(), orphan), ports.ErrConcurrentUpdate)
 }
 
 func routeWaveQueries(t *testing.T, f Fixture) {
-	got, err := f.Routes.PackagesInWave(ctxb(), "wave-1")
+	got, err := f.Routes.PackagesInWave(ctxb(), wave1)
 	noErr(t, err)
 	if got == nil || len(got) != 0 {
 		t.Fatalf("no route: want an empty non-nil list, got %#v", got)
 	}
-	n, err := f.Routes.CountUncompleted(ctxb(), "wave-1")
+	n, err := f.Routes.CountUncompleted(ctxb(), wave1)
 	noErr(t, err)
 	if n != 0 {
 		t.Fatalf("uncompleted = %d, want 0", n)
 	}
-	savedStartedRoute(t, f, "route-1", "wave-1")
+	savedStartedRoute(t, f, "route-1", wave1)
 	savedStartedRoute(t, f, "route-2", "wave-2")
-	got, err = f.Routes.PackagesInWave(ctxb(), "wave-1")
+	got, err = f.Routes.PackagesInWave(ctxb(), wave1)
 	noErr(t, err)
-	if !reflect.DeepEqual(got, []string{"TRK-1", "TRK-2", "TRK-3"}) {
+	if !reflect.DeepEqual(got, []string{trk1, trk2, trk3}) {
 		t.Fatalf("packages = %v", got)
 	}
-	if n, err = f.Routes.CountUncompleted(ctxb(), "wave-1"); err != nil || n != 1 {
+	if n, err = f.Routes.CountUncompleted(ctxb(), wave1); err != nil || n != 1 {
 		t.Fatalf("uncompleted = %d, %v, want 1", n, err)
 	}
 	loaded, err := f.Routes.Get(ctxb(), "route-1")
@@ -98,7 +98,7 @@ func routeWaveQueries(t *testing.T, f Fixture) {
 	}
 	noErr(t, loaded.Complete())
 	noErr(t, f.Routes.Save(ctxb(), loaded))
-	if n, err = f.Routes.CountUncompleted(ctxb(), "wave-1"); err != nil || n != 0 {
+	if n, err = f.Routes.CountUncompleted(ctxb(), wave1); err != nil || n != 0 {
 		t.Fatalf("uncompleted after completion = %d, %v, want 0", n, err)
 	}
 	if n, err = f.Routes.CountUncompleted(ctxb(), "wave-2"); err != nil || n != 1 {
@@ -107,7 +107,7 @@ func routeWaveQueries(t *testing.T, f Fixture) {
 }
 
 func partnerRoundTrip(t *testing.T, f Fixture) {
-	p := NewPartner(t, "dsp-1", "node-ds-01")
+	p := NewPartner(t, "dsp-1", station1)
 	noErr(t, f.Partners.Save(ctxb(), p))
 	got, err := f.Partners.Get(ctxb(), "dsp-1")
 	noErr(t, err)
@@ -122,8 +122,8 @@ func partnerGetMiss(t *testing.T, f Fixture) {
 }
 
 func partnerConcurrency(t *testing.T, f Fixture) {
-	noErr(t, f.Partners.Save(ctxb(), NewPartner(t, "dsp-1", "node-ds-01")))
-	wantErr(t, f.Partners.Save(ctxb(), NewPartner(t, "dsp-1", "node-ds-01")), ports.ErrConcurrentUpdate)
+	noErr(t, f.Partners.Save(ctxb(), NewPartner(t, "dsp-1", station1)))
+	wantErr(t, f.Partners.Save(ctxb(), NewPartner(t, "dsp-1", station1)), ports.ErrConcurrentUpdate)
 	winner, err := f.Partners.Get(ctxb(), "dsp-1")
 	noErr(t, err)
 	loser, err := f.Partners.Get(ctxb(), "dsp-1")
@@ -143,14 +143,14 @@ func partnerConcurrency(t *testing.T, f Fixture) {
 // version per command (planned, then started).
 func savedStartedRoute(t *testing.T, f Fixture, id route.ID, waveID wave.ID) *route.Route {
 	t.Helper()
-	w := NewWave(t, waveID, "node-ds-01", "2026-10-24", 2)
-	for _, in := range [][2]string{{"TRK-1", "k-a"}, {"TRK-2", "k-a"}, {"TRK-3", "k-b"}} {
+	w := NewWave(t, waveID, station1, "2026-10-24", 2)
+	for _, in := range [][2]string{{trk1, stopKeyA}, {trk2, stopKeyA}, {trk3, stopKeyB}} {
 		_, err := w.Induct(in[0], in[1], Now, Now)
 		noErr(t, err)
 	}
 	noErr(t, w.CloseInduction())
-	r, _, err := route.Plan(id, []route.Stop{{No: 1, TrackingNumbers: []string{"TRK-1", "TRK-2"}}, {No: 2, TrackingNumbers: []string{"TRK-3"}}},
-		route.Planning{Wave: w, Partner: NewPartner(t, "dsp-1", "node-ds-01")}, Now)
+	r, _, err := route.Plan(id, []route.Stop{{No: 1, TrackingNumbers: []string{trk1, trk2}}, {No: 2, TrackingNumbers: []string{trk3}}},
+		route.Planning{Wave: w, Partner: NewPartner(t, "dsp-1", station1)}, Now)
 	noErr(t, err)
 	noErr(t, f.Routes.Save(ctxb(), r))
 	_, err = r.Start(Now)
