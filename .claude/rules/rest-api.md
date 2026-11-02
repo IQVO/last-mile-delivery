@@ -14,15 +14,15 @@ Route -> use case, kept in sync with `apis/openapi.yaml` (registered in
 - `POST /waves` -> `ScheduleWave` (201)
 - `GET /waves?stationNodeId=&serviceDate=` -> `ListWaves` (`{"items":[...]}`)
 - `GET /waves/{waveId}/stops` -> `GetWaveStops` (`{"items":[...]}`)
-- `POST /waves/{waveId}:close-induction` -> `CloseInduction`
+- `POST /waves/{waveId}/induction-closures` -> `CloseInduction` (keyed)
 - `POST /waves/{waveId}/dispatches` -> `DispatchWave` (keyed)
 - `POST /waves/{waveId}/cancellations` -> `CancelWave` (keyed; body `{"reason"}`)
 - `POST /routes` -> `PlanRoute` (201)
 - `GET /routes/{routeId}` -> `GetRoute`
-- `POST /routes/{routeId}:start` -> `StartRoute`
+- `POST /routes/{routeId}/starts` -> `StartRoute`
 - `POST /routes/{routeId}/attempts` -> `RecordAttempt` (201)
 - `POST /partners` -> `ContractPartner` (201)
-- `POST /partners/{dspId}:deactivate` -> `DeactivatePartner`
+- `POST /partners/{dspId}/deactivations` -> `DeactivatePartner`
 - `GET /healthz` (liveness), `GET /readyz` (readiness): not business operations.
 
 ## Conventions
