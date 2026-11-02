@@ -89,7 +89,7 @@ These are constants in the source; changing them needs a code change.
 | Broker connection blips in a consumer | up to 10 consecutive transient fetch failures are slept off; the 11th ends the consumer and the process exits | `internal/adapters/inbound/kafka/kafka.go` (`maxTransientFetchFailures`) |
 | `/readyz` verdict cache / check timeout | 3 s / 2 s | `internal/adapters/inbound/http/readiness.go` |
 | Idempotency key retention | 24 h (older rows are ignored by the lookup; the code has no purge job) | `internal/adapters/outbound/postgres/idempotency.go`, table `idempotency_keys` |
-| `Idempotency-Key` length / request body limit | 1 to 200 characters / 64 KiB | `internal/adapters/inbound/http/idempotency.go`, `response.go` (`maxBodyBytes`) |
+| `Idempotency-Key` length / request body limit | 1 to 128 printable ASCII characters / 64 KiB | `internal/adapters/inbound/http/idempotency.go`, `response.go` (`maxBodyBytes`) |
 | Topics produced | `retailnetwork.last-mile-delivery.events`, `retailnetwork.last-mile-delivery.analytics` | `internal/adapters/outbound/kafka/encoder.go` |
 | Topics consumed | `retailnetwork.linehaul-transportation.events`, `retailnetwork.node-topology.events`, `retailnetwork.shipping-and-tracking.events` | `internal/adapters/inbound/kafka/consumer.go` |
 

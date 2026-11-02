@@ -169,8 +169,8 @@ stored version is `Version()-1`.
   an INACTIVE partner is given no new route, planned routes are unaffected.
 - **A26** REST additions to the model's list (documented in `apis/openapi.yaml`):
   `GET /waves/{waveId}/stops` (stops grouped by stopKey, G11),
-  `POST /waves/{waveId}:cancel` (G17), `GET /routes/{routeId}`,
-  `POST /partners/{dspId}:deactivate` (G34).
+  `POST /waves/{waveId}/cancellations` (G17), `GET /routes/{routeId}`,
+  `POST /partners/{dspId}/deactivations` (G34).
 - **A27** Ids are minted as a prefix and a UUID v4 (`wave-`, `route-`, `dsp-`); the
   opaque id check allows 1 to 64 characters of `A-Z a-z 0-9 . _ : -`.
 - **A28** `ServiceAreaAssigned` is consumed into `rm_station_service_areas` as the

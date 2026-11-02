@@ -26,8 +26,32 @@ describe("requests", () => {
     const page = await listWaves("node-ds-01", "2026-10-24");
     expect(page.items).toHaveLength(1);
     const call = api.calls[0];
-    expect(call.url).toBe(`${DELIVERY_API_BASE}/waves?stationNodeId=node-ds-01&serviceDate=2026-10-24`);
+    expect(call.url).toBe(`${DELIVERY_API_BASE}/waves?stationNodeId=node-ds-01&serviceDate=2026-10-24&limit=500`);
     expect(call.headers).toEqual({});
+  });
+
+  it("follows nextCursor until it is absent and keeps the filters on every page", async () => {
+    const api = mockApi({
+      "GET /waves": (call) =>
+        call.query.get("cursor") === "c1"
+          ? json({ items: [wave({ waveId: "wave-2" })] })
+          : json({ items: [wave({ waveId: "wave-1" })], nextCursor: "c1" }),
+    });
+    const page = await listWaves("node-ds-01", "2026-10-24");
+    expect(page.items.map((w) => w.waveId)).toEqual(["wave-1", "wave-2"]);
+    expect(api.calls).toHaveLength(2);
+    expect(api.calls[1].query.get("cursor")).toBe("c1");
+    expect(api.calls[1].query.get("stationNodeId")).toBe("node-ds-01");
+  });
+
+  it("follows nextCursor on the stops of a wave", async () => {
+    mockApi({
+      "GET /waves/wave-1/stops": (call) =>
+        call.query.get("cursor") === "s1"
+          ? json({ items: [waveStop({ stopKey: "b" })] })
+          : json({ items: [waveStop({ stopKey: "a" })], nextCursor: "s1" }),
+    });
+    expect((await getWaveStops("wave-1")).items.map((s) => s.stopKey)).toEqual(["a", "b"]);
   });
 
   it("normalizes a missing item list", async () => {
