@@ -14,8 +14,8 @@ import (
 	"github.com/claudioed/last-mile-delivery/internal/domain/wave"
 )
 
-func validationError(format string, args ...any) error {
-	return fmt.Errorf("%w: %s", shared.ErrValidation, fmt.Sprintf(format, args...))
+func validationError(msg string) error {
+	return fmt.Errorf("%w: %s", shared.ErrValidation, msg)
 }
 
 func (s *Server) handleScheduleWave(w http.ResponseWriter, r *http.Request) {

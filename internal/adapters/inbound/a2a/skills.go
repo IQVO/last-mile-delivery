@@ -31,6 +31,9 @@ const tracerName = "github.com/claudioed/last-mile-delivery/internal/adapters/in
 const (
 	skillListWaves = "list_waves"
 	skillGetRoute  = "get_route"
+
+	// mediaTypeJSON is the one content type every skill speaks.
+	mediaTypeJSON = "application/json"
 )
 
 // skillRequest is the wire contract of every skill call: the first message
