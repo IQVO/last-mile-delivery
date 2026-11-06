@@ -315,6 +315,64 @@ func TestCancel(t *testing.T) {
 	wantNoErr(t, err)
 }
 
+func TestDeclareCost(t *testing.T) {
+	w := mustSchedule(t, nil) // version 1, OPEN
+	at := t0.Add(time.Hour)
+	events, err := w.DeclareCost(425, at)
+	wantNoErr(t, err)
+	want := WaveCostDeclared{Header: shared.Header{Version: 2, At: at}, WaveID: "wave-1", CostPerStopCents: 425, DeclaredAt: at}
+	if len(events) != 1 || !reflect.DeepEqual(events[0], want) || w.CostPerStopCents() != 425 {
+		t.Fatalf("events=%#v cost=%d", events, w.CostPerStopCents())
+	}
+	assertEventShape(t, events[0], "WaveCostDeclared", "wave-1", 2)
+	// zero is a legal declaration of zero marginal cost, not "undeclared"
+	events, err = w.DeclareCost(0, at.Add(time.Minute))
+	wantNoErr(t, err)
+	if len(events) != 1 || w.CostPerStopCents() != 0 {
+		t.Fatalf("zero declaration: events=%#v cost=%d", events, w.CostPerStopCents())
+	}
+	// declaring again overwrites the last value
+	_, err = w.DeclareCost(MaxCostPerStopCents, at.Add(2*time.Minute))
+	wantNoErr(t, err)
+	if w.CostPerStopCents() != MaxCostPerStopCents || w.Version() != 4 {
+		t.Fatalf("re-declare: cost=%d version=%d", w.CostPerStopCents(), w.Version())
+	}
+}
+
+func TestDeclareCostFromEveryState(t *testing.T) {
+	for _, s := range []State{StateOpen, StateInductionClosed, StateDispatched} {
+		w := inState(t, s)
+		before := w.Version()
+		_, err := w.DeclareCost(250, t0)
+		wantNoErr(t, err)
+		assertState(t, w, s, before+1)
+	}
+	for _, s := range []State{StateCompleted, StateCancelled} {
+		w := inState(t, s)
+		before := w.Version()
+		_, err := w.DeclareCost(250, t0)
+		wantIs(t, err, shared.ErrIllegalTransition)
+		assertState(t, w, s, before)
+		if w.CostPerStopCents() != 0 {
+			t.Fatal("a refused declaration must not store a cost")
+		}
+	}
+}
+
+func TestDeclareCostValidation(t *testing.T) {
+	for _, cost := range []int64{-1, MaxCostPerStopCents + 1} {
+		w := mustSchedule(t, nil)
+		_, err := w.DeclareCost(cost, t0)
+		wantIs(t, err, shared.ErrValidation)
+		assertState(t, w, StateOpen, 1)
+		if w.CostPerStopCents() != 0 {
+			t.Fatal("an invalid declaration must not store a cost")
+		}
+	}
+	w := mustSchedule(t, nil)
+	wantNoErr(t, func() error { _, err := w.DeclareCost(MaxCostPerStopCents, t0); return err }())
+}
+
 func TestStateValid(t *testing.T) {
 	for _, s := range []State{StateOpen, StateInductionClosed, StateDispatched, StateCompleted, StateCancelled} {
 		if !s.Valid() {
