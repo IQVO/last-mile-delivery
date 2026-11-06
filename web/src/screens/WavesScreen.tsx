@@ -6,7 +6,7 @@ import { Form, FormRow, SubmitButton, TextField } from "../components/formkit";
 import { PageHeader, Stack, WaveStatePill } from "../components/layout";
 import { RequestView } from "../components/ProblemAlert";
 import { useRequest } from "../hooks/useRequest";
-import { idProblem, serviceDateProblem, stopMeter, utcLabel } from "../lib";
+import { idProblem, serviceDateProblem, stopCost, stopMeter, utcLabel } from "../lib";
 import type { DeliveryWave } from "../types";
 
 /**
@@ -93,6 +93,7 @@ function WavesTable({ waves }: { waves: DeliveryWave[] }) {
         { key: "cutoff", header: "Induct cutoff", render: (w) => utcLabel(w.inductCutoffAt) },
         { key: "window", header: "Window", render: (w) => `${utcLabel(w.windowStart)} → ${utcLabel(w.windowEnd)}` },
         { key: "stops", header: "Stops", render: (w) => stopMeter(w) },
+        { key: "cost", header: "Cost/stop", render: (w) => stopCost(w) },
         { key: "cancel", header: "Cancel reason", render: (w) => w.cancelReason ?? "—" },
       ]}
     />

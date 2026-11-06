@@ -39,9 +39,9 @@ info:
     and an unmapped failure is an opaque 500 `internal-error` (never stored for
     replay; every 4xx answer is). Every problem body carries `type`, `title`,
     `status`, `detail` and `instance`. The first eight operations of this file are the
-    model's REST list; `getWaveStops`, `cancelWave`, `getRoute` and
-    `deactivatePartner` are the additions of Gap Register G11, G17 and G34
-    (ADR 0002).
+    model's REST list; `getWaveStops`, `cancelWave`, `getRoute`,
+    `deactivatePartner` and `declareWaveCost` are the additions of Gap Register
+    G11, G17, G34 and roadmap F7 (ADR 0002, ADR 0011).
 servers:
   - url: http://localhost:8080
 tags:
@@ -242,6 +242,51 @@ paths:
       responses:
         '200':
           description: Wave cancelled.
+          headers:
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryWave'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /waves/{waveId}/cost-declarations:
+    post:
+      tags: [Waves]
+      operationId: declareWaveCost
+      summary: Declare the stop cost of a wave (DeclareCost)
+      description: >-
+        Records the planner's declared marginal cost of ONE delivery stop on
+        the wave (driver time plus mileage share), integer cents,
+        single-currency study (roadmap feature F7, provider B; ADR 0011), and
+        publishes WaveCostDeclared for order-sourcing's money-denominated
+        AssignmentCost. The cost is per stop (the G11 stopKey grouping), never
+        per package. 0 is a legal declared zero marginal cost; a wave with no
+        declaration reports 0 and leaves a consumer's estimate incomplete.
+        Allowed while the wave still runs (OPEN, INDUCTION_CLOSED or
+        DISPATCHED, illegal-transition once CANCELLED or COMPLETED); a later
+        declaration overwrites the earlier one and publishes again.
+      parameters:
+        - $ref: '#/components/parameters/WaveId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeclareWaveCostRequest'
+      responses:
+        '201':
+          description: Stop cost declared.
           headers:
             Idempotency-Replayed:
               $ref: '#/components/headers/IdempotencyReplayed'
@@ -666,9 +711,23 @@ components:
           minLength: 1
           maxLength: 200
           description: Trimmed text without control characters.
+    DeclareWaveCostRequest:
+      type: object
+      additionalProperties: false
+      required: [costPerStopCents]
+      properties:
+        costPerStopCents:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 10000000
+          description: >-
+            The declared marginal cost of ONE delivery stop on the wave,
+            integer cents (single-currency study; no currency field). 0 is a
+            legal declared zero marginal cost.
     DeliveryWave:
       type: object
-      required: [waveId, stationNodeId, serviceDate, inductCutoffAt, windowStart, windowEnd, stopCapacity, assignedStops, remainingStops, state]
+      required: [waveId, stationNodeId, serviceDate, inductCutoffAt, windowStart, windowEnd, stopCapacity, assignedStops, remainingStops, state, costPerStopCents]
       properties:
         waveId:
           type: string
@@ -700,6 +759,12 @@ components:
         cancelReason:
           type: string
           description: Present only on a CANCELLED wave.
+        costPerStopCents:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 10000000
+          description: The declared marginal cost of ONE delivery stop on this wave, integer cents (ADR 0011). 0 until declared and for a declared zero alike.
     WaveStop:
       type: object
       required: [stopKey, trackingNumbers]

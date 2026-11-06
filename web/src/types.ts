@@ -23,6 +23,8 @@ export interface DeliveryWave {
   state: WaveState;
   /** Present only on a CANCELLED wave. */
   cancelReason?: string;
+  /** The declared marginal cost of one stop, integer cents (0 until declared). */
+  costPerStopCents: number;
 }
 
 /** One stop of a wave: the packages sharing a stopKey (GET /waves/{waveId}/stops). */

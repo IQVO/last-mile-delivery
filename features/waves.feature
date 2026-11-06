@@ -51,6 +51,25 @@ Feature: Delivery waves and induction
     Then the event "DeliveryWaveScheduled" was published for wave "wave-1"
     And the "DeliveryWaveScheduled" event for wave "wave-1" has "stationNodeId" "node-ds-01"
 
+  Scenario: The planner declares what one stop on a wave costs
+    Given a wave "wave-1" with its cutoff in 2 hours and capacity 5
+    When the planner declares a stop cost of 425 cents for wave "wave-1"
+    Then the event "WaveCostDeclared" was published for wave "wave-1"
+    And wave "wave-1" declares 425 cents per stop
+
+  Scenario: A declared zero is a legal cost, not "no declaration"
+    Given a wave "wave-1" with its cutoff in 2 hours and capacity 5
+    And the planner declares a stop cost of 425 cents for wave "wave-1"
+    When the planner declares a stop cost of 0 cents for wave "wave-1"
+    Then the event "WaveCostDeclared" was published for wave "wave-1"
+    And wave "wave-1" declares 0 cents per stop
+
+  Scenario: A cancelled wave refuses a stop-cost declaration
+    Given a wave "wave-1" with its cutoff in 2 hours and capacity 5
+    And the planner cancels wave "wave-1" because "station closed"
+    When the planner declares a stop cost of 425 cents for wave "wave-1"
+    Then the request is refused with "illegal transition"
+
   Scenario: A redelivered LoadArrived event inducts nothing twice
     Given a wave "wave-1" with its cutoff in 2 hours and capacity 5
     When the load event "ev-1" with the package "TRK-1" is delivered twice

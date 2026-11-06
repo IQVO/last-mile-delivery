@@ -94,6 +94,8 @@ channels:
         $ref: "#/components/messages/DeliveryWaveCapacityChanged"
       DeliveryWaveCancelled:
         $ref: "#/components/messages/DeliveryWaveCancelled"
+      WaveCostDeclared:
+        $ref: "#/components/messages/WaveCostDeclared"
       PackageOutForDelivery:
         $ref: "#/components/messages/PackageOutForDelivery"
       DeliveryAttempted:
@@ -143,7 +145,7 @@ operations:
   publishLastMileEvents:
     action: send
     title: Publish last-mile-delivery integration events
-    summary: Publish the seven integration events through the transactional outbox.
+    summary: Publish the eight integration events through the transactional outbox.
     description: |
       The service sends the events of its three event-raising aggregates
       (DeliveryWave, Route, PackageAttemptHistory) to
@@ -151,6 +153,8 @@ operations:
       `type`: delivery-promise and order-sourcing read the wave events,
       shipping-and-tracking reads PackageOutForDelivery, DeliveryAttempted and
       PackageReturnInitiated, delivery-promise reads PackageInductionDeferred.
+      order-sourcing also reads WaveCostDeclared into its money-denominated
+      AssignmentCost (roadmap F7).
     tags:
       - name: last-mile-delivery
     channel:
@@ -159,6 +163,7 @@ operations:
       - $ref: "#/channels/lastMileEvents/messages/DeliveryWaveScheduled"
       - $ref: "#/channels/lastMileEvents/messages/DeliveryWaveCapacityChanged"
       - $ref: "#/channels/lastMileEvents/messages/DeliveryWaveCancelled"
+      - $ref: "#/channels/lastMileEvents/messages/WaveCostDeclared"
       - $ref: "#/channels/lastMileEvents/messages/PackageOutForDelivery"
       - $ref: "#/channels/lastMileEvents/messages/DeliveryAttempted"
       - $ref: "#/channels/lastMileEvents/messages/PackageInductionDeferred"
@@ -319,6 +324,35 @@ components:
             data:
               waveId: "wave-3b9f"
               reason: "station closed for maintenance"
+
+    WaveCostDeclared:
+      name: WaveCostDeclared
+      title: Wave stop cost declared
+      summary: The planner declared what one delivery stop on the wave costs, in cents.
+      description: "`type` = `com.retailnetwork.logistics.last-mile-delivery.wave.WaveCostDeclared`; subject and key = the waveId. Raised by DeclareCost (POST /waves/{waveId}/cost-declarations), allowed while the wave still runs and refused once CANCELLED or COMPLETED; a later declaration overwrites the earlier one. costPerStopCents is the planner's declared marginal cost of ONE stop (driver time plus mileage share), integer cents, no currency (single-currency study), 0 to 10000000; the stop count is the G11 stopKey grouping, so the cost is per stop, never per package. 0 is a legal declared zero; a wave with no declaration contributes 0 to a consumer's sum and leaves its estimate incomplete (the consumer decides). Consumed by order-sourcing for its money-denominated AssignmentCost (roadmap F7)."
+      contentType: application/cloudevents+json
+      headers:
+        $ref: "#/components/schemas/KafkaHeaders"
+      tags:
+        - name: wave
+      payload:
+        $ref: "#/components/schemas/WaveCostDeclaredEvent"
+      examples:
+        - name: waveCostDeclared
+          summary: A planner declares 425 cents per stop on a morning wave.
+          payload:
+            specversion: "1.0"
+            id: "3f8e2a91-6d44-4b7c-9e0a-8c1d5f4b2a77"
+            source: "/retailnetwork/last-mile-delivery"
+            type: "com.retailnetwork.logistics.last-mile-delivery.wave.WaveCostDeclared"
+            subject: "wave-3b9f"
+            time: "2026-10-24T05:30:00Z"
+            datacontenttype: "application/json"
+            dataschema: "urn:retailnetwork:last-mile-delivery:events:WaveCostDeclared:v1"
+            data:
+              waveId: "wave-3b9f"
+              costPerStopCents: 425
+              declaredAt: "2026-10-24T05:30:00Z"
 
     RoutePlanned:
       name: RoutePlanned
@@ -644,6 +678,19 @@ components:
               properties:
                 waveId: { type: string }
                 reason: { type: string }
+
+    WaveCostDeclaredEvent:
+      allOf:
+        - $ref: "#/components/schemas/CloudEventEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [waveId, costPerStopCents, declaredAt]
+              properties:
+                waveId: { type: string }
+                costPerStopCents: { type: integer, minimum: 0, maximum: 10000000, description: "The declared marginal cost of ONE delivery stop on the wave, integer cents (single-currency study); per stop (G11 stopKey grouping), never per package. 0 is a legal declared zero." }
+                declaredAt: { type: string, format: date-time }
 
     RoutePlannedEvent:
       allOf:

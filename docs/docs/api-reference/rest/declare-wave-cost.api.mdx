@@ -1,0 +1,70 @@
+---
+id: declare-wave-cost
+title: "Declare the stop cost of a wave (DeclareCost)"
+description: "Records the planner's declared marginal cost of ONE delivery stop on the wave (driver time plus mileage share), integer cents, single-currency study (roadmap feature F7, provider B; ADR 0011), and publishes WaveCostDeclared for order-sourcing's money-denominated AssignmentCost. The cost is per stop (the G11 stopKey grouping), never per package. 0 is a legal declared zero marginal cost; a wave with no declaration reports 0 and leaves a consumer's estimate incomplete. Allowed while the wave still runs (OPEN, INDUCTION_CLOSED or DISPATCHED, illegal-transition once CANCELLED or COMPLETED); a later declaration overwrites the earlier one and publishes again."
+sidebar_label: "Declare the stop cost of a wave (DeclareCost)"
+hide_title: true
+hide_table_of_contents: true
+api: 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
+sidebar_class_name: "post api-method"
+info_path: docs/api-reference/rest/last-mile-delivery-api
+custom_edit_url: null
+hide_send_button: true
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+import Translate from "@docusaurus/Translate";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"Declare the stop cost of a wave (DeclareCost)"}
+>
+</Heading>
+
+<MethodEndpoint
+  method={"post"}
+  path={"/waves/{waveId}/cost-declarations"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+
+
+Records the planner's declared marginal cost of ONE delivery stop on the wave (driver time plus mileage share), integer cents, single-currency study (roadmap feature F7, provider B; ADR 0011), and publishes WaveCostDeclared for order-sourcing's money-denominated AssignmentCost. The cost is per stop (the G11 stopKey grouping), never per package. 0 is a legal declared zero marginal cost; a wave with no declaration reports 0 and leaves a consumer's estimate incomplete. Allowed while the wave still runs (OPEN, INDUCTION_CLOSED or DISPATCHED, illegal-transition once CANCELLED or COMPLETED); a later declaration overwrites the earlier one and publishes again.
+
+<Heading
+  id={"request"}
+  as={"h2"}
+  className={"openapi-tabs__heading"}
+>
+  <Translate id="theme.openapi.request.title">Request</Translate>
+</Heading>
+
+<ParamsDetails
+  {...require("./declare-wave-cost.ParamsDetails.json")}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  {...require("./declare-wave-cost.RequestSchema.json")}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  {...require("./declare-wave-cost.StatusCodes.json")}
+>
+  
+</StatusCodes>
+
+
+      

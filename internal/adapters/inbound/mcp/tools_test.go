@@ -18,6 +18,7 @@ func TestListWaves(t *testing.T) {
 		"waveId": "wave-1", "stationNodeId": "node-ds-01", "serviceDate": "2026-10-24",
 		"inductCutoffAt": "2026-10-24T08:00:00Z", "windowStart": "2026-10-24T12:00:00Z", "windowEnd": "2026-10-24T20:00:00Z",
 		"stopCapacity": 5.0, "assignedStops": 2.0, "remainingStops": 3.0, "state": "DISPATCHED",
+		"costPerStopCents": 0.0,
 	} {
 		if w[k] != v {
 			t.Errorf("%s = %v, want %v", k, w[k], v)

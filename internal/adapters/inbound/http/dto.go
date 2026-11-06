@@ -22,6 +22,11 @@ type cancelWaveRequest struct {
 	Reason string `json:"reason"`
 }
 
+type declareCostRequest struct {
+	// A pointer tells a missing field (422) from the legal declaration 0.
+	CostPerStopCents *int64 `json:"costPerStopCents"`
+}
+
 type stopInput struct {
 	StopNo          int      `json:"stopNo"`
 	TrackingNumbers []string `json:"trackingNumbers"`
@@ -46,17 +51,18 @@ type contractPartnerRequest struct {
 }
 
 type waveBody struct {
-	WaveID         string    `json:"waveId"`
-	StationNodeID  string    `json:"stationNodeId"`
-	ServiceDate    string    `json:"serviceDate"`
-	InductCutoffAt time.Time `json:"inductCutoffAt"`
-	WindowStart    time.Time `json:"windowStart"`
-	WindowEnd      time.Time `json:"windowEnd"`
-	StopCapacity   int       `json:"stopCapacity"`
-	AssignedStops  int       `json:"assignedStops"`
-	RemainingStops int       `json:"remainingStops"`
-	State          string    `json:"state"`
-	CancelReason   string    `json:"cancelReason,omitempty"`
+	WaveID           string    `json:"waveId"`
+	StationNodeID    string    `json:"stationNodeId"`
+	ServiceDate      string    `json:"serviceDate"`
+	InductCutoffAt   time.Time `json:"inductCutoffAt"`
+	WindowStart      time.Time `json:"windowStart"`
+	WindowEnd        time.Time `json:"windowEnd"`
+	StopCapacity     int       `json:"stopCapacity"`
+	AssignedStops    int       `json:"assignedStops"`
+	RemainingStops   int       `json:"remainingStops"`
+	State            string    `json:"state"`
+	CancelReason     string    `json:"cancelReason,omitempty"`
+	CostPerStopCents int64     `json:"costPerStopCents"`
 }
 
 type waveStopBody struct {
@@ -101,7 +107,7 @@ func toWaveBody(w views.Wave) waveBody {
 	return waveBody{
 		WaveID: w.WaveID, StationNodeID: w.StationNodeID, ServiceDate: w.ServiceDate, InductCutoffAt: w.InductCutoffAt.UTC(),
 		WindowStart: w.WindowStart.UTC(), WindowEnd: w.WindowEnd.UTC(), StopCapacity: w.StopCapacity, AssignedStops: w.AssignedStops,
-		RemainingStops: w.RemainingStops, State: w.State, CancelReason: w.CancelReason,
+		RemainingStops: w.RemainingStops, State: w.State, CancelReason: w.CancelReason, CostPerStopCents: w.CostPerStopCents,
 	}
 }
 

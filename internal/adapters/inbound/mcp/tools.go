@@ -41,17 +41,18 @@ type routeIDInput struct {
 // --- outputs (the REST bodies, camelCase like the REST contract) --------------
 
 type waveView struct {
-	WaveID         string `json:"waveId"`
-	StationNodeID  string `json:"stationNodeId"`
-	ServiceDate    string `json:"serviceDate"`
-	InductCutoffAt string `json:"inductCutoffAt"`
-	WindowStart    string `json:"windowStart"`
-	WindowEnd      string `json:"windowEnd"`
-	StopCapacity   int    `json:"stopCapacity"`
-	AssignedStops  int    `json:"assignedStops"`
-	RemainingStops int    `json:"remainingStops"`
-	State          string `json:"state"`
-	CancelReason   string `json:"cancelReason,omitempty"`
+	WaveID           string `json:"waveId"`
+	StationNodeID    string `json:"stationNodeId"`
+	ServiceDate      string `json:"serviceDate"`
+	InductCutoffAt   string `json:"inductCutoffAt"`
+	WindowStart      string `json:"windowStart"`
+	WindowEnd        string `json:"windowEnd"`
+	StopCapacity     int    `json:"stopCapacity"`
+	AssignedStops    int    `json:"assignedStops"`
+	RemainingStops   int    `json:"remainingStops"`
+	State            string `json:"state"`
+	CancelReason     string `json:"cancelReason,omitempty"`
+	CostPerStopCents int64  `json:"costPerStopCents"`
 }
 
 type wavePageView struct {
@@ -108,7 +109,7 @@ func toWave(w views.Wave) waveView {
 		WaveID: w.WaveID, StationNodeID: w.StationNodeID, ServiceDate: w.ServiceDate,
 		InductCutoffAt: instant(w.InductCutoffAt), WindowStart: instant(w.WindowStart), WindowEnd: instant(w.WindowEnd),
 		StopCapacity: w.StopCapacity, AssignedStops: w.AssignedStops, RemainingStops: w.RemainingStops,
-		State: w.State, CancelReason: w.CancelReason,
+		State: w.State, CancelReason: w.CancelReason, CostPerStopCents: w.CostPerStopCents,
 	}
 }
 
@@ -201,7 +202,8 @@ func (d Deps) registerTools(server *mcp.Server) {
 		Name: "list_waves",
 		Description: "List the delivery waves of one station for one service date, ordered by inductCutoffAt: state " +
 			"(OPEN, INDUCTION_CLOSED, DISPATCHED, COMPLETED or CANCELLED), the induct cutoff and delivery window, the stop " +
-			"capacity with assignedStops and remainingStops, and cancelReason on a cancelled wave. A station and date with " +
+			"capacity with assignedStops and remainingStops, costPerStopCents (the planner's declared marginal cost of " +
+			"one stop, integer cents, 0 until declared), and cancelReason on a cancelled wave. A station and date with " +
 			"no wave is an empty list. Read-only; a malformed station or a serviceDate that is not YYYY-MM-DD fails with " +
 			"validation-failed.",
 		Annotations: readOnly,

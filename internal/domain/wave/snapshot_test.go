@@ -83,6 +83,35 @@ func TestRestoreBoundaries(t *testing.T) {
 	}
 }
 
+func TestSnapshotRoundTripKeepsDeclaredCost(t *testing.T) {
+	snap := validSnapshot()
+	snap.CostPerStopCents = 425
+	got, err := Restore(snap)
+	wantNoErr(t, err)
+	if got.CostPerStopCents() != 425 || !reflect.DeepEqual(got.Snapshot(), snap) {
+		t.Fatalf("round trip changed the declared cost:\n got %+v\nwant %+v", got.Snapshot(), snap)
+	}
+}
+
+func TestRestoreCostBoundaries(t *testing.T) {
+	legacy := validSnapshot() // a row stored before the column exists restores 0
+	if _, err := Restore(legacy); err != nil {
+		t.Fatalf("Restore(legacy snapshot): %v", err)
+	}
+	top := validSnapshot()
+	top.CostPerStopCents = MaxCostPerStopCents
+	if _, err := Restore(top); err != nil {
+		t.Fatalf("Restore(max cost): %v", err)
+	}
+	for _, cost := range []int64{-1, MaxCostPerStopCents + 1} {
+		bad := validSnapshot()
+		bad.CostPerStopCents = cost
+		if _, err := Restore(bad); err == nil {
+			t.Fatalf("Restore(%d) must fail", cost)
+		}
+	}
+}
+
 func TestRestoreRejectsCorruptRows(t *testing.T) {
 	cases := []struct {
 		name   string
@@ -100,6 +129,8 @@ func TestRestoreRejectsCorruptRows(t *testing.T) {
 		{"unknown state", func(s *Snapshot) { s.State = "DONE" }},
 		{"reason on an open wave", func(s *Snapshot) { s.CancelReason = "x" }},
 		{"cancelled without a reason", func(s *Snapshot) { s.State = StateCancelled }},
+		{"negative stop cost", func(s *Snapshot) { s.CostPerStopCents = -1 }},
+		{"stop cost above the ceiling", func(s *Snapshot) { s.CostPerStopCents = MaxCostPerStopCents + 1 }},
 		{"assigned below the stops", func(s *Snapshot) { s.AssignedStops = 1 }},
 		{"assigned above the stops", func(s *Snapshot) { s.AssignedStops, s.StopCapacity = 3, 3 }},
 		{"assigned above the capacity", func(s *Snapshot) { s.StopCapacity = 1 }},

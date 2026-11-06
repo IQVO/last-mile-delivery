@@ -18,13 +18,13 @@ type WaveRepository struct{ pool *pgxpool.Pool }
 func NewWaveRepository(pool *pgxpool.Pool) *WaveRepository { return &WaveRepository{pool} }
 
 const waveColumns = `wave_id, station_node_id, service_date::text, induct_cutoff_at, window_start, window_end,
-	stop_capacity, assigned_stops, state, COALESCE(cancel_reason, ''), version`
+	stop_capacity, assigned_stops, state, COALESCE(cancel_reason, ''), cost_per_stop_cents, version`
 
 func scanWave(row interface{ Scan(...any) error }) (wave.Snapshot, error) {
 	var s wave.Snapshot
 	var id, state string
 	err := row.Scan(&id, &s.StationNodeID, &s.ServiceDate, &s.InductCutoffAt, &s.WindowStart, &s.WindowEnd,
-		&s.StopCapacity, &s.AssignedStops, &state, &s.CancelReason, &s.Version)
+		&s.StopCapacity, &s.AssignedStops, &state, &s.CancelReason, &s.CostPerStopCents, &s.Version)
 	s.ID, s.State = wave.ID(id), wave.State(state)
 	return s, err
 }
@@ -147,16 +147,16 @@ func (r *WaveRepository) Save(ctx context.Context, w *wave.DeliveryWave) error {
 func writeWaveRow(ctx context.Context, q querier, s wave.Snapshot) error {
 	if s.Version == 1 {
 		_, err := q.Exec(ctx, `INSERT INTO delivery_waves (wave_id, station_node_id, service_date, induct_cutoff_at, window_start, window_end,
-			stop_capacity, assigned_stops, state, cancel_reason, version) VALUES ($1, $2, $3::date, $4, $5, $6, $7, $8, $9, $10, $11)`,
+			stop_capacity, assigned_stops, state, cancel_reason, cost_per_stop_cents, version) VALUES ($1, $2, $3::date, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
 			string(s.ID), s.StationNodeID, s.ServiceDate, s.InductCutoffAt, s.WindowStart, s.WindowEnd, s.StopCapacity,
-			s.AssignedStops, string(s.State), nullable(s.CancelReason), s.Version)
+			s.AssignedStops, string(s.State), nullable(s.CancelReason), s.CostPerStopCents, s.Version)
 		if isUniqueViolation(err) {
 			return ports.ErrConcurrentUpdate
 		}
 		return err
 	}
-	tag, err := q.Exec(ctx, `UPDATE delivery_waves SET assigned_stops = $2, state = $3, cancel_reason = $4, version = $5
-		WHERE wave_id = $1 AND version = $5 - 1`, string(s.ID), s.AssignedStops, string(s.State), nullable(s.CancelReason), s.Version)
+	tag, err := q.Exec(ctx, `UPDATE delivery_waves SET assigned_stops = $2, state = $3, cancel_reason = $4, cost_per_stop_cents = $6, version = $5
+		WHERE wave_id = $1 AND version = $5 - 1`, string(s.ID), s.AssignedStops, string(s.State), nullable(s.CancelReason), s.Version, s.CostPerStopCents)
 	if err != nil {
 		return err
 	}

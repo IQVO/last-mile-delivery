@@ -50,6 +50,12 @@ const sidebar: SidebarsConfig = {
           label: "Cancel a wave (CancelWave)",
           className: "api-method post",
         },
+        {
+          type: "doc",
+          id: "api-reference/rest/declare-wave-cost",
+          label: "Declare the stop cost of a wave (DeclareCost)",
+          className: "api-method post",
+        },
       ],
     },
     {

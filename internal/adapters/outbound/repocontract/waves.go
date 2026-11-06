@@ -27,6 +27,11 @@ func waveRoundTrip(t *testing.T, f Fixture) {
 	_, err = w.Induct(trk2, stopKeyA, Now, Now.Add(time.Minute))
 	noErr(t, err)
 	noErr(t, f.Waves.Save(ctxb(), w))
+	// A declared stop cost survives the round trip (Snapshot builder, scan and
+	// UPDATE all carry it; ADR 0011).
+	_, err = w.DeclareCost(42500, Now.Add(2*time.Minute))
+	noErr(t, err)
+	noErr(t, f.Waves.Save(ctxb(), w))
 	got, err := f.Waves.Get(ctxb(), wave1)
 	noErr(t, err)
 	if !reflect.DeepEqual(got.Snapshot(), w.Snapshot()) {

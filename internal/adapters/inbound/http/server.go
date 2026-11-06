@@ -23,6 +23,7 @@ type Server struct {
 	CloseInduction    *usecases.CloseInduction
 	DispatchWave      *usecases.DispatchWave
 	CancelWave        *usecases.CancelWave
+	DeclareWaveCost   *usecases.DeclareWaveCost
 	ListWaves         *usecases.ListWaves
 	GetWaveStops      *usecases.GetWaveStops
 	PlanRoute         *usecases.PlanRoute
@@ -84,6 +85,7 @@ func NewRouter(s *Server, logger *slog.Logger, serviceName string) http.Handler 
 		r.Post("/waves/{waveId}/induction-closures", s.handleCloseInduction)
 		r.Post("/waves/{waveId}/dispatches", s.handleDispatchWave)
 		r.Post("/waves/{waveId}/cancellations", s.handleCancelWave)
+		r.Post("/waves/{waveId}/cost-declarations", s.handleDeclareWaveCost)
 		r.Post("/routes", s.handlePlanRoute)
 		r.Post("/routes/{routeId}/starts", s.handleStartRoute)
 		r.Post("/routes/{routeId}/attempts", s.handleRecordAttempt)

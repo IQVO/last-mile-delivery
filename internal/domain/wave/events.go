@@ -63,8 +63,28 @@ func (DeliveryWaveCancelled) Entity() string { return entity }
 // SubjectID returns the waveId.
 func (e DeliveryWaveCancelled) SubjectID() string { return string(e.WaveID) }
 
+// WaveCostDeclared is raised by DeclareCost: the planner's declared marginal
+// cost of ONE stop on the wave, integer cents (ADR 0011, roadmap F7; consumed
+// by order-sourcing for its money-denominated AssignmentCost).
+type WaveCostDeclared struct {
+	shared.Header
+	WaveID           ID
+	CostPerStopCents int64
+	DeclaredAt       time.Time
+}
+
+// EventName returns "WaveCostDeclared".
+func (WaveCostDeclared) EventName() string { return "WaveCostDeclared" }
+
+// Entity returns "wave".
+func (WaveCostDeclared) Entity() string { return entity }
+
+// SubjectID returns the waveId.
+func (e WaveCostDeclared) SubjectID() string { return string(e.WaveID) }
+
 var (
 	_ shared.Event = DeliveryWaveScheduled{}
 	_ shared.Event = DeliveryWaveCapacityChanged{}
 	_ shared.Event = DeliveryWaveCancelled{}
+	_ shared.Event = WaveCostDeclared{}
 )
