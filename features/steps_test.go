@@ -48,6 +48,12 @@ func registerWaveSteps(sc *godog.ScenarioContext, w *world) {
 		_, w.err = usecases.NewCancelWave(w.deps).Execute(w.ctx(), usecases.CancelWaveCommand{WaveID: waveID(id), Reason: reason})
 		return nil
 	})
+	sc.Step(`^the planner declares a stop cost of (\d+) cents for wave "([^"]*)"$`, func(cents int64, id string) error {
+		_, w.err = usecases.NewDeclareWaveCost(w.deps).Execute(w.ctx(), usecases.DeclareWaveCostCommand{
+			WaveID: waveID(id), CostPerStopCents: cents,
+		})
+		return nil
+	})
 	sc.Step(`^the planner contracts a partner with a van of (-?\d+)$`, func(capacity int) error {
 		_, w.err = usecases.NewContractPartner(w.deps).Execute(w.ctx(), usecases.ContractPartnerCommand{StationNodeID: "node-ds-01", VanCapacity: capacity})
 		return nil
@@ -181,6 +187,7 @@ func registerAssertionSteps(sc *godog.ScenarioContext, w *world) {
 		return w.assertInducted(b, id)
 	})
 	sc.Step(`^wave "([^"]*)" has (\d+) assigned stops? and (\d+) remaining$`, w.assertStops)
+	sc.Step(`^wave "([^"]*)" declares (\d+) cents per stop$`, w.assertDeclaredCost)
 	sc.Step(`^wave "([^"]*)" holds (\d+) packages?$`, w.assertHolds)
 	sc.Step(`^the package "([^"]*)" waits at the station$`, func(tn string) error { return w.assertPackage(tn, "AT_STATION") })
 	sc.Step(`^the package "([^"]*)" is "([^"]*)"$`, w.assertPackage)
@@ -257,6 +264,17 @@ func (w *world) assertEvent(name, subject string) error {
 		}
 	}
 	return fmt.Errorf("no %s event for %s was published", name, subject)
+}
+
+func (w *world) assertDeclaredCost(id string, cents int64) error {
+	wv, err := w.loadWave(id)
+	if err != nil {
+		return err
+	}
+	if wv.CostPerStopCents() != cents {
+		return fmt.Errorf("wave %s declares %d cents per stop, want %d", id, wv.CostPerStopCents(), cents)
+	}
+	return nil
 }
 
 func (w *world) assertInducted(tn, waveID string) error {

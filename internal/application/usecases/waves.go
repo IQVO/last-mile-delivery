@@ -161,6 +161,32 @@ func (w writer) completeWaveIfDone(ctx context.Context, id wave.ID) (*wave.Deliv
 	return wv, w.Waves.Save(ctx, wv)
 }
 
+// DeclareWaveCostCommand is the input of DeclareWaveCost.
+type DeclareWaveCostCommand struct {
+	WaveID           wave.ID
+	CostPerStopCents int64
+}
+
+// DeclareWaveCost records the planner's declared marginal cost of one stop on
+// the wave (ADR 0011, roadmap F7) and publishes WaveCostDeclared.
+type DeclareWaveCost struct{ writer }
+
+// NewDeclareWaveCost builds the use case.
+func NewDeclareWaveCost(d Deps) *DeclareWaveCost { return &DeclareWaveCost{writer{d}} }
+
+// Execute declares the cost on a wave that still runs and returns the wave.
+func (uc *DeclareWaveCost) Execute(ctx context.Context, cmd DeclareWaveCostCommand) (views.Wave, error) {
+	return transact(ctx, uc.UoW, func(ctx context.Context) (views.Wave, error) {
+		wv, err := uc.mutateWave(ctx, cmd.WaveID, func(w *wave.DeliveryWave) ([]shared.Event, error) {
+			return w.DeclareCost(cmd.CostPerStopCents, uc.now())
+		})
+		if err != nil {
+			return views.Wave{}, err
+		}
+		return views.WaveFrom(wv), nil
+	})
+}
+
 // CancelWaveCommand is the input of CancelWave.
 type CancelWaveCommand struct {
 	WaveID wave.ID
