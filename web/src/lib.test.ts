@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { idProblem, serviceDateProblem, stopMeter, utcLabel } from "./lib";
+import { idProblem, serviceDateProblem, stopCost, stopMeter, utcLabel } from "./lib";
 
 describe("utcLabel", () => {
   it("formats an instant to the second in UTC", () => {
@@ -40,5 +40,12 @@ describe("stopMeter", () => {
   it("counts assigned against the total capacity in stops", () => {
     expect(stopMeter({ assignedStops: 2, remainingStops: 3 })).toBe("2 of 5 stops assigned");
     expect(stopMeter({ assignedStops: 0, remainingStops: 0 })).toBe("0 of 0 stops assigned");
+  });
+});
+
+describe("stopCost", () => {
+  it("renders the declared cents per stop without a currency", () => {
+    expect(stopCost({ costPerStopCents: 425 })).toBe("425 ¢/stop");
+    expect(stopCost({ costPerStopCents: 0 })).toBe("0 ¢/stop");
   });
 });

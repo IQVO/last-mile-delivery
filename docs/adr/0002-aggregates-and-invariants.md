@@ -178,6 +178,10 @@ stored version is `Version()-1`.
 - **A29** A wave's inductions are stored with the wave (one row per package); a wave
   holds at most one stop per unit of capacity and any number of packages per stop,
   so its size is bounded by the packages a station receives per wave.
+- **A30** The planner may declare what ONE stop on a wave costs, in integer cents
+  (roadmap F7, provider B; ADR 0011): `DeclareCost` on a running wave raises
+  `WaveCostDeclared`, 0 is a declared zero and an undeclared wave also reads 0 —
+  telling the two apart is the consumer's problem, not the wave's.
 
 ## Consequences
 

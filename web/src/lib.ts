@@ -35,3 +35,8 @@ export function serviceDateProblem(raw: string): string | null {
 export function stopMeter(wave: { assignedStops: number; remainingStops: number }): string {
   return `${wave.assignedStops} of ${wave.assignedStops + wave.remainingStops} stops assigned`;
 }
+
+/** "425 ¢/stop" for a wave's declared stop cost (integer cents, no currency). */
+export function stopCost(wave: { costPerStopCents: number }): string {
+  return `${wave.costPerStopCents} ¢/stop`;
+}
