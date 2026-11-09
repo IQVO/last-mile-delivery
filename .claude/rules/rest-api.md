@@ -24,6 +24,7 @@ Route -> use case, kept in sync with `apis/openapi.yaml` (registered in
 - `POST /partners` -> `ContractPartner` (201)
 - `POST /partners/{dspId}/deactivations` -> `DeactivatePartner`
 - `GET /healthz` (liveness), `GET /readyz` (readiness): not business operations.
+- Not served by `cmd/api`: the read-only `GET /reports/...` routes (tag `reports`, `cmd/lm-reports`, `internal/adapters/inbound/reportshttp`, ADR 0012; rules in `.claude/rules/analytics.md`).
 
 ## Conventions
 
