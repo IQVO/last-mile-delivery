@@ -2,7 +2,10 @@
 #
 # One component: the api Deployment (cmd/api = REST + the three consumers +
 # the always-on outbox relay in one process). Every key under config.* maps
-# 1:1 to one environment variable cmd/api reads.
+# 1:1 to one environment variable cmd/api reads. Optional components, all off
+# by default: mcp (ADR 0006), a2a (ADR 0009), the web remote (ADR 0007) and
+# the analytics read side (cmd/lm-projector and cmd/lm-reports over a
+# separate analytical database, ADR 0012).
 
 replicaCount: 1
 
@@ -313,3 +316,59 @@ frontend:
     requests:
       cpu: 50m
       memory: 64Mi
+
+# The analytics read side (docs/adr/0012), OFF by default: cmd/lm-projector
+# projects this context's own two topics (retailnetwork.last-mile-delivery.events
+# and .analytics) into a SEPARATE analytical Postgres and cmd/lm-reports serves
+# read-only reports over it. Both run from the same image.
+analytics:
+  enabled: false
+  # LOG_LEVEL of both analytics binaries.
+  logLevel: "info"
+  database:
+    # The projector's read-write analytical DSN (DIRECT Postgres, not
+    # PgBouncer: it also runs the migrations). No password in committed values.
+    projectorUrl: ""
+    # The reports reader's DSN -- a read-only role where possible; falls back
+    # to projectorUrl when empty (local/dev).
+    reportsUrl: ""
+    # Name of an existing Secret holding ANALYTICS_DATABASE_URL (projector) and
+    # ANALYTICS_READER_DATABASE_URL (reports). Takes precedence over the URLs.
+    existingSecret: ""
+  projector:
+    replicaCount: 1
+    adminAddr: ":8091"                  # ADMIN_ADDR (/healthz, /readyz)
+    adminPort: 8091
+    # ANALYTICS_CONSUMER_GROUP: the projector's FIXED consumer group on
+    # retailnetwork.last-mile-delivery.events and .analytics.
+    consumerGroup: "last-mile-delivery-analytics"
+    resources:
+      limits:
+        cpu: 500m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+  reports:
+    replicaCount: 1
+    httpAddr: ":8092"                   # HTTP_ADDR
+    service:
+      type: ClusterIP
+      port: 80
+      targetPort: 8092
+    # Kong exposure: /api/last-mile-delivery/reports -> Service :80, prefix
+    # rewritten to /reports. Needs the Gateway parentRef from warehouse-infra.
+    route:
+      enabled: false
+      path: "/api/last-mile-delivery/reports"
+      parentRefs:
+        - name: ""
+          namespace: ""
+          sectionName: "http"
+    resources:
+      limits:
+        cpu: 500m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
