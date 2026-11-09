@@ -1,0 +1,60 @@
+---
+id: get-report-freshness
+title: "How far the analytics projection is behind"
+description: "asOf is the CloudEvents time of the newest event the projector applied; lagSeconds is now minus asOf, never negative. Both are null until the first event. One endpoint for every report: they all read the same projection."
+sidebar_label: "How far the analytics projection is behind"
+hide_title: true
+hide_table_of_contents: true
+api: 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
+sidebar_class_name: "get api-method"
+info_path: docs/api-reference/rest/last-mile-delivery-api
+custom_edit_url: null
+hide_send_button: true
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+import Translate from "@docusaurus/Translate";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"How far the analytics projection is behind"}
+>
+</Heading>
+
+<MethodEndpoint
+  method={"get"}
+  path={"/reports/freshness"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+
+
+asOf is the CloudEvents time of the newest event the projector applied; lagSeconds is now minus asOf, never negative. Both are null until the first event. One endpoint for every report: they all read the same projection.
+
+<ParamsDetails>
+  
+</ParamsDetails>
+
+<RequestSchema
+  {...require("./get-report-freshness.RequestSchema.json")}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  {...require("./get-report-freshness.StatusCodes.json")}
+>
+  
+</StatusCodes>
+
+
+      

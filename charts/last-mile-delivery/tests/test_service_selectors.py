@@ -11,10 +11,11 @@ fails if that ever stops being true.
 last-mile-delivery has one always-on component, `api`; the optional resources
 (HPA, Ingress, HTTPRoute) are rendered ON together with it, and the api env is
 checked against the variables cmd/api reads. The optional components (ADR 0006
-`mcp`, ADR 0009 `a2a`, the `frontend` web remote) are rendered in a second pass:
-four Deployments and four Services, each Service selecting exactly its own
-Deployment, the mcp and a2a HTTPRoutes targeting their own Service, and nothing
-routing to the frontend from this chart.
+`mcp`, ADR 0009 `a2a`, the `frontend` web remote, ADR 0012 analytics read side)
+are rendered in a second pass: six Deployments and five Services (the
+`analytics-projector` has NO Service, it serves only its admin probes), each
+Service selecting exactly its own Deployment, the mcp, a2a and reports HTTPRoutes
+targeting their own Service, and nothing routing to the frontend from this chart.
 
 Run: python3 charts/last-mile-delivery/tests/test_service_selectors.py
 Needs: helm, PyYAML.
@@ -193,8 +194,50 @@ def check_refusals(failures: list[str]) -> None:
             failures.append(f"chart rendered (or failed for another reason) {label}")
 
 
+# The analytics read side never sees the OLTP database, the relay or the OLTP
+# consumers; the reports pod gets no Kafka and no DSN but the reader's.
+ANALYTICS_STRAY = {"DATABASE_URL", "MIGRATIONS_DATABASE_URL", "OUTBOX_RELAY_INTERVAL", "OUTBOX_MAX_ATTEMPTS",
+                   "SHUTDOWN_DRAIN_DELAY", "LINEHAUL_CONSUMER_GROUP", "NODE_TOPOLOGY_CONSUMER_GROUP",
+                   "SHIPPING_CONSUMER_GROUP"}
+REPORTS_STRAY = ANALYTICS_STRAY | {"KAFKA_BROKERS", "ANALYTICS_DATABASE_URL", "ANALYTICS_CONSUMER_GROUP"}
+
+
+def command_of(dep: dict) -> list[str]:
+    return dep["spec"]["template"]["spec"]["containers"][0].get("command", [])
+
+
+def check_analytics(by_component: dict, services: dict, failures: list[str]) -> None:
+    """The projector and the reports run their own binaries with their own env."""
+    wants = (
+        ("analytics-projector", "/app/lm-projector", ANALYTICS_STRAY,
+         ("ANALYTICS_DATABASE_URL", "KAFKA_BROKERS", "ANALYTICS_CONSUMER_GROUP", "ADMIN_ADDR", "LOG_LEVEL",
+          "SERVICE_VERSION", "ENVIRONMENT")),
+        ("analytics-reports", "/app/lm-reports", REPORTS_STRAY,
+         ("ANALYTICS_READER_DATABASE_URL", "HTTP_ADDR", "LOG_LEVEL", "SERVICE_VERSION", "ENVIRONMENT")),
+    )
+    for component, command, stray_set, needs in wants:
+        dep = by_component.get(component)
+        if dep is None:
+            failures.append(f"the {component} Deployment was not rendered with analytics.enabled=true")
+            continue
+        if command_of(dep) != [command]:
+            failures.append(f"the {component} Deployment must run {command}")
+        env = set(env_names(dep))
+        stray = sorted(stray_set & env)
+        if stray:
+            failures.append(f"the {component} Deployment must not get {stray}")
+        for need in needs:
+            if need not in env:
+                failures.append(f"the {component} Deployment does not render {need}")
+    pinned = {selector_of(s).get("app.kubernetes.io/component") for s in services.values()}
+    if "analytics-reports" not in pinned:
+        failures.append("the reports Service must exist and pin component=analytics-reports")
+    if "analytics-projector" in pinned:
+        failures.append("the projector must have no Service (it serves only its admin probes)")
+
+
 def check_optional_components(failures: list[str]) -> None:
-    """api + mcp + a2a + frontend together: every Service selects exactly one Deployment."""
+    """api + mcp + a2a + frontend + analytics together: every Service selects exactly one Deployment."""
     args = BASE + [
         "--set", "mcp.enabled=true",
         "--set", "mcp.route.enabled=true",
@@ -205,14 +248,19 @@ def check_optional_components(failures: list[str]) -> None:
         "--set", "a2a.route.parentRefs[0].name=warehouse-gateway",
         "--set", "a2a.route.parentRefs[0].namespace=kong",
         "--set", "frontend.enabled=true",
+        "--set", "analytics.enabled=true",
+        "--set", "analytics.database.projectorUrl=postgres://projector@example.invalid:5432/analytics",
+        "--set", "analytics.reports.route.enabled=true",
+        "--set", "analytics.reports.route.parentRefs[0].name=warehouse-gateway",
+        "--set", "analytics.reports.route.parentRefs[0].namespace=kong",
     ]
     docs = render(args)
     by_component = {
         d["spec"]["template"]["metadata"]["labels"].get("app.kubernetes.io/component"): d
         for d in docs if d.get("kind") == "Deployment"
     }
-    if set(by_component) != {"api", "mcp", "a2a", "frontend"}:
-        failures.append(f"expected the api, mcp, a2a and frontend Deployments, got {sorted(by_component)}")
+    if set(by_component) != {"api", "mcp", "a2a", "frontend", "analytics-projector", "analytics-reports"}:
+        failures.append(f"expected the api, mcp, a2a, frontend, projector and reports Deployments, got {sorted(by_component)}")
         return
 
     services = {d["metadata"]["name"]: d for d in docs if d.get("kind") == "Service"}
@@ -230,11 +278,13 @@ def check_optional_components(failures: list[str]) -> None:
         if "app.kubernetes.io/component" not in match_labels:
             failures.append(f"Deployment {name} selector.matchLabels lacks app.kubernetes.io/component")
 
-    # The mcp and a2a HTTPRoutes each target their own Service by name and
+    check_analytics(by_component, services, failures)
+
+    # The mcp, a2a and reports HTTPRoutes each target their own Service by name and
     # port; nothing in this chart routes to the frontend (the Nginx web gateway
     # owns it).
     by_name: dict[str, dict] = {}
-    for component in ("mcp", "a2a"):
+    for component in ("mcp", "a2a", "analytics-reports"):
         service = next((s for s in services.values() if selector_of(s).get("app.kubernetes.io/component") == component), None)
         if service is None:
             failures.append(f"the {component} Service was not rendered with {component}.enabled=true")
@@ -252,7 +302,7 @@ def check_optional_components(failures: list[str]) -> None:
             failures.append(f"HTTPRoute {d['metadata']['name']} must not target the mcp, a2a or frontend Service")
     routes = {d["metadata"]["name"] for d in docs if d.get("kind") == "HTTPRoute"}
     if not set(by_name) <= routes:
-        failures.append(f"expected an HTTPRoute for the mcp and a2a Services, got {sorted(routes)}")
+        failures.append(f"expected an HTTPRoute for the mcp, a2a and reports Services, got {sorted(routes)}")
 
 
 def main() -> int:
@@ -262,7 +312,10 @@ def main() -> int:
 
     # Default values must not deploy an HPA or a route.
     defaults = render(BASE)
-    stray = [d["kind"] for d in defaults if d.get("kind") in {"HorizontalPodAutoscaler", "Ingress", "HTTPRoute", "Deployment"} if d["kind"] != "Deployment" or d["metadata"]["name"] != RELEASE]
+    stray = [d["kind"] for d in defaults
+             if d.get("kind") in {"HorizontalPodAutoscaler", "Ingress", "HTTPRoute"}
+             or (d.get("kind") == "Deployment" and d["metadata"]["name"] != RELEASE)
+             or (d.get("kind") == "Secret" and d["metadata"]["name"].endswith("-analytics"))]
     if stray:
         failures.append(f"optional resources rendered with default values: {stray}")
     dep = next(d for d in defaults if d.get("kind") == "Deployment")
@@ -284,8 +337,9 @@ def main() -> int:
 
     print("PASS: the api Service selects exactly one Deployment; HPA, Ingress and HTTPRoute are off by default and target the api; "
           "every cmd/api env var is rendered once; the chart refuses to render without a database source, brokers or any consumer "
-          "group, with a *_MODE in extraEnv, or with a grace period under the shutdown bounds; with mcp, a2a and frontend enabled each "
-          "Service still selects exactly one Deployment, the mcp and a2a HTTPRoutes target their own Service and nothing routes to the frontend")
+          "group, with a *_MODE in extraEnv, or with a grace period under the shutdown bounds; with mcp, a2a, frontend and analytics enabled each "
+          "Service still selects exactly one Deployment (the projector has none), the projector and reports run their own binaries "
+          "with their own env, the mcp, a2a and reports HTTPRoutes target their own Service and nothing routes to the frontend")
     return 0
 
 

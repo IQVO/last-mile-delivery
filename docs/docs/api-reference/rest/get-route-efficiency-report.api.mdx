@@ -1,0 +1,70 @@
+---
+id: get-route-efficiency-report
+title: "Route efficiency per day and delivery station"
+description: "Per UTC day of completion and per delivery station (stationNodeId), over the completed routes: a route counts as completed when every package it took out for delivery has an attempt (the precondition of CompleteRoute, which raises no event) and its RoutePlanned is projected; its day is the day of its last attempt. routesCompleted is their count; stopsPerRoute = stops / routesCompleted (stops = the routes' RoutePlanned stopCount); packagesPerStop = packages attempted / distinct stops attempted (every stop of a completed route was attempted, so the denominator is the stops); declaredCostPerStopCents = the stop-weighted mean of the waves' declared costPerStopCents over the routes whose wave declared a cost, null when none did; costPerPackageCents = declaredCostPerStopCents x the stops of those routes / their packages, null when undefined. Days without a completed route are omitted."
+sidebar_label: "Route efficiency per day and delivery station"
+hide_title: true
+hide_table_of_contents: true
+api: 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
+sidebar_class_name: "get api-method"
+info_path: docs/api-reference/rest/last-mile-delivery-api
+custom_edit_url: null
+hide_send_button: true
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+import Translate from "@docusaurus/Translate";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"Route efficiency per day and delivery station"}
+>
+</Heading>
+
+<MethodEndpoint
+  method={"get"}
+  path={"/reports/route-efficiency"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+
+
+Per UTC day of completion and per delivery station (stationNodeId), over the completed routes: a route counts as completed when every package it took out for delivery has an attempt (the precondition of CompleteRoute, which raises no event) and its RoutePlanned is projected; its day is the day of its last attempt. routesCompleted is their count; stopsPerRoute = stops / routesCompleted (stops = the routes' RoutePlanned stopCount); packagesPerStop = packages attempted / distinct stops attempted (every stop of a completed route was attempted, so the denominator is the stops); declaredCostPerStopCents = the stop-weighted mean of the waves' declared costPerStopCents over the routes whose wave declared a cost, null when none did; costPerPackageCents = declaredCostPerStopCents x the stops of those routes / their packages, null when undefined. Days without a completed route are omitted.
+
+<Heading
+  id={"request"}
+  as={"h2"}
+  className={"openapi-tabs__heading"}
+>
+  <Translate id="theme.openapi.request.title">Request</Translate>
+</Heading>
+
+<ParamsDetails
+  {...require("./get-route-efficiency-report.ParamsDetails.json")}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  {...require("./get-route-efficiency-report.RequestSchema.json")}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  {...require("./get-route-efficiency-report.StatusCodes.json")}
+>
+  
+</StatusCodes>
+
+
+      

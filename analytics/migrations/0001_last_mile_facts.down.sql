@@ -1,0 +1,15 @@
+DROP INDEX IF EXISTS idx_analytics_processed_events_occurred_at;
+DROP INDEX IF EXISTS idx_waves_service_date;
+DROP INDEX IF EXISTS idx_package_returns_initiated_at;
+DROP INDEX IF EXISTS idx_delivery_attempts_attempted_at;
+DROP INDEX IF EXISTS idx_delivery_attempts_tracking;
+DROP INDEX IF EXISTS idx_delivery_attempts_route;
+DROP TABLE IF EXISTS package_returns;
+DROP TABLE IF EXISTS delivery_attempts;
+DROP TABLE IF EXISTS route_packages;
+DROP TABLE IF EXISTS route_plans;
+DROP TABLE IF EXISTS wave_costs;
+DROP TABLE IF EXISTS wave_cancellations;
+DROP TABLE IF EXISTS wave_inductions;
+DROP TABLE IF EXISTS waves;
+DROP TABLE IF EXISTS analytics_processed_events;

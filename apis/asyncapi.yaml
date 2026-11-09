@@ -41,6 +41,17 @@ info:
     messages below list only the fields this service relies on; the producers'
     own AsyncAPI files are the authority.
 
+    **Own events, read back for analytics (ADR 0012).** The analytics projector
+    (`cmd/lm-projector`) reads this context's OWN two topics with one reader in
+    the fixed group `last-mile-delivery-analytics` and projects
+    DeliveryWaveScheduled, DeliveryWaveCapacityChanged, DeliveryWaveCancelled,
+    WaveCostDeclared, PackageOutForDelivery, DeliveryAttempted,
+    PackageReturnInitiated (events topic) and RoutePlanned (analytics topic)
+    into a separate analytical database. It dedupes on the CloudEvents `id` in
+    the same transaction as the projection, dead-letters only deterministic
+    poison to `retailnetwork.last-mile-delivery.analytics.dlq` and retries
+    transient failures without a bound. It reads no sibling's topic.
+
     **Envelope (mandatory).** CloudEvents 1.0, structured content mode, Kafka
     header `content-type: application/cloudevents+json; charset=UTF-8`.
     `specversion`, `id`, `source` (`/retailnetwork/last-mile-delivery`), `type`,
@@ -176,6 +187,45 @@ operations:
     description: |
       The service sends the analytics-only RoutePlanned event to
       `retailnetwork.last-mile-delivery.analytics` through the same outbox.
+    tags:
+      - name: last-mile-delivery
+    channel:
+      $ref: "#/channels/lastMileAnalytics"
+    messages:
+      - $ref: "#/channels/lastMileAnalytics/messages/RoutePlanned"
+
+  projectOwnEventsForAnalytics:
+    action: receive
+    title: Project this context's own integration events into the analytical database
+    summary: The analytics projector reads back seven of the events this service publishes (ADR 0012).
+    description: |
+      Inbound adapter internal/adapters/inbound/kafka/analytics_consumer.go, run by
+      cmd/lm-projector in the consumer group ANALYTICS_CONSUMER_GROUP (default
+      last-mile-delivery-analytics), one reader over this topic and the analytics
+      topic. Dispatches on the full `type`; PackageInductionDeferred is acknowledged
+      without projection; any other type or a non-CloudEvents message is skipped
+      with a sampled warning; poison goes to
+      retailnetwork.last-mile-delivery.analytics.dlq.
+    tags:
+      - name: last-mile-delivery
+    channel:
+      $ref: "#/channels/lastMileEvents"
+    messages:
+      - $ref: "#/channels/lastMileEvents/messages/DeliveryWaveScheduled"
+      - $ref: "#/channels/lastMileEvents/messages/DeliveryWaveCapacityChanged"
+      - $ref: "#/channels/lastMileEvents/messages/DeliveryWaveCancelled"
+      - $ref: "#/channels/lastMileEvents/messages/WaveCostDeclared"
+      - $ref: "#/channels/lastMileEvents/messages/PackageOutForDelivery"
+      - $ref: "#/channels/lastMileEvents/messages/DeliveryAttempted"
+      - $ref: "#/channels/lastMileEvents/messages/PackageReturnInitiated"
+
+  projectOwnAnalyticsEvents:
+    action: receive
+    title: Project this context's own analytics events into the analytical database
+    summary: The analytics projector reads RoutePlanned (the route's stop count) back from the analytics topic (ADR 0012).
+    description: |
+      The same consumer and group as projectOwnEventsForAnalytics: RoutePlanned
+      carries the stop count of a route, which the route-efficiency report needs.
     tags:
       - name: last-mile-delivery
     channel:

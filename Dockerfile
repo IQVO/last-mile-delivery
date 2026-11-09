@@ -41,10 +41,11 @@ WORKDIR /app
 COPY --from=build --chown=app:app /out/ ./
 USER 1000
 # 8080 is cmd/api (HTTP); 8090 is cmd/mcp (the read-only MCP server's
-# Streamable HTTP endpoint, ADR 0006) and 8093 is cmd/a2a (the read-only A2A
-# agent's JSON-RPC endpoint, ADR 0009) when the chart runs those binaries
-# instead.
-EXPOSE 8080 8090 8093
+# Streamable HTTP endpoint, ADR 0006), 8091 is cmd/lm-projector (admin:
+# /healthz, /readyz), 8092 is cmd/lm-reports (the read-only reports, ADR 0012)
+# and 8093 is cmd/a2a (the read-only A2A agent's JSON-RPC endpoint, ADR 0009)
+# when the chart runs those binaries instead.
+EXPOSE 8080 8090 8091 8092 8093
 # cmd/api is the service's main binary (HTTP on :8080). Additional cmd/*
 # binaries are run by the chart with `command: ["/app/<dirname>"]`.
 ENTRYPOINT ["./api"]

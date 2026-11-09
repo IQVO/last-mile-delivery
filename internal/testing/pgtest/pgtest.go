@@ -124,6 +124,27 @@ func URL(t *testing.T) string {
 	return url
 }
 
+// EmptyURL returns the DSN of a FRESH, EMPTY database (no migrations) on the
+// shared container: the analytical database of the read side (ADR 0012), whose
+// own binary applies its own embedded migrations.
+func EmptyURL(t *testing.T) string {
+	t.Helper()
+	once.Do(start)
+	if errStart != nil {
+		t.Fatalf("start postgres container: %v", errStart)
+	}
+	ctx := context.Background()
+	name := fmt.Sprintf("e_%d", seq.Add(1))
+	if err := adminExec(ctx, `CREATE DATABASE `+name); err != nil {
+		t.Fatalf("create database %s: %v", name, err)
+	}
+	url, err := databaseURL(ctx, name)
+	if err != nil {
+		t.Fatalf("database url: %v", err)
+	}
+	return url
+}
+
 // NewPool returns a pool on a fresh database (migrations applied), closed
 // when the test ends.
 func NewPool(t *testing.T) *pgxpool.Pool {

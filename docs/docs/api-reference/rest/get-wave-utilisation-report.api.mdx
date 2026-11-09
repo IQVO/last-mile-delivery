@@ -1,0 +1,70 @@
+---
+id: get-wave-utilisation-report
+title: "Wave stop-capacity utilisation per service date and station"
+description: "Per serviceDate and delivery station of the scheduled waves: wavesScheduled, wavesCancelled (those with a DeliveryWaveCancelled), stopCapacity (the sum of the scheduled stopCapacity) and stopsInducted (the sum of each wave's highest assignedStops of DeliveryWaveCapacityChanged, 0 without one); utilisation = stopsInducted / stopCapacity, null when the capacity is 0. Cancelled waves stay in every sum. Dates without a wave are omitted."
+sidebar_label: "Wave stop-capacity utilisation per service date and station"
+hide_title: true
+hide_table_of_contents: true
+api: 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
+sidebar_class_name: "get api-method"
+info_path: docs/api-reference/rest/last-mile-delivery-api
+custom_edit_url: null
+hide_send_button: true
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+import Translate from "@docusaurus/Translate";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"Wave stop-capacity utilisation per service date and station"}
+>
+</Heading>
+
+<MethodEndpoint
+  method={"get"}
+  path={"/reports/wave-utilisation"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+
+
+Per serviceDate and delivery station of the scheduled waves: wavesScheduled, wavesCancelled (those with a DeliveryWaveCancelled), stopCapacity (the sum of the scheduled stopCapacity) and stopsInducted (the sum of each wave's highest assignedStops of DeliveryWaveCapacityChanged, 0 without one); utilisation = stopsInducted / stopCapacity, null when the capacity is 0. Cancelled waves stay in every sum. Dates without a wave are omitted.
+
+<Heading
+  id={"request"}
+  as={"h2"}
+  className={"openapi-tabs__heading"}
+>
+  <Translate id="theme.openapi.request.title">Request</Translate>
+</Heading>
+
+<ParamsDetails
+  {...require("./get-wave-utilisation-report.ParamsDetails.json")}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  {...require("./get-wave-utilisation-report.RequestSchema.json")}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  {...require("./get-wave-utilisation-report.StatusCodes.json")}
+>
+  
+</StatusCodes>
+
+
+      

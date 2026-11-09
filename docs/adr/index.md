@@ -25,3 +25,4 @@ The *Status* column is copied from each ADR's own `## Status` section.
 | [0009](./0009-a2a-inbound-adapter.md) | A2A inbound adapter (a read-only agent) | Accepted (2026-10-29) |
 | [0010](./0010-adopt-the-fleet-rest-api-guideline.md) | Adopt the fleet REST API guideline | Accepted (2026-11-01) |
 | [0011](./0011-wave-stop-cost-declaration.md) | wave stop-cost declaration (cents, planner-declared, per-stop; F7 provider B) | Accepted (2026-11-05) |
+| [0012](./0012-analytics-read-side.md) | analytics read side (projector, reports, separate analytical database; roadmap F9) | Accepted (2026-11-09) |
