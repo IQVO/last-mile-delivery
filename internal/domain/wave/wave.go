@@ -65,6 +65,10 @@ const MaxStopCapacity = 2147483647
 // MaxReason is the longest accepted cancel reason in characters.
 const MaxReason = 200
 
+// MaxCostPerStopCents is the ceiling of a declared stop cost in cents
+// (100 000.00 in money units; ADR 0011, roadmap F7).
+const MaxCostPerStopCents = 10000000
+
 // Induction records one package inducted into a wave.
 type Induction struct {
 	TrackingNumber string
@@ -74,34 +78,36 @@ type Induction struct {
 
 // DeliveryWave is the aggregate root.
 type DeliveryWave struct {
-	id           ID
-	station      string
-	serviceDate  string
-	cutoff       time.Time
-	windowStart  time.Time
-	windowEnd    time.Time
-	capacity     int
-	assigned     int
-	inductions   []Induction
-	state        State
-	cancelReason string
-	version      int64
+	id               ID
+	station          string
+	serviceDate      string
+	cutoff           time.Time
+	windowStart      time.Time
+	windowEnd        time.Time
+	capacity         int
+	assigned         int
+	inductions       []Induction
+	state            State
+	cancelReason     string
+	costPerStopCents int64
+	version          int64
 }
 
 // Snapshot is the persisted form of a wave. Restore validates it.
 type Snapshot struct {
-	ID             ID
-	StationNodeID  string
-	ServiceDate    string
-	InductCutoffAt time.Time
-	WindowStart    time.Time
-	WindowEnd      time.Time
-	StopCapacity   int
-	AssignedStops  int
-	Inductions     []Induction
-	State          State
-	CancelReason   string
-	Version        int64
+	ID               ID
+	StationNodeID    string
+	ServiceDate      string
+	InductCutoffAt   time.Time
+	WindowStart      time.Time
+	WindowEnd        time.Time
+	StopCapacity     int
+	AssignedStops    int
+	Inductions       []Induction
+	State            State
+	CancelReason     string
+	CostPerStopCents int64
+	Version          int64
 }
 
 // NewWave is the input of Schedule.
@@ -173,7 +179,7 @@ func Restore(s Snapshot) (*DeliveryWave, error) {
 		id: s.ID, station: s.StationNodeID, serviceDate: s.ServiceDate, cutoff: shared.UTC(s.InductCutoffAt),
 		windowStart: shared.UTC(s.WindowStart), windowEnd: shared.UTC(s.WindowEnd), capacity: s.StopCapacity,
 		assigned: s.AssignedStops, inductions: normalise(s.Inductions), state: s.State, cancelReason: s.CancelReason,
-		version: s.Version,
+		costPerStopCents: s.CostPerStopCents, version: s.Version,
 	}, nil
 }
 
@@ -203,6 +209,9 @@ func checkSnapshot(s Snapshot) error {
 	}
 	if (s.State == StateCancelled) != (s.CancelReason != "") {
 		return errors.New("a cancelReason is set exactly when the wave is CANCELLED")
+	}
+	if s.CostPerStopCents < 0 || s.CostPerStopCents > MaxCostPerStopCents {
+		return fmt.Errorf("costPerStopCents must be between 0 and %d", MaxCostPerStopCents)
 	}
 	return checkInductions(s)
 }
@@ -308,6 +317,28 @@ func (w *DeliveryWave) Cancel(reason string, now time.Time) ([]shared.Event, err
 	return []shared.Event{ev}, nil
 }
 
+// DeclareCost records the planner's declared marginal cost of ONE stop on the
+// wave, in integer cents (ADR 0011, roadmap F7), and raises WaveCostDeclared.
+// It is allowed while the wave is still running (OPEN, INDUCTION_CLOSED or
+// DISPATCHED) and refused once the wave is CANCELLED or COMPLETED; declaring
+// again overwrites the last value. Zero is a legal declaration: it means a
+// declared zero marginal cost, which is not the same as an undeclared wave.
+func (w *DeliveryWave) DeclareCost(costPerStopCents int64, now time.Time) ([]shared.Event, error) {
+	if costPerStopCents < 0 || costPerStopCents > MaxCostPerStopCents {
+		return nil, shared.Invalid("costPerStopCents must be between 0 and %d", MaxCostPerStopCents)
+	}
+	if w.state == StateCancelled || w.state == StateCompleted {
+		return nil, fmt.Errorf("%w: DeclareCost needs a running wave but wave %s is %s", shared.ErrIllegalTransition, w.id, w.state)
+	}
+	w.costPerStopCents = costPerStopCents
+	w.version++
+	ev := WaveCostDeclared{
+		Header: shared.Header{Version: w.version, At: shared.UTC(now)}, WaveID: w.id,
+		CostPerStopCents: costPerStopCents, DeclaredAt: shared.UTC(now),
+	}
+	return []shared.Event{ev}, nil
+}
+
 // ID returns the wave id.
 func (w *DeliveryWave) ID() ID { return w.id }
 
@@ -341,6 +372,10 @@ func (w *DeliveryWave) State() State { return w.state }
 // CancelReason returns the cancel reason (empty unless CANCELLED).
 func (w *DeliveryWave) CancelReason() string { return w.cancelReason }
 
+// CostPerStopCents returns the declared marginal cost of one stop on the wave
+// (integer cents; 0 until the planner declares one).
+func (w *DeliveryWave) CostPerStopCents() int64 { return w.costPerStopCents }
+
 // Version returns the aggregate version.
 func (w *DeliveryWave) Version() int64 { return w.version }
 
@@ -362,6 +397,7 @@ func (w *DeliveryWave) Snapshot() Snapshot {
 	return Snapshot{
 		ID: w.id, StationNodeID: w.station, ServiceDate: w.serviceDate, InductCutoffAt: w.cutoff,
 		WindowStart: w.windowStart, WindowEnd: w.windowEnd, StopCapacity: w.capacity, AssignedStops: w.assigned,
-		Inductions: w.Inductions(), State: w.state, CancelReason: w.cancelReason, Version: w.version,
+		Inductions: w.Inductions(), State: w.state, CancelReason: w.cancelReason,
+		CostPerStopCents: w.costPerStopCents, Version: w.version,
 	}
 }

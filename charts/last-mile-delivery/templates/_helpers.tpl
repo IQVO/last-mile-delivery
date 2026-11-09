@@ -203,3 +203,48 @@ docs/adr/0009). Component label a2a: the api Service must never select it.
 {{- define "last-mile-delivery.a2aFullname" -}}
 {{- include "last-mile-delivery.fullname" . }}-a2a
 {{- end }}
+
+{{/*
+Fully qualified names of the analytics read side (docs/adr/0012): the
+projector Deployment (no Service: it serves only its admin probes) and the
+reports Deployment/Service. Components analytics-projector and
+analytics-reports keep every Service selecting exactly one Deployment.
+*/}}
+{{- define "last-mile-delivery.projectorFullname" -}}
+{{- include "last-mile-delivery.fullname" . }}-projector
+{{- end }}
+
+{{- define "last-mile-delivery.reportsFullname" -}}
+{{- include "last-mile-delivery.fullname" . }}-reports
+{{- end }}
+
+{{/*
+Name of the Secret holding the analytical DSNs: the operator's own
+(analytics.database.existingSecret, keys ANALYTICS_DATABASE_URL and
+ANALYTICS_READER_DATABASE_URL) or the one this chart creates.
+*/}}
+{{- define "last-mile-delivery.analyticsSecretName" -}}
+{{- if .Values.analytics.database.existingSecret }}
+{{- .Values.analytics.database.existingSecret }}
+{{- else }}
+{{- include "last-mile-delivery.fullname" . }}-analytics
+{{- end }}
+{{- end }}
+
+{{/*
+analytics.enabled needs an analytical DSN source (both binaries refuse to boot
+without one), the Kafka brokers (the projector consumes
+retailnetwork.last-mile-delivery.events and .analytics) and a stable consumer
+group. Fail at render instead of crash-looping.
+*/}}
+{{- define "last-mile-delivery.requireAnalytics" -}}
+{{- if not (or .Values.analytics.database.projectorUrl .Values.analytics.database.existingSecret) -}}
+{{- fail "analytics.enabled is true but neither analytics.database.projectorUrl nor analytics.database.existingSecret is set (ANALYTICS_DATABASE_URL): the projector and the reports refuse to boot without an analytical database." -}}
+{{- end -}}
+{{- if not .Values.kafka.brokers -}}
+{{- fail "analytics.enabled is true but kafka.brokers is empty (KAFKA_BROKERS): the projector consumes retailnetwork.last-mile-delivery.events and .analytics." -}}
+{{- end -}}
+{{- if not .Values.analytics.projector.consumerGroup -}}
+{{- fail "analytics.projector.consumerGroup is required (ANALYTICS_CONSUMER_GROUP): use the STABLE id last-mile-delivery-analytics, never the pod name." -}}
+{{- end -}}
+{{- end -}}

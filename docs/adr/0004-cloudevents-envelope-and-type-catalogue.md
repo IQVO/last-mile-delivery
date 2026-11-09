@@ -34,17 +34,19 @@ against `apis/asyncapi.yaml`. The consumed types are listed in ADR 0003.
 
 ### Published types
 
-Seven types go ONLY to the integration topic `retailnetwork.last-mile-delivery.events`
+Eight types go ONLY to the integration topic `retailnetwork.last-mile-delivery.events`
 (`stream: events`); `RoutePlanned` is analytics-only and goes ONLY to
 `retailnetwork.last-mile-delivery.analytics` (`stream: analytics`).
 `DeliveryWaveCancelled` is an integration event (Gap Register G5, contracts-delta
 E5), no longer analytics-only. `PackageInductionDeferred` and
 `PackageReturnInitiated` are the Gap Register G16 additions (contracts-delta E15).
+`WaveCostDeclared` is the roadmap F7 provider-B addition (ADR 0011).
 
 ```text
 type: com.retailnetwork.logistics.last-mile-delivery.wave.DeliveryWaveScheduled stream: events
 type: com.retailnetwork.logistics.last-mile-delivery.wave.DeliveryWaveCapacityChanged stream: events
 type: com.retailnetwork.logistics.last-mile-delivery.wave.DeliveryWaveCancelled stream: events
+type: com.retailnetwork.logistics.last-mile-delivery.wave.WaveCostDeclared stream: events
 type: com.retailnetwork.logistics.last-mile-delivery.route.RoutePlanned stream: analytics
 type: com.retailnetwork.logistics.last-mile-delivery.route.PackageOutForDelivery stream: events
 type: com.retailnetwork.logistics.last-mile-delivery.route.DeliveryAttempted stream: events
@@ -57,6 +59,7 @@ type: com.retailnetwork.logistics.last-mile-delivery.packageattempthistory.Packa
 | `DeliveryWaveScheduled` | `waveId` | ScheduleWave is saved (state OPEN) | `{waveId, stationNodeId, serviceDate, inductCutoffAt, windowStart, windowEnd, stopCapacity}` |
 | `DeliveryWaveCapacityChanged` | `waveId` | an induction adds a new stop to a wave | `{waveId, stopCapacity, assignedStops, remainingStops}` |
 | `DeliveryWaveCancelled` | `waveId` | CancelWave is saved | `{waveId, reason}` |
+| `WaveCostDeclared` | `waveId` | DeclareCost is saved (planner's stop-cost declaration, ADR 0011) | `{waveId, costPerStopCents, declaredAt}` |
 | `RoutePlanned` | `routeId` | PlanRoute is saved | `{routeId, waveId, dspId, stopCount}` |
 | `PackageOutForDelivery` | `routeId` | StartRoute is saved, one per tracking number | `{routeId, trackingNumber, stationNodeId, at}` |
 | `DeliveryAttempted` | `routeId` | RecordAttempt is saved, one per package | `{routeId, trackingNumber, outcome, failureReason?, at}` |

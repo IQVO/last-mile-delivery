@@ -67,6 +67,37 @@ Read-only A2A (Agent2Agent) agent, JSON-RPC 2.0 over HTTP. It never dials Kafka.
 | `OTEL_SERVICE_NAME` | `last-mile-delivery-a2a` | no | `service.name`. |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `localhost:4317` | no | As `cmd/api`. |
 
+## `cmd/lm-projector` (analytics projector, ADR 0012)
+
+Writes ONLY the separate analytical database; never opens the OLTP database. Reads this context's own two topics, `retailnetwork.last-mile-delivery.events` and `retailnetwork.last-mile-delivery.analytics`, with one reader; dead-letters poison to `retailnetwork.last-mile-delivery.analytics.dlq`. Serves `/healthz` and `/readyz` on the admin port.
+
+| Variable | Default | Required? | Meaning |
+| --- | --- | --- | --- |
+| `ANALYTICS_DATABASE_URL` | none | **yes** | Direct DSN of the analytical database (read-write; runs the embedded analytical migrations). Chart: `analytics.database.projectorUrl` or `analytics.database.existingSecret`. |
+| `KAFKA_BROKERS` | none | **yes** | Comma-separated brokers. Chart: `kafka.brokers`. |
+| `ANALYTICS_CONSUMER_GROUP` | `last-mile-delivery-analytics` | no | The projector's fixed consumer group. Chart: `analytics.projector.consumerGroup`. |
+| `ADMIN_ADDR` | `:8091` | no | `/healthz` and `/readyz` listen address. Chart: `analytics.projector.adminAddr`. |
+| `LOG_LEVEL` | `info` | no | `debug`, `info`, `warn`/`warning`, `error`. Chart: `analytics.logLevel`. |
+| `OTEL_SERVICE_NAME` | `last-mile-delivery-projector` | no | `service.name`. Chart: `otel.serviceName` + `-projector`. |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `localhost:4317` | no | Collector OTLP/gRPC endpoint. Chart: `otel.endpoint`. |
+| `SERVICE_VERSION` | `dev` | no | `service.version`. Chart: the image tag. |
+| `ENVIRONMENT` | `local` | no | `deployment.environment.name`. Chart: `environment`. |
+
+## `cmd/lm-reports` (read-only analytics reports, ADR 0012)
+
+`GET /reports/route-efficiency`, `/reports/attempt-outcomes`, `/reports/wave-utilisation`, `/reports/freshness`, `/healthz`, `/readyz` over a read-only pool (15 s statement timeout). No Kafka, no OLTP database.
+
+| Variable | Default | Required? | Meaning |
+| --- | --- | --- | --- |
+| `ANALYTICS_READER_DATABASE_URL` | value of `ANALYTICS_DATABASE_URL` | **yes** (one of the two) | DSN of a read-only role on the analytical database. Chart: `analytics.database.reportsUrl` (falls back to `projectorUrl`). |
+| `ANALYTICS_DATABASE_URL` | none | no | Single-role local fallback; the chart never renders it for the reports pod. |
+| `HTTP_ADDR` | `:8092` | no | Listen address. Chart: `analytics.reports.httpAddr`. |
+| `LOG_LEVEL` | `info` | no | As above. Chart: `analytics.logLevel`. |
+| `OTEL_SERVICE_NAME` | `last-mile-delivery-reports` | no | `service.name`. Chart: `otel.serviceName` + `-reports`. |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `localhost:4317` | no | Collector OTLP/gRPC endpoint. Chart: `otel.endpoint`. |
+| `SERVICE_VERSION` | `dev` | no | `service.version`. Chart: the image tag. |
+| `ENVIRONMENT` | `local` | no | `deployment.environment.name`. Chart: `environment`. |
+
 ## Readiness
 
 `GET /readyz` exists on `cmd/api` only. It is 200 only when the shutdown drain gate is open **and** Postgres answers a ping **and** a Kafka broker answers a metadata request that names no topic (reachability only). The verdict is cached for 3 s and one round of checks is bounded by 2 s. A failed dependency is a `503` `application/problem+json` of type `dependency-unavailable` with detail `not ready: kafka` or `not ready: postgres`. `/healthz` is liveness only and exists on all three binaries. `cmd/mcp` and `cmd/a2a` have no `/readyz`. Topics are not part of readiness: the broker creates them on first write.

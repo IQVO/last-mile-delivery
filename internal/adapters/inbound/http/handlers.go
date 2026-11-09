@@ -71,6 +71,26 @@ func (s *Server) handleCancelWave(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, toWaveBody(v))
 }
 
+func (s *Server) handleDeclareWaveCost(w http.ResponseWriter, r *http.Request) {
+	var req declareCostRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, r, err)
+		return
+	}
+	if req.CostPerStopCents == nil {
+		writeError(w, r, validationError("costPerStopCents is required (0 declares a zero marginal cost)"))
+		return
+	}
+	v, err := s.DeclareWaveCost.Execute(r.Context(), usecases.DeclareWaveCostCommand{
+		WaveID: wave.ID(chi.URLParam(r, "waveId")), CostPerStopCents: *req.CostPerStopCents,
+	})
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, toWaveBody(v))
+}
+
 func (s *Server) handlePlanRoute(w http.ResponseWriter, r *http.Request) {
 	var req planRouteRequest
 	if err := decodeJSON(r, &req); err != nil {

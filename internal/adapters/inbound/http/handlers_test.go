@@ -89,6 +89,28 @@ func TestCancelWaveThroughHTTP(t *testing.T) {
 	}
 }
 
+func TestDeclareWaveCostThroughHTTP(t *testing.T) {
+	a := newApp(t)
+	a.post("/waves", waveBodyJSON)
+	r := a.post("/waves/wave-1/cost-declarations", `{"costPerStopCents":425}`)
+	if r.Code != http.StatusCreated || r.json(t)["costPerStopCents"] != float64(425) || r.json(t)["state"] != "OPEN" {
+		t.Fatalf("declare = %d %s", r.Code, r.Body)
+	}
+	// a declared zero is legal and overwrites the earlier declaration
+	r = a.post("/waves/wave-1/cost-declarations", `{"costPerStopCents":0}`)
+	if r.Code != http.StatusCreated || r.json(t)["costPerStopCents"] != float64(0) {
+		t.Fatalf("declare zero = %d %s", r.Code, r.Body)
+	}
+	list := a.get("/waves?stationNodeId=node-ds-01&serviceDate=2026-10-24")
+	if list.Code != http.StatusOK || !strings.Contains(list.Body, `"costPerStopCents":0`) {
+		t.Fatalf("list = %d %s", list.Code, list.Body)
+	}
+	a.post("/waves/wave-1/cancellations", `{"reason":"closed"}`)
+	if r := a.post("/waves/wave-1/cost-declarations", `{"costPerStopCents":425}`); r.Code != http.StatusConflict || r.slug(t) != "illegal-transition" {
+		t.Fatalf("declare after cancel = %d %s", r.Code, r.Body)
+	}
+}
+
 func TestEmptyListsAreEmptyArrays(t *testing.T) {
 	a := newApp(t)
 	if r := a.get("/waves?stationNodeId=node-ds-01&serviceDate=2026-10-25"); r.Code != http.StatusOK || strings.TrimSpace(r.Body) != `{"items":[]}` {
@@ -128,6 +150,10 @@ func TestProblemMapping(t *testing.T) {
 		{"list with a bad date", "GET", "/waves?stationNodeId=node-ds-01&serviceDate=x", "", 422, "validation-failed"},
 		{"plan before induction closed", "POST", "/routes", `{"waveId":"wave-1","dspId":"dsp-1","stops":[{"stopNo":1,"trackingNumbers":["TRK-1"]}]}`, 409, "illegal-transition"},
 		{"cancel without a reason", "POST", "/waves/wave-1/cancellations", `{"reason":""}`, 422, "validation-failed"},
+		{"declare without a cost", "POST", "/waves/wave-1/cost-declarations", `{}`, 422, "validation-failed"},
+		{"declare a negative cost", "POST", "/waves/wave-1/cost-declarations", `{"costPerStopCents":-1}`, 422, "validation-failed"},
+		{"declare a cost above the ceiling", "POST", "/waves/wave-1/cost-declarations", `{"costPerStopCents":10000001}`, 422, "validation-failed"},
+		{"declare on an unknown wave", "POST", "/waves/nope/cost-declarations", `{"costPerStopCents":425}`, 404, "not-found"},
 		{"bad outcome", "POST", "/routes/nope/attempts", `{"trackingNumber":"T","outcome":"LOST","at":"2026-10-24T13:00:00Z"}`, 422, "validation-failed"},
 	}
 	for i, c := range cases {

@@ -19,6 +19,8 @@ Up to three Deployments of one Helm chart (`charts/last-mile-delivery/`), all re
 | `mcp` | `cmd/mcp` | `mcp.enabled` (default off) | `8090` | read-only MCP server, `/mcp` and `/`, `/healthz` |
 | `a2a` | `cmd/a2a` | `a2a.enabled` (default off) | `8093` | read-only A2A agent, JSON-RPC on `/` and `/a2a`, Agent Card, `/healthz` |
 | `frontend` | `web/` | `frontend.enabled` (default off) | `8080` (Service `80`) | operator micro-frontend (own nginx pod, ClusterIP only) |
+| `analytics-projector` | `cmd/lm-projector` | `analytics.enabled` (default off) | `8091` (admin, no Service) | projects this context's own two topics into the SEPARATE analytical database (ADR 0012) |
+| `analytics-reports` | `cmd/lm-reports` | `analytics.enabled` (default off) | `8092` (Service `80`) | read-only `GET /reports/...` over the analytical database; Kong `/api/last-mile-delivery/reports` -> `/reports` when `analytics.reports.route.enabled` |
 
 `cmd/api` (`cmd/api/main.go`) runs four loops side by side:
 
@@ -30,6 +32,7 @@ Up to three Deployments of one Helm chart (`charts/last-mile-delivery/`), all re
 | linehaul | `retailnetwork.linehaul-transportation.events` | `LINEHAUL_CONSUMER_GROUP` | `LoadArrived` |
 | node-topology | `retailnetwork.node-topology.events` | `NODE_TOPOLOGY_CONSUMER_GROUP` | `NodeRegistered`, `ServiceAreaAssigned` |
 | shipping | `retailnetwork.shipping-and-tracking.events` | `SHIPPING_CONSUMER_GROUP` | `LabelIssued` |
+| analytics (`cmd/lm-projector`, ADR 0012) | `retailnetwork.last-mile-delivery.events` and `retailnetwork.last-mile-delivery.analytics` (its OWN topics) | `ANALYTICS_CONSUMER_GROUP` (`last-mile-delivery-analytics`) | the wave, route and attempt facts; poison only to `retailnetwork.last-mile-delivery.analytics.dlq`, transient failures retry forever; projection lag on `GET /reports/freshness` |
 
 - **Always-on transactional outbox relay** draining `outbox_events` rows to Kafka (`startOutboxRelay`); there is no log-only mode. Kafka is dialled lazily on the first send.
 

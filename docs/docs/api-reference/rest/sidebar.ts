@@ -50,6 +50,12 @@ const sidebar: SidebarsConfig = {
           label: "Cancel a wave (CancelWave)",
           className: "api-method post",
         },
+        {
+          type: "doc",
+          id: "api-reference/rest/declare-wave-cost",
+          label: "Declare the stop cost of a wave (DeclareCost)",
+          className: "api-method post",
+        },
       ],
     },
     {
@@ -105,6 +111,40 @@ const sidebar: SidebarsConfig = {
           id: "api-reference/rest/deactivate-partner",
           label: "Deactivate a delivery service partner (DeactivatePartner)",
           className: "api-method post",
+        },
+      ],
+    },
+    {
+      type: "category",
+      label: "reports",
+      link: {
+        type: "doc",
+        id: "api-reference/rest/reports",
+      },
+      items: [
+        {
+          type: "doc",
+          id: "api-reference/rest/get-route-efficiency-report",
+          label: "Route efficiency per day and delivery station",
+          className: "api-method get",
+        },
+        {
+          type: "doc",
+          id: "api-reference/rest/get-attempt-outcomes-report",
+          label: "Delivery attempt outcomes and first-attempt success per day and station",
+          className: "api-method get",
+        },
+        {
+          type: "doc",
+          id: "api-reference/rest/get-wave-utilisation-report",
+          label: "Wave stop-capacity utilisation per service date and station",
+          className: "api-method get",
+        },
+        {
+          type: "doc",
+          id: "api-reference/rest/get-report-freshness",
+          label: "How far the analytics projection is behind",
+          className: "api-method get",
         },
       ],
     },

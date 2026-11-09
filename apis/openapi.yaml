@@ -39,9 +39,11 @@ info:
     and an unmapped failure is an opaque 500 `internal-error` (never stored for
     replay; every 4xx answer is). Every problem body carries `type`, `title`,
     `status`, `detail` and `instance`. The first eight operations of this file are the
-    model's REST list; `getWaveStops`, `cancelWave`, `getRoute` and
-    `deactivatePartner` are the additions of Gap Register G11, G17 and G34
-    (ADR 0002).
+    model's REST list; `getWaveStops`, `cancelWave`, `getRoute`,
+    `deactivatePartner` and `declareWaveCost` are the additions of Gap Register
+    G11, G17, G34 and roadmap F7 (ADR 0002, ADR 0011). The read-only
+    analytics reports (tag reports, ADR 0012) are served by cmd/lm-reports on
+    its own port (per-path server) from the separate analytical database.
 servers:
   - url: http://localhost:8080
 tags:
@@ -51,6 +53,12 @@ tags:
     description: DSP van routes and delivery attempts (aggregate Route).
   - name: Partners
     description: Delivery service partners (aggregate DeliveryServicePartner).
+  - name: reports
+    description: >-
+      Read-only analytics reports (ADR 0012), served by cmd/lm-reports from the
+      separate analytical database the projector feeds from this context's own
+      events and analytics topics. Days are UTC calendar days; from and to are
+      inclusive dates; a rate or mean whose denominator is zero is null.
 paths:
   /waves:
     post:
@@ -242,6 +250,51 @@ paths:
       responses:
         '200':
           description: Wave cancelled.
+          headers:
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryWave'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /waves/{waveId}/cost-declarations:
+    post:
+      tags: [Waves]
+      operationId: declareWaveCost
+      summary: Declare the stop cost of a wave (DeclareCost)
+      description: >-
+        Records the planner's declared marginal cost of ONE delivery stop on
+        the wave (driver time plus mileage share), integer cents,
+        single-currency study (roadmap feature F7, provider B; ADR 0011), and
+        publishes WaveCostDeclared for order-sourcing's money-denominated
+        AssignmentCost. The cost is per stop (the G11 stopKey grouping), never
+        per package. 0 is a legal declared zero marginal cost; a wave with no
+        declaration reports 0 and leaves a consumer's estimate incomplete.
+        Allowed while the wave still runs (OPEN, INDUCTION_CLOSED or
+        DISPATCHED, illegal-transition once CANCELLED or COMPLETED); a later
+        declaration overwrites the earlier one and publishes again.
+      parameters:
+        - $ref: '#/components/parameters/WaveId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeclareWaveCostRequest'
+      responses:
+        '201':
+          description: Stop cost declared.
           headers:
             Idempotency-Replayed:
               $ref: '#/components/headers/IdempotencyReplayed'
@@ -459,6 +512,129 @@ paths:
         '409':
           $ref: '#/components/responses/Conflict'
 
+  /reports/route-efficiency:
+    servers:
+      - url: http://localhost:8092
+    get:
+      tags: [reports]
+      operationId: getRouteEfficiencyReport
+      x-pagination-exempt: report
+      summary: Route efficiency per day and delivery station
+      description: >-
+        Per UTC day of completion and per delivery station (stationNodeId),
+        over the completed routes: a route counts as completed when every
+        package it took out for delivery has an attempt (the precondition of
+        CompleteRoute, which raises no event) and its RoutePlanned is
+        projected; its day is the day of its last attempt. routesCompleted is
+        their count; stopsPerRoute = stops / routesCompleted (stops = the
+        routes' RoutePlanned stopCount); packagesPerStop = packages attempted /
+        distinct stops attempted (every stop of a completed route was
+        attempted, so the denominator is the stops); declaredCostPerStopCents =
+        the stop-weighted mean of the waves' declared costPerStopCents over the
+        routes whose wave declared a cost, null when none did;
+        costPerPackageCents = declaredCostPerStopCents x the stops of those
+        routes / their packages, null when undefined. Days without a completed
+        route are omitted.
+      parameters:
+        - $ref: '#/components/parameters/ReportFrom'
+        - $ref: '#/components/parameters/ReportTo'
+      responses:
+        '200':
+          description: The report for the range.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RouteEfficiencyReport'
+        '400':
+          $ref: '#/components/responses/InvalidReportRange'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /reports/attempt-outcomes:
+    servers:
+      - url: http://localhost:8092
+    get:
+      tags: [reports]
+      operationId: getAttemptOutcomesReport
+      x-pagination-exempt: report
+      summary: Delivery attempt outcomes and first-attempt success per day and station
+      description: >-
+        Per UTC day and per delivery station (the station of the attempt's
+        route, UNKNOWN while its PackageOutForDelivery is not projected):
+        attempts, deliveredAttempts and failedAttempts are the
+        DeliveryAttempted of the day by outcome (DELIVERED, FAILED);
+        packagesAttempted are the packages whose FIRST attempt fell on the day,
+        packagesWithFirstAttemptSuccess those of them delivered at it;
+        firstAttemptSuccessRate = packagesWithFirstAttemptSuccess /
+        packagesAttempted; meanAttemptsPerPackage = all the attempts of those
+        packages (any day) / packagesAttempted; both null without a first
+        attempt. returnsInitiated counts the PackageReturnInitiated of the day
+        (its CloudEvents time) at the station of the package's latest attempt.
+        Days without any of these are omitted.
+      parameters:
+        - $ref: '#/components/parameters/ReportFrom'
+        - $ref: '#/components/parameters/ReportTo'
+      responses:
+        '200':
+          description: The report for the range.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttemptOutcomesReport'
+        '400':
+          $ref: '#/components/responses/InvalidReportRange'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /reports/wave-utilisation:
+    servers:
+      - url: http://localhost:8092
+    get:
+      tags: [reports]
+      operationId: getWaveUtilisationReport
+      x-pagination-exempt: report
+      summary: Wave stop-capacity utilisation per service date and station
+      description: >-
+        Per serviceDate and delivery station of the scheduled waves:
+        wavesScheduled, wavesCancelled (those with a DeliveryWaveCancelled),
+        stopCapacity (the sum of the scheduled stopCapacity) and stopsInducted
+        (the sum of each wave's highest assignedStops of
+        DeliveryWaveCapacityChanged, 0 without one); utilisation =
+        stopsInducted / stopCapacity, null when the capacity is 0. Cancelled
+        waves stay in every sum. Dates without a wave are omitted.
+      parameters:
+        - $ref: '#/components/parameters/ReportFrom'
+        - $ref: '#/components/parameters/ReportTo'
+      responses:
+        '200':
+          description: The report for the range.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WaveUtilisationReport'
+        '400':
+          $ref: '#/components/responses/InvalidReportRange'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /reports/freshness:
+    servers:
+      - url: http://localhost:8092
+    get:
+      tags: [reports]
+      operationId: getReportFreshness
+      summary: How far the analytics projection is behind
+      description: >-
+        asOf is the CloudEvents time of the newest event the projector
+        applied; lagSeconds is now minus asOf, never negative. Both are null
+        until the first event. One endpoint for every report: they all read
+        the same projection.
+      responses:
+        '200':
+          description: The projection's freshness.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportFreshness'
+        '500':
+          $ref: '#/components/responses/InternalError'
 components:
   parameters:
     IdempotencyKey:
@@ -511,6 +687,22 @@ components:
       required: true
       schema:
         type: string
+    ReportFrom:
+      name: from
+      in: query
+      required: false
+      description: First UTC day of the range, inclusive. Omitted = 29 days before `to` (a 30-day range).
+      schema:
+        type: string
+        format: date
+    ReportTo:
+      name: to
+      in: query
+      required: false
+      description: Last UTC day of the range, inclusive. Omitted = today. At most 366 days from `from`.
+      schema:
+        type: string
+        format: date
   headers:
     IdempotencyReplayed:
       description: Present, with the value `true`, only when the answer is a replay of the stored first answer.
@@ -584,7 +776,162 @@ components:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/Problem'
+    InvalidReportRange:
+      description: >-
+        invalid-report-range. from or to is not a date (YYYY-MM-DD), from is
+        after to, or the range exceeds 366 days.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
   schemas:
+    RouteEfficiencyReport:
+      type: object
+      required: [from, to, days]
+      properties:
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/RouteEfficiencyDay'
+    RouteEfficiencyDay:
+      type: object
+      required: [day, stationNodeId, routesCompleted, stopsPerRoute, packagesPerStop, declaredCostPerStopCents, costPerPackageCents]
+      properties:
+        day:
+          type: string
+          format: date
+        stationNodeId:
+          type: string
+          description: The delivery station node id of the routes.
+        routesCompleted:
+          type: integer
+          minimum: 1
+        stopsPerRoute:
+          type: number
+          minimum: 0
+          nullable: true
+        packagesPerStop:
+          type: number
+          minimum: 0
+          nullable: true
+        declaredCostPerStopCents:
+          type: number
+          minimum: 0
+          nullable: true
+          description: Stop-weighted mean of the declared costPerStopCents; null when no wave of the day's routes declared a cost.
+        costPerPackageCents:
+          type: number
+          minimum: 0
+          nullable: true
+    AttemptOutcomesReport:
+      type: object
+      required: [from, to, days]
+      properties:
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttemptOutcomesDay'
+    AttemptOutcomesDay:
+      type: object
+      required: [day, stationNodeId, attempts, deliveredAttempts, failedAttempts, packagesAttempted, packagesWithFirstAttemptSuccess, firstAttemptSuccessRate, meanAttemptsPerPackage, returnsInitiated]
+      properties:
+        day:
+          type: string
+          format: date
+        stationNodeId:
+          type: string
+          description: The delivery station node id, or UNKNOWN while the route's out-for-delivery fact is not projected.
+        attempts:
+          type: integer
+          minimum: 0
+        deliveredAttempts:
+          type: integer
+          minimum: 0
+        failedAttempts:
+          type: integer
+          minimum: 0
+        packagesAttempted:
+          type: integer
+          minimum: 0
+        packagesWithFirstAttemptSuccess:
+          type: integer
+          minimum: 0
+        firstAttemptSuccessRate:
+          type: number
+          minimum: 0
+          maximum: 1
+          nullable: true
+        meanAttemptsPerPackage:
+          type: number
+          minimum: 1
+          nullable: true
+        returnsInitiated:
+          type: integer
+          minimum: 0
+    WaveUtilisationReport:
+      type: object
+      required: [from, to, days]
+      properties:
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/WaveUtilisationDay'
+    WaveUtilisationDay:
+      type: object
+      required: [day, stationNodeId, wavesScheduled, wavesCancelled, stopCapacity, stopsInducted, utilisation]
+      properties:
+        day:
+          type: string
+          format: date
+          description: The waves' serviceDate.
+        stationNodeId:
+          type: string
+        wavesScheduled:
+          type: integer
+          minimum: 1
+        wavesCancelled:
+          type: integer
+          minimum: 0
+        stopCapacity:
+          type: integer
+          minimum: 0
+        stopsInducted:
+          type: integer
+          minimum: 0
+        utilisation:
+          type: number
+          minimum: 0
+          nullable: true
+    ReportFreshness:
+      type: object
+      required: [asOf, lagSeconds]
+      properties:
+        asOf:
+          type: string
+          format: date-time
+          nullable: true
+        lagSeconds:
+          type: number
+          minimum: 0
+          nullable: true
     DeliveryWavePage:
       type: object
       required: [items]
@@ -666,9 +1013,23 @@ components:
           minLength: 1
           maxLength: 200
           description: Trimmed text without control characters.
+    DeclareWaveCostRequest:
+      type: object
+      additionalProperties: false
+      required: [costPerStopCents]
+      properties:
+        costPerStopCents:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 10000000
+          description: >-
+            The declared marginal cost of ONE delivery stop on the wave,
+            integer cents (single-currency study; no currency field). 0 is a
+            legal declared zero marginal cost.
     DeliveryWave:
       type: object
-      required: [waveId, stationNodeId, serviceDate, inductCutoffAt, windowStart, windowEnd, stopCapacity, assignedStops, remainingStops, state]
+      required: [waveId, stationNodeId, serviceDate, inductCutoffAt, windowStart, windowEnd, stopCapacity, assignedStops, remainingStops, state, costPerStopCents]
       properties:
         waveId:
           type: string
@@ -700,6 +1061,12 @@ components:
         cancelReason:
           type: string
           description: Present only on a CANCELLED wave.
+        costPerStopCents:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 10000000
+          description: The declared marginal cost of ONE delivery stop on this wave, integer cents (ADR 0011). 0 until declared and for a declared zero alike.
     WaveStop:
       type: object
       required: [stopKey, trackingNumbers]

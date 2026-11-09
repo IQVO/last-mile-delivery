@@ -26,3 +26,9 @@ The three consumers are ON, each under its stable group:
   linehaul       group {{ .Values.config.linehaulConsumerGroup }}
   node-topology  group {{ .Values.config.nodeTopologyConsumerGroup }}
   shipping       group {{ .Values.config.shippingConsumerGroup }}
+{{- if .Values.analytics.enabled }}
+
+Analytics read side (ADR 0012): {{ include "last-mile-delivery.projectorFullname" . }} projects
+retailnetwork.last-mile-delivery.events and .analytics (group {{ .Values.analytics.projector.consumerGroup }})
+into the analytical database; {{ include "last-mile-delivery.reportsFullname" . }} serves GET /reports/... read-only.
+{{- end }}

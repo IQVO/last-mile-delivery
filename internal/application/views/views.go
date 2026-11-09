@@ -14,17 +14,18 @@ import (
 
 // Wave is a delivery wave as returned by the API.
 type Wave struct {
-	WaveID         string
-	StationNodeID  string
-	ServiceDate    string
-	InductCutoffAt time.Time
-	WindowStart    time.Time
-	WindowEnd      time.Time
-	StopCapacity   int
-	AssignedStops  int
-	RemainingStops int
-	State          string
-	CancelReason   string
+	WaveID           string
+	StationNodeID    string
+	ServiceDate      string
+	InductCutoffAt   time.Time
+	WindowStart      time.Time
+	WindowEnd        time.Time
+	StopCapacity     int
+	AssignedStops    int
+	RemainingStops   int
+	State            string
+	CancelReason     string
+	CostPerStopCents int64
 }
 
 // WaveFrom builds the view of a wave.
@@ -33,6 +34,7 @@ func WaveFrom(w *wave.DeliveryWave) Wave {
 		WaveID: string(w.ID()), StationNodeID: w.StationNodeID(), ServiceDate: w.ServiceDate(), InductCutoffAt: w.InductCutoffAt(),
 		WindowStart: w.WindowStart(), WindowEnd: w.WindowEnd(), StopCapacity: w.StopCapacity(), AssignedStops: w.AssignedStops(),
 		RemainingStops: w.RemainingStops(), State: string(w.State()), CancelReason: w.CancelReason(),
+		CostPerStopCents: w.CostPerStopCents(),
 	}
 }
 
