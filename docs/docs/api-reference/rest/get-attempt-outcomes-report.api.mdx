@@ -1,0 +1,70 @@
+---
+id: get-attempt-outcomes-report
+title: "Delivery attempt outcomes and first-attempt success per day and station"
+description: "Per UTC day and per delivery station (the station of the attempt's route, UNKNOWN while its PackageOutForDelivery is not projected): attempts, deliveredAttempts and failedAttempts are the DeliveryAttempted of the day by outcome (DELIVERED, FAILED); packagesAttempted are the packages whose FIRST attempt fell on the day, packagesWithFirstAttemptSuccess those of them delivered at it; firstAttemptSuccessRate = packagesWithFirstAttemptSuccess / packagesAttempted; meanAttemptsPerPackage = all the attempts of those packages (any day) / packagesAttempted; both null without a first attempt. returnsInitiated counts the PackageReturnInitiated of the day (its CloudEvents time) at the station of the package's latest attempt. Days without any of these are omitted."
+sidebar_label: "Delivery attempt outcomes and first-attempt success per day and station"
+hide_title: true
+hide_table_of_contents: true
+api: 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
+sidebar_class_name: "get api-method"
+info_path: docs/api-reference/rest/last-mile-delivery-api
+custom_edit_url: null
+hide_send_button: true
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+import Translate from "@docusaurus/Translate";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"Delivery attempt outcomes and first-attempt success per day and station"}
+>
+</Heading>
+
+<MethodEndpoint
+  method={"get"}
+  path={"/reports/attempt-outcomes"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+
+
+Per UTC day and per delivery station (the station of the attempt's route, UNKNOWN while its PackageOutForDelivery is not projected): attempts, deliveredAttempts and failedAttempts are the DeliveryAttempted of the day by outcome (DELIVERED, FAILED); packagesAttempted are the packages whose FIRST attempt fell on the day, packagesWithFirstAttemptSuccess those of them delivered at it; firstAttemptSuccessRate = packagesWithFirstAttemptSuccess / packagesAttempted; meanAttemptsPerPackage = all the attempts of those packages (any day) / packagesAttempted; both null without a first attempt. returnsInitiated counts the PackageReturnInitiated of the day (its CloudEvents time) at the station of the package's latest attempt. Days without any of these are omitted.
+
+<Heading
+  id={"request"}
+  as={"h2"}
+  className={"openapi-tabs__heading"}
+>
+  <Translate id="theme.openapi.request.title">Request</Translate>
+</Heading>
+
+<ParamsDetails
+  {...require("./get-attempt-outcomes-report.ParamsDetails.json")}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  {...require("./get-attempt-outcomes-report.RequestSchema.json")}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  {...require("./get-attempt-outcomes-report.StatusCodes.json")}
+>
+  
+</StatusCodes>
+
+
+      

@@ -34,6 +34,10 @@ sidebar_position: 1
 | Partners | `POST /partners` | `contractPartner` | `201`, the partner `ACTIVE`; body `{stationNodeId, vanCapacity}` |
 | Partners | `POST /partners/{dspId}/deactivations` | `deactivatePartner` | `200`, the partner `INACTIVE` |
 | Health | `GET /healthz`, `GET /readyz` | none (not in the spec) | `200`; `/readyz` is `503` while draining or when Postgres or Kafka is unreachable |
+| reports | `GET /reports/route-efficiency?from=&to=` | `getRouteEfficiencyReport` | `200`, per UTC day and station over the completed routes: routes, stops per route, packages per stop, declared cost per stop and per package. Served by `cmd/lm-reports` on `:8092` (ADR 0012) |
+| reports | `GET /reports/attempt-outcomes?from=&to=` | `getAttemptOutcomesReport` | `200`, per UTC day and station: attempts by outcome, first-attempt success rate, mean attempts per package, returns initiated; `400 invalid-report-range` |
+| reports | `GET /reports/wave-utilisation?from=&to=` | `getWaveUtilisationReport` | `200`, per service date and station: waves scheduled and cancelled, stop capacity, stops inducted, utilisation |
+| reports | `GET /reports/freshness` | `getReportFreshness` | `200`, `asOf` and `lagSeconds` of the analytics projection (both `null` before the first event) |
 
 Source: `internal/adapters/inbound/http/server.go`, `handlers.go`, `dto.go`.
 
