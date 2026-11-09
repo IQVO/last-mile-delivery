@@ -20,7 +20,7 @@ Up to three Deployments of one Helm chart (`charts/last-mile-delivery/`), all re
 | `a2a` | `cmd/a2a` | `a2a.enabled` (default off) | `8093` | read-only A2A agent, JSON-RPC on `/` and `/a2a`, Agent Card, `/healthz` |
 | `frontend` | `web/` | `frontend.enabled` (default off) | `8080` (Service `80`) | operator micro-frontend (own nginx pod, ClusterIP only) |
 | `analytics-projector` | `cmd/lm-projector` | `analytics.enabled` (default off) | `8091` (admin, no Service) | projects this context's own two topics into the SEPARATE analytical database (ADR 0012) |
-| `analytics-reports` | `cmd/lm-reports` | `analytics.enabled` (default off) | `8092` (Service `80`) | read-only `GET /reports/...` over the analytical database; Kong `/api/last-mile-delivery/reports` -> `/reports` when `analytics.reports.route.enabled` |
+| `analytics-reports` | `cmd/lm-reports` | `analytics.enabled` (default off) | `8092` (Service `80`) | read-only `GET /reports/...` over the analytical database; Kong `/api/last-mile-delivery/reports` -> `/reports` when `analytics.reports.route.enabled` (`konghq.com/regex-priority: "10"`, so it outranks the API prefix) |
 
 `cmd/api` (`cmd/api/main.go`) runs four loops side by side:
 
