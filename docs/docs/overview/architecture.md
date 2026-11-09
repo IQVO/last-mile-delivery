@@ -100,7 +100,7 @@ Read path: queries bypass aggregates' write path; `ListWaves`, `GetWaveStops` an
 
 ## Data stores
 
-One PostgreSQL database owned by this service (15 tables, all from `0001_last_mile_delivery_schema.up.sql`):
+One PostgreSQL database owned by this service (15 tables, all created by `0001_last_mile_delivery_schema.up.sql`; `0002_idempotency_keys_global` reshapes `idempotency_keys` and `0003_wave_stop_cost` adds `delivery_waves.cost_per_stop_cents`):
 
 | Group | Tables |
 | --- | --- |
@@ -108,7 +108,7 @@ One PostgreSQL database owned by this service (15 tables, all from `0001_last_mi
 | Read models | `rm_stations`, `rm_station_service_areas`, `rm_package_stops`, `rm_inbound_packages` |
 | Infrastructure | `outbox_events`, `processed_events` (inbox), `idempotency_keys` |
 
-No foreign key crosses an aggregate or a context; ids of other aggregates are carried by value. Kafka holds the two produced topics and the three consumed topics (plus `<topic>.dlq`); topics are auto-created. There is no cache and no other store. Detail: [Entity-relationship diagram](/docs/ddd/entity-relationship).
+No foreign key crosses an aggregate or a context; ids of other aggregates are carried by value. Kafka holds the two produced topics and the three consumed topics (plus `<topic>.dlq`); topics are auto-created. There is no cache. The only other store is the separate analytical Postgres database that `cmd/lm-projector` writes and `cmd/lm-reports` reads when `analytics.enabled` is set (9 tables from `analytics/migrations/0001_last_mile_facts.up.sql`: `waves`, `wave_inductions`, `wave_cancellations`, `wave_costs`, `route_plans`, `route_packages`, `delivery_attempts`, `package_returns`, `analytics_processed_events`); `cmd/api` never opens it. Detail: [Entity-relationship diagram](/docs/ddd/entity-relationship).
 
 ## Key design decisions
 
