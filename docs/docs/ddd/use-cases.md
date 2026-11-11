@@ -108,7 +108,7 @@ REST errors are RFC 9457 `application/problem+json`; the `type` is the slug (`in
 ## RecordAttempt
 
 - **Trigger**: DSP driver app, `POST /routes/{routeId}/attempts`.
-- **Input**: `trackingNumber`, `outcome` (`DELIVERED` or `FAILED`), `failureReason` (required exactly when `FAILED`), `at`.
+- **Input**: `trackingNumber`, `outcome` (`DELIVERED` or `FAILED`), `failureReason` (required exactly when `FAILED`), optional `outcomeDetail` (the category the driver client reports, validated against the outcome; ADR 0014), `at`.
 - **Invariants**: the route is `OUT_FOR_DELIVERY` (`route-not-started`); the package is on the route (`package-not-on-route`); one attempt per package per route (`attempt-already-recorded`); a delivered package cannot be delivered again, on any route (`already-delivered`, also enforced by a partial unique index).
 - **Flow**: record the attempt on the route; update the package's `PackageAttemptHistory`: `DELIVERED` marks it delivered; `FAILED` counts a failure, and unless this would be the third, **`RetryNextWave`** places the package on the next eligible wave (A18, A19). Save, publish, then complete the route when every package has an attempt (A16) and the wave when its last route completes (A9).
 - **Events**: `DeliveryAttempted`; on a failure that finds a wave `DeliveryWaveCapacityChanged`, with none `PackageInductionDeferred`; on the third failure `PackageReturnInitiated`.

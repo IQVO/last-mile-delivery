@@ -57,6 +57,7 @@ classDiagram
     class Attempt {
         +string trackingNumber
         +Outcome outcome
+        +string outcomeDetail
         +string failureReason
         +Time at
     }

@@ -67,12 +67,13 @@ erDiagram
         text tracking_number PK
         text outcome "DELIVERED, FAILED"
         text failure_reason
+        text outcome_detail "NOT_HOME, ACCESS_PROBLEM, OTHER, SAFE_PLACE_USED; null = not reported"
         timestamptz attempted_at
         int position
     }
 ```
 
-Source: `0001_last_mile_delivery_schema.up.sql` (`delivery_waves`, `wave_inductions`, `routes`, `route_stops`, `route_stop_packages`, `route_attempts`) plus `0003_wave_stop_cost.up.sql` (`cost_per_stop_cents`, with the constraint `delivery_waves_cost_check`: `BETWEEN 0 AND 10000000`; rows stored before the migration keep 0, which reads as "no declaration").
+Source: `0001_last_mile_delivery_schema.up.sql` (`delivery_waves`, `wave_inductions`, `routes`, `route_stops`, `route_stop_packages`, `route_attempts`) plus `0004_attempt_outcome_detail.up.sql` (`route_attempts.outcome_detail`, nullable, with the constraint `route_attempts_detail_check`: a detail only in the set of its outcome; ADR 0014) plus `0003_wave_stop_cost.up.sql` (`cost_per_stop_cents`, with the constraint `delivery_waves_cost_check`: `BETWEEN 0 AND 10000000`; rows stored before the migration keep 0, which reads as "no declaration").
 
 Key constraints: `delivery_waves_times_check` (`induct_cutoff_at < window_start < window_end`), `delivery_waves_capacity_check` (`assigned_stops <= stop_capacity`), `delivery_waves_cancel_reason_check` (`CANCELLED` exactly when a reason exists); indexes `idx_delivery_waves_station_date` and the partial `idx_delivery_waves_open_cutoff` on `OPEN` waves (the induction scan); `idx_routes_wave`; `route_attempts_reason_check` (a `failure_reason` exactly when `FAILED`); the partial unique index `idx_route_attempts_delivered_once` on `tracking_number WHERE outcome = 'DELIVERED'` (a package is delivered at most once, across routes).
 

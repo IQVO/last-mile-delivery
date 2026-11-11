@@ -76,6 +76,7 @@ type attemptedData struct {
 	RouteID        string `json:"routeId"`
 	TrackingNumber string `json:"trackingNumber"`
 	Outcome        string `json:"outcome"`
+	OutcomeDetail  string `json:"outcomeDetail,omitempty"`
 	FailureReason  string `json:"failureReason,omitempty"`
 	At             string `json:"at"`
 }
@@ -181,7 +182,7 @@ func payloadFor(ev shared.Event) (any, string, error) {
 		return outForDeliveryData{RouteID: string(e.RouteID), TrackingNumber: e.TrackingNumber, StationNodeID: e.StationNodeID, At: ts(e.At)}, events, nil
 	case route.DeliveryAttempted:
 		return attemptedData{
-			RouteID: string(e.RouteID), TrackingNumber: e.TrackingNumber, Outcome: string(e.Outcome), FailureReason: e.FailureReason, At: ts(e.At),
+			RouteID: string(e.RouteID), TrackingNumber: e.TrackingNumber, Outcome: string(e.Outcome), OutcomeDetail: string(e.Detail), FailureReason: e.FailureReason, At: ts(e.At),
 		}, events, nil
 	case route.StopEtaWindowAssigned:
 		return stopEtaPayload(e), events, nil

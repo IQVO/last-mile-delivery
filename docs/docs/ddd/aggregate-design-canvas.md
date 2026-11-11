@@ -80,6 +80,7 @@ Source: `internal/domain/route/route.go` (`Plan`, `Start`, `RecordAttempt`, `Com
 | an attempt only on an `OUT_FOR_DELIVERY` route, on a package of the route, once per package | `ErrRouteNotStarted`, `ErrPackageNotOnRoute`, `ErrAttemptAlreadyRecorded` |
 | a package is delivered at most once across routes | `ErrAlreadyDelivered`, partial unique index `idx_route_attempts_delivered_once` |
 | `failureReason` exactly when `FAILED` | check `route_attempts_reason_check` |
+| `outcomeDetail` matches the outcome (`FAILED`: `NOT_HOME`, `ACCESS_PROBLEM`, `OTHER`; `DELIVERED`: `SAFE_PLACE_USED`; empty = not reported) | `Detail.Valid`, check `route_attempts_detail_check` |
 | completion needs every package attempted | `ErrRouteIncomplete` |
 
 The van capacity belongs to another aggregate: `PlanRoute` reads the partner when the route is created and checks the stop count; a later change to the partner does not re-check planned routes.

@@ -105,6 +105,7 @@ type RecordAttemptCommand struct {
 	RouteID        route.ID
 	TrackingNumber string
 	Outcome        route.Outcome
+	Detail         route.Detail
 	FailureReason  string
 	At             time.Time
 }
@@ -131,7 +132,7 @@ func (uc *RecordAttempt) execute(ctx context.Context, cmd RecordAttemptCommand) 
 		if err != nil {
 			return views.Attempt{}, err
 		}
-		events, err := r.RecordAttempt(cmd.TrackingNumber, cmd.Outcome, cmd.FailureReason, cmd.At, uc.now())
+		events, err := r.RecordAttempt(cmd.TrackingNumber, cmd.Outcome, cmd.Detail, cmd.FailureReason, cmd.At, uc.now())
 		if err != nil {
 			return views.Attempt{}, err
 		}

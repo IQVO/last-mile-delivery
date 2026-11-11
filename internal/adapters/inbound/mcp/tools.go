@@ -79,6 +79,7 @@ type attemptView struct {
 	RouteID        string `json:"routeId"`
 	TrackingNumber string `json:"trackingNumber"`
 	Outcome        string `json:"outcome"`
+	OutcomeDetail  string `json:"outcomeDetail,omitempty"`
 	FailureReason  string `json:"failureReason,omitempty"`
 	At             string `json:"at"`
 }
@@ -143,7 +144,7 @@ func toRoute(r views.Route) routeView {
 	for _, a := range r.Attempts {
 		out.Attempts = append(out.Attempts, attemptView{
 			RouteID: a.RouteID, TrackingNumber: a.TrackingNumber, Outcome: a.Outcome,
-			FailureReason: a.FailureReason, At: instant(a.At),
+			OutcomeDetail: a.OutcomeDetail, FailureReason: a.FailureReason, At: instant(a.At),
 		})
 	}
 	return out
@@ -223,7 +224,7 @@ func (d Deps) registerTools(server *mcp.Server) {
 		Description: "Read one route of a delivery service partner: its state (PLANNED, OUT_FOR_DELIVERY or COMPLETED), " +
 			"its numbered stops with the trackingNumbers of each and the outcome derived from the per-package attempts " +
 			"(omitted until every package of the stop has one), and every recorded attempt (trackingNumber, DELIVERED or " +
-			"FAILED, failureReason, at). Read-only; an unknown route fails with not-found.",
+			"FAILED, the optional outcomeDetail, failureReason, at). Read-only; an unknown route fails with not-found.",
 		Annotations: readOnly,
 	}, d.getRoute)
 }

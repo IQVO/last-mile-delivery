@@ -64,7 +64,7 @@ type: com.retailnetwork.logistics.last-mile-delivery.packageattempthistory.Packa
 | `WaveCostDeclared` | `waveId` | DeclareCost is saved (planner's stop-cost declaration, ADR 0011) | `{waveId, costPerStopCents, declaredAt}` |
 | `RoutePlanned` | `routeId` | PlanRoute is saved | `{routeId, waveId, dspId, stopCount}` |
 | `PackageOutForDelivery` | `routeId` | StartRoute is saved, one per tracking number | `{routeId, trackingNumber, stationNodeId, at}` |
-| `DeliveryAttempted` | `routeId` | RecordAttempt is saved, one per package | `{routeId, trackingNumber, outcome, failureReason?, at}` |
+| `DeliveryAttempted` | `routeId` | RecordAttempt is saved, one per package | `{routeId, trackingNumber, outcome, outcomeDetail?, failureReason?, at}` |
 | `StopEtaWindowAssigned` | `routeId` | StartRoute is saved, one per stop, after every `PackageOutForDelivery` (ADR 0013) | `{routeId, stopNo, stopKey, trackingNumbers, etaStart, etaEnd}` |
 | `PackageInductionDeferred` | `trackingNumber` | no wave accepts a package that is at the station | `{trackingNumber, assignmentId?}` |
 | `PackageReturnInitiated` | `trackingNumber` | the third failed attempt of a package | `{trackingNumber}` |
@@ -74,7 +74,7 @@ Payload rules:
 - The `data` field lists are exactly the model's `publishes[].data` lists plus the
   two Gap Register G16 events. Wire types are recorded in `apis/asyncapi.yaml`
   (ADR 0002, assumption A24).
-- `failureReason` is present only when `outcome` is `FAILED`; `assignmentId` is
+- `outcomeDetail` is optional and present only when the driver client reported one (ADR 0014); `failureReason` is present only when `outcome` is `FAILED`; `assignmentId` is
   omitted only when no `LabelIssued` was received for the package.
 - `CloseInduction`, `DispatchWave`, `CompleteWave`, `StartRoute` (other than its
   per-package events), `CompleteRoute`, `ContractPartner` and `DeactivatePartner`

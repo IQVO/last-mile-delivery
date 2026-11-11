@@ -97,6 +97,7 @@ type attemptDTO struct {
 	RouteID        string `json:"routeId"`
 	TrackingNumber string `json:"trackingNumber"`
 	Outcome        string `json:"outcome"`
+	OutcomeDetail  string `json:"outcomeDetail,omitempty"`
 	FailureReason  string `json:"failureReason,omitempty"`
 	At             string `json:"at"`
 }
@@ -150,7 +151,7 @@ func toRouteDTO(r views.Route) routeDTO {
 	for _, a := range r.Attempts {
 		out.Attempts = append(out.Attempts, attemptDTO{
 			RouteID: a.RouteID, TrackingNumber: a.TrackingNumber, Outcome: a.Outcome,
-			FailureReason: a.FailureReason, At: instant(a.At),
+			OutcomeDetail: a.OutcomeDetail, FailureReason: a.FailureReason, At: instant(a.At),
 		})
 	}
 	return out

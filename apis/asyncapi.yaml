@@ -474,7 +474,7 @@ components:
       name: DeliveryAttempted
       title: Delivery attempted
       summary: One delivery attempt of one package was recorded.
-      description: "`type` = `com.retailnetwork.logistics.last-mile-delivery.route.DeliveryAttempted`; subject = the routeId, key = the routeId. Raised by RecordAttempt, per package (Gap Register G17: outcomes are per package, the stop outcome is derived). `outcome` is DELIVERED or FAILED; `failureReason` is present only when FAILED. A FAILED attempt re-inducts the package onto the next wave, or after the third failure raises PackageReturnInitiated."
+      description: "`type` = `com.retailnetwork.logistics.last-mile-delivery.route.DeliveryAttempted`; subject = the routeId, key = the routeId. Raised by RecordAttempt, per package (Gap Register G17: outcomes are per package, the stop outcome is derived). `outcome` is DELIVERED or FAILED; `failureReason` is present only when FAILED; `outcomeDetail` (NOT_HOME, ACCESS_PROBLEM or OTHER on FAILED, SAFE_PLACE_USED on DELIVERED) is present only when the driver client reported one (additive and optional, same v1 dataschema). A FAILED attempt re-inducts the package onto the next wave, or after the third failure raises PackageReturnInitiated."
       contentType: application/cloudevents+json
       headers:
         $ref: "#/components/schemas/KafkaHeaders"
@@ -820,6 +820,7 @@ components:
                 routeId: { type: string }
                 trackingNumber: { type: string }
                 outcome: { $ref: "#/components/schemas/Outcome" }
+                outcomeDetail: { type: string, enum: [NOT_HOME, ACCESS_PROBLEM, OTHER, SAFE_PLACE_USED], description: "Optional category reported by the driver client; omitted when not reported. FAILED carries NOT_HOME, ACCESS_PROBLEM or OTHER; DELIVERED carries SAFE_PLACE_USED." }
                 failureReason: { type: string, description: Present only when outcome is FAILED. }
                 at: { type: string, format: date-time, description: The instant of the attempt as reported by the driver app. }
 

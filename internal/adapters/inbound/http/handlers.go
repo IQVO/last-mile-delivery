@@ -139,7 +139,7 @@ func (s *Server) handleRecordAttempt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v, err := s.RecordAttempt.Execute(r.Context(), usecases.RecordAttemptCommand{
-		RouteID: route.ID(chi.URLParam(r, "routeId")), TrackingNumber: req.TrackingNumber, Outcome: outcome, FailureReason: req.FailureReason, At: req.At,
+		RouteID: route.ID(chi.URLParam(r, "routeId")), TrackingNumber: req.TrackingNumber, Outcome: outcome, Detail: route.Detail(req.OutcomeDetail), FailureReason: req.FailureReason, At: req.At,
 	})
 	if err != nil {
 		writeError(w, r, err)

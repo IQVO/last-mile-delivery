@@ -140,7 +140,7 @@ func withRoute(t *testing.T) *harness {
 	_, err = usecases.NewStartRoute(h.deps).Execute(t.Context(), route.ID("route-1"))
 	must(t, err)
 	_, err = usecases.NewRecordAttempt(h.deps).Execute(t.Context(), usecases.RecordAttemptCommand{
-		RouteID: route.ID("route-1"), TrackingNumber: "TRK-1", Outcome: route.OutcomeDelivered, At: t0.Add(7 * time.Hour),
+		RouteID: route.ID("route-1"), TrackingNumber: "TRK-1", Outcome: route.OutcomeDelivered, Detail: route.DetailSafePlaceUsed, At: t0.Add(7 * time.Hour),
 	})
 	must(t, err)
 	return h
