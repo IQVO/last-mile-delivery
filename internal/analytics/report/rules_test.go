@@ -72,6 +72,10 @@ func valid() []report.Event {
 			e.Kind, e.RouteID, e.TrackingNumber, e.Outcome = report.KindDeliveryAttempted, "r1", "T1", report.OutcomeFailed
 		}),
 		with(func(e *report.Event) { e.Kind, e.TrackingNumber = report.KindReturnInitiated, "T1" }),
+		with(func(e *report.Event) {
+			e.Kind, e.RouteID, e.StopNo, e.TrackingNumbers = report.KindStopEtaWindowAssigned, "r1", 1, []string{"T1", "T2"}
+			e.EtaStart, e.EtaEnd = at, at.Add(2*time.Hour)
+		}),
 	}
 }
 
@@ -109,6 +113,13 @@ var missingCases = []missingCase{
 	{"routeId", 6, func(e *report.Event) { e.RouteID = "" }},
 	{"an outcome of the vocabulary", 6, func(e *report.Event) { e.Outcome = "RETURNED" }},
 	{"trackingNumber", 7, func(e *report.Event) { e.TrackingNumber = "" }},
+	{"routeId", 8, func(e *report.Event) { e.RouteID = "" }},
+	{"a positive stopNo", 8, func(e *report.Event) { e.StopNo = 0 }},
+	{"at least one trackingNumber, none blank", 8, func(e *report.Event) { e.TrackingNumbers = nil }},
+	{"at least one trackingNumber, none blank", 8, func(e *report.Event) { e.TrackingNumbers = []string{"T1", ""} }},
+	{"etaStart before etaEnd", 8, func(e *report.Event) { e.EtaEnd = e.EtaStart }},
+	{"etaStart before etaEnd", 8, func(e *report.Event) { e.EtaStart = time.Time{}; e.EtaEnd = time.Time{} }},
+	{"etaStart before etaEnd", 8, func(e *report.Event) { e.EtaEnd = e.EtaStart.Add(-time.Minute) }},
 	{"a known kind", 0, func(e *report.Event) { e.Kind = "PackageInductionDeferred" }},
 }
 

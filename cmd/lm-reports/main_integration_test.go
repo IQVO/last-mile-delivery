@@ -81,7 +81,7 @@ func TestReportsServeTheProjectionAndStopCleanly(t *testing.T) {
 	if code != http.StatusOK || len(days) != 1 || days[0].(map[string]any)["returnsInitiated"] != 1.0 {
 		t.Fatalf("attempt-outcomes = %d %v", code, body)
 	}
-	for _, path := range []string{"/reports/route-efficiency", "/reports/wave-utilisation"} {
+	for _, path := range []string{"/reports/route-efficiency", "/reports/wave-utilisation", "/reports/eta-window"} {
 		if code, body := getJSON(t, "http://"+addr+path); code != http.StatusOK || body["days"] == nil {
 			t.Fatalf("%s = %d %v", path, code, body)
 		}

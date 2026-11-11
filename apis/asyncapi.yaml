@@ -46,7 +46,8 @@ info:
     the fixed group `last-mile-delivery-analytics` and projects
     DeliveryWaveScheduled, DeliveryWaveCapacityChanged, DeliveryWaveCancelled,
     WaveCostDeclared, PackageOutForDelivery, DeliveryAttempted,
-    PackageReturnInitiated (events topic) and RoutePlanned (analytics topic)
+    StopEtaWindowAssigned (ADR 0013), PackageReturnInitiated (events topic) and
+    RoutePlanned (analytics topic)
     into a separate analytical database. It dedupes on the CloudEvents `id` in
     the same transaction as the projection, dead-letters only deterministic
     poison to `retailnetwork.last-mile-delivery.analytics.dlq` and retries
@@ -201,7 +202,7 @@ operations:
   projectOwnEventsForAnalytics:
     action: receive
     title: Project this context's own integration events into the analytical database
-    summary: The analytics projector reads back seven of the events this service publishes (ADR 0012).
+    summary: The analytics projector reads back eight of the events this service publishes (ADR 0012, ADR 0013).
     description: |
       Inbound adapter internal/adapters/inbound/kafka/analytics_consumer.go, run by
       cmd/lm-projector in the consumer group ANALYTICS_CONSUMER_GROUP (default
@@ -221,6 +222,7 @@ operations:
       - $ref: "#/channels/lastMileEvents/messages/WaveCostDeclared"
       - $ref: "#/channels/lastMileEvents/messages/PackageOutForDelivery"
       - $ref: "#/channels/lastMileEvents/messages/DeliveryAttempted"
+      - $ref: "#/channels/lastMileEvents/messages/StopEtaWindowAssigned"
       - $ref: "#/channels/lastMileEvents/messages/PackageReturnInitiated"
 
   projectOwnAnalyticsEvents:

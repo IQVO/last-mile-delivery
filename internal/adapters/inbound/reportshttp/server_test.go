@@ -22,6 +22,7 @@ type fakeReader struct {
 	routes   []report.RouteDay
 	attempts []report.AttemptDay
 	waves    []report.WaveDay
+	etas     []report.EtaDay
 	last     *time.Time
 	err      error
 	asked    report.Range
@@ -40,6 +41,11 @@ func (f *fakeReader) AttemptOutcomes(_ context.Context, r report.Range) ([]repor
 func (f *fakeReader) WaveUtilisation(_ context.Context, r report.Range) ([]report.WaveDay, error) {
 	f.asked = r
 	return f.waves, f.err
+}
+
+func (f *fakeReader) EtaWindow(_ context.Context, r report.Range) ([]report.EtaDay, error) {
+	f.asked = r
+	return f.etas, f.err
 }
 
 func (f *fakeReader) LastEventAt(context.Context) (*time.Time, error) { return f.last, f.err }
@@ -134,8 +140,31 @@ func TestWaveUtilisationReport(t *testing.T) {
 	}
 }
 
+func TestEtaWindowReport(t *testing.T) {
+	r := &fakeReader{etas: []report.EtaDay{
+		{Day: nov3, Station: "ST1", DeliveriesWithEta: 4, DeliveriesInside: 3, DeliveriesBefore: 1},
+		{Day: nov3, Station: "UNKNOWN"},
+	}}
+	code, ct, body := serve(t, &reportshttp.Server{Reader: r}, http.MethodGet, "/reports/eta-window?from=2026-11-03&to=2026-11-03")
+	if code != http.StatusOK || ct != "application/json" {
+		t.Fatalf("status %d content-type %s", code, ct)
+	}
+	want := map[string]any{"from": "2026-11-03", "to": "2026-11-03", "days": []any{
+		map[string]any{"day": "2026-11-03", "stationNodeId": "ST1", "deliveriesWithEta": 4.0, "deliveriesInsideEta": 3.0,
+			"deliveriesBeforeEta": 1.0, "deliveriesAfterEta": 0.0, "etaHitRate": 0.75},
+		map[string]any{"day": "2026-11-03", "stationNodeId": "UNKNOWN", "deliveriesWithEta": 0.0, "deliveriesInsideEta": 0.0,
+			"deliveriesBeforeEta": 0.0, "deliveriesAfterEta": 0.0, "etaHitRate": nil},
+	}}
+	if !reflect.DeepEqual(body, want) {
+		t.Fatalf("body = %v\nwant %v", body, want)
+	}
+	if r.asked.FirstDay() != "2026-11-03" {
+		t.Fatalf("asked range = %+v", r.asked)
+	}
+}
+
 func reportPaths() []string {
-	return []string{"/reports/route-efficiency", "/reports/attempt-outcomes", "/reports/wave-utilisation"}
+	return []string{"/reports/route-efficiency", "/reports/attempt-outcomes", "/reports/wave-utilisation", "/reports/eta-window"}
 }
 
 func TestEmptyReportsAreEmptyArrays(t *testing.T) {

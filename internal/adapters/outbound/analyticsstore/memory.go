@@ -24,6 +24,7 @@ type MemoryStore struct {
 	packages   map[string]map[string]string // routeId -> trackingNumber -> station
 	attempts   []memAttempt
 	returns    []memReturn
+	etas       map[string]map[string]memEta // routeId -> trackingNumber -> window
 	// Fail, when set, is returned by the next Apply (and cleared), to drive
 	// the consumer's transient and rejection paths.
 	Fail error
@@ -51,6 +52,8 @@ type memAttempt struct {
 	at                                  time.Time
 }
 
+type memEta struct{ start, end time.Time }
+
 type memReturn struct {
 	tracking string
 	at       time.Time
@@ -61,7 +64,7 @@ func NewMemoryStore() *MemoryStore {
 	return &MemoryStore{
 		processed: map[string]time.Time{}, waves: map[string]memWave{}, inductions: map[string]int{},
 		cancelled: map[string]bool{}, costs: map[string]memCost{}, plans: map[string]memPlan{},
-		packages: map[string]map[string]string{},
+		packages: map[string]map[string]string{}, etas: map[string]map[string]memEta{},
 	}
 }
 
@@ -112,8 +115,25 @@ func (m *MemoryStore) project(e report.Event) {
 	case report.KindDeliveryAttempted:
 		m.attempts = append(m.attempts, memAttempt{eventID: e.EventID, routeID: e.RouteID, tracking: e.TrackingNumber,
 			outcome: e.Outcome, at: e.OccurredAt.UTC()})
+	case report.KindStopEtaWindowAssigned:
+		m.assignEta(e)
 	default: // report.KindReturnInitiated: Validate admitted only the known kinds
 		m.returns = append(m.returns, memReturn{tracking: e.TrackingNumber, at: e.OccurredAt.UTC()})
+	}
+}
+
+// assignEta records the ETA window of each package of the stop; the first row
+// of a (route, package) stays.
+func (m *MemoryStore) assignEta(e report.Event) {
+	pkgs := m.etas[e.RouteID]
+	if pkgs == nil {
+		pkgs = map[string]memEta{}
+		m.etas[e.RouteID] = pkgs
+	}
+	for _, tn := range e.TrackingNumbers {
+		if _, ok := pkgs[tn]; !ok {
+			pkgs[tn] = memEta{start: e.EtaStart.UTC(), end: e.EtaEnd.UTC()}
+		}
 	}
 }
 

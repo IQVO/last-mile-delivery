@@ -132,9 +132,16 @@ var projectedCases = []projectedCase{
 			e.Kind, e.TrackingNumber, e.OccurredAt = report.KindReturnInitiated, "T1", eventTime
 			return e
 		}},
+	{entityRoute, "StopEtaWindowAssigned", "R1", map[string]any{"routeId": "R1", "stopNo": 2, "stopKey": "k-1", "trackingNumbers": []string{"T1", "T2"},
+		"etaStart": "2026-11-03T13:00:00Z", "etaEnd": "2026-11-03T15:00:00Z"},
+		func(e report.Event) report.Event {
+			e.Kind, e.RouteID, e.StopNo, e.TrackingNumbers, e.OccurredAt = report.KindStopEtaWindowAssigned, "R1", 2, []string{"T1", "T2"}, eventTime
+			e.EtaStart, e.EtaEnd = time.Date(2026, 11, 3, 13, 0, 0, 0, time.UTC), time.Date(2026, 11, 3, 15, 0, 0, 0, time.UTC)
+			return e
+		}},
 }
 
-func TestAnalyticsConsumerProjectsTheEightTypes(t *testing.T) {
+func TestAnalyticsConsumerProjectsTheNineTypes(t *testing.T) {
 	base := report.Event{At: eventTime, OccurredAt: businessAt}
 	for _, c := range projectedCases {
 		p, dlq := &fakeProjection{}, &analyticsDLQ{}
@@ -175,6 +182,14 @@ var poisonCases = []poisonCase{
 	{"an absent costPerStopCents", entityWave, "WaveCostDeclared", "W1", map[string]any{"waveId": "W1", "declaredAt": businessRFC}, nil},
 	{"an outcome outside the vocabulary", entityRoute, "DeliveryAttempted", "R1",
 		map[string]any{"routeId": "R1", "trackingNumber": "T1", "outcome": "LOST", "at": businessRFC}, nil},
+	{"an ETA without stopNo", entityRoute, "StopEtaWindowAssigned", "R1",
+		map[string]any{"routeId": "R1", "trackingNumbers": []string{"T1"}, "etaStart": businessRFC, "etaEnd": "2026-11-03T13:30:00Z"}, nil},
+	{"an ETA with no tracking number", entityRoute, "StopEtaWindowAssigned", "R1",
+		map[string]any{"routeId": "R1", "stopNo": 1, "trackingNumbers": []string{}, "etaStart": businessRFC, "etaEnd": "2026-11-03T13:30:00Z"}, nil},
+	{"an ETA whose window is empty", entityRoute, "StopEtaWindowAssigned", "R1",
+		map[string]any{"routeId": "R1", "stopNo": 1, "trackingNumbers": []string{"T1"}, "etaStart": businessRFC, "etaEnd": businessRFC}, nil},
+	{"an ETA subject that is not the routeId", entityRoute, "StopEtaWindowAssigned", "R9",
+		map[string]any{"routeId": "R1", "stopNo": 1, "trackingNumbers": []string{"T1"}, "etaStart": businessRFC, "etaEnd": "2026-11-03T13:30:00Z"}, nil},
 	{"the store rejects it", entityHistory, "PackageReturnInitiated", "T1", map[string]any{"trackingNumber": "T1"},
 		[]error{fmt.Errorf("%w: check violation", report.ErrRejected)}},
 }

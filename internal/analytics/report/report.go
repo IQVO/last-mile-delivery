@@ -15,20 +15,21 @@ import (
 	"time"
 )
 
-// Kind is which of the eight projected events a fact came from. The names are
+// Kind is which of the nine projected events a fact came from. The names are
 // the CloudEvents event names (the last segment of `type`).
 type Kind string
 
-// The eight projected events of this context's own two topics.
+// The nine projected events of this context's own two topics.
 const (
-	KindWaveScheduled       Kind = "DeliveryWaveScheduled"
-	KindWaveCapacityChanged Kind = "DeliveryWaveCapacityChanged"
-	KindWaveCancelled       Kind = "DeliveryWaveCancelled"
-	KindWaveCostDeclared    Kind = "WaveCostDeclared"
-	KindRoutePlanned        Kind = "RoutePlanned"
-	KindOutForDelivery      Kind = "PackageOutForDelivery"
-	KindDeliveryAttempted   Kind = "DeliveryAttempted"
-	KindReturnInitiated     Kind = "PackageReturnInitiated"
+	KindWaveScheduled         Kind = "DeliveryWaveScheduled"
+	KindWaveCapacityChanged   Kind = "DeliveryWaveCapacityChanged"
+	KindWaveCancelled         Kind = "DeliveryWaveCancelled"
+	KindWaveCostDeclared      Kind = "WaveCostDeclared"
+	KindRoutePlanned          Kind = "RoutePlanned"
+	KindOutForDelivery        Kind = "PackageOutForDelivery"
+	KindDeliveryAttempted     Kind = "DeliveryAttempted"
+	KindStopEtaWindowAssigned Kind = "StopEtaWindowAssigned"
+	KindReturnInitiated       Kind = "PackageReturnInitiated"
 )
 
 // Attempt outcomes, the as-built vocabulary of DeliveryAttempted.
@@ -38,7 +39,7 @@ const (
 )
 
 // Event is one decoded analytics fact ready to project. It is the union of the
-// eight payloads; only the fields of its Kind are set.
+// nine payloads; only the fields of its Kind are set.
 type Event struct {
 	Kind    Kind
 	EventID string    // CloudEvents id: the idempotency key
@@ -65,6 +66,14 @@ type Event struct {
 	// TrackingNumber is the package of PackageOutForDelivery,
 	// DeliveryAttempted and PackageReturnInitiated.
 	TrackingNumber string
+
+	// StopEtaWindowAssigned (the route events' RouteID too): the stop, the
+	// packages of the stop and the ETA window; the CloudEvents time is the
+	// assignment instant (OccurredAt).
+	StopNo          int
+	TrackingNumbers []string
+	EtaStart        time.Time
+	EtaEnd          time.Time
 }
 
 // Projection is the WRITER port: Apply records the event id and projects the
@@ -87,6 +96,8 @@ type Reader interface {
 	RouteEfficiency(ctx context.Context, r Range) ([]RouteDay, error)
 	AttemptOutcomes(ctx context.Context, r Range) ([]AttemptDay, error)
 	WaveUtilisation(ctx context.Context, r Range) ([]WaveDay, error)
+	// EtaWindow is the day-of ETA hit report (ADR 0013).
+	EtaWindow(ctx context.Context, r Range) ([]EtaDay, error)
 	// LastEventAt is the CloudEvents time of the newest event the projection
 	// applied (nil while it applied none): the basis of the freshness lag.
 	LastEventAt(ctx context.Context) (*time.Time, error)
@@ -132,4 +143,17 @@ type WaveDay struct {
 	WavesCancelled int
 	StopCapacity   int
 	StopsInducted  int
+}
+
+// EtaDay is what the store counts for one UTC day of the DELIVERED attempt and
+// one station (ADR 0013): the deliveries that had a StopEtaWindowAssigned row
+// for their route and package, and how many fell inside, before and after the
+// window. A delivery whose ETA row was never projected is in none of them.
+type EtaDay struct {
+	Day               time.Time
+	Station           string
+	DeliveriesWithEta int
+	DeliveriesInside  int
+	DeliveriesBefore  int
+	DeliveriesAfter   int
 }
