@@ -109,12 +109,12 @@ sequenceDiagram
     alt wave not DISPATCHED or route not PLANNED
         HTTP-->>Driver: 409 illegal-transition
     else ok
-        UC->>DB: route OUT_FOR_DELIVERY, append PackageOutForDelivery per package
+        UC->>DB: route OUT_FOR_DELIVERY, append PackageOutForDelivery per package, then StopEtaWindowAssigned per stop
         HTTP-->>Driver: 200 route
     end
 ```
 
-Source: `internal/application/usecases/routes.go`, `internal/domain/route/route.go` (`Plan`, `checkPlanning`, `Start`).
+Source: `internal/application/usecases/routes.go`, `internal/domain/route/route.go` (`Plan`, `checkPlanning`), `internal/domain/route/route_start.go` (`Start`), `internal/domain/route/route_eta.go` (`EtaWindows`).
 
 ## 4. Record an attempt (delivered, failed, third failure)
 

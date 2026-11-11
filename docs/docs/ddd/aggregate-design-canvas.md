@@ -87,11 +87,11 @@ The van capacity belongs to another aggregate: `PlanRoute` reads the partner whe
 | Command | Transition | Issued by | Event |
 | --- | --- | --- | --- |
 | `PlanRoute` | creates `PLANNED` | REST `POST /routes` | `RoutePlanned` (analytics topic) |
-| `StartRoute` | `PLANNED` to `OUT_FOR_DELIVERY` | REST `POST /routes/{routeId}/starts` | `PackageOutForDelivery` per package |
+| `StartRoute` | `PLANNED` to `OUT_FOR_DELIVERY` | REST `POST /routes/{routeId}/starts` | `PackageOutForDelivery` per package, then `StopEtaWindowAssigned` per stop |
 | `RecordAttempt` | records the attempt | REST `POST /routes/{routeId}/attempts` | `DeliveryAttempted` |
 | `Complete` | `OUT_FOR_DELIVERY` to `COMPLETED` | inside `RecordAttempt` when the last package is attempted | none |
 
-**Neighbour reaction**: `shipping-and-tracking` turns `PackageOutForDelivery` and `DeliveryAttempted` into scans on its package journey.
+**Neighbour reaction**: `shipping-and-tracking` turns `PackageOutForDelivery` and `DeliveryAttempted` into scans on its package journey and relays `StopEtaWindowAssigned` per tracking number.
 
 **Throughput / size**: one write per attempt, from one driver app per route (low contention), peaking inside the delivery window. A route holds up to the van capacity in stops.
 

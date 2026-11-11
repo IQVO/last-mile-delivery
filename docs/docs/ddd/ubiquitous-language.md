@@ -33,6 +33,7 @@ Source: `internal/domain/*`, `internal/application/views/views.go`, `apis/openap
 | Route | One partner's van run within a wave: ordered stops and attempts | `route.Route` |
 | Plan a route | Assign inducted packages, grouped into numbered stops, to a partner | `PlanRoute`, `route.Plan` |
 | Out for delivery | A started route; each of its packages is announced | `StateOutForDelivery`, `PackageOutForDelivery` |
+| ETA window | The at most two-hour window of one stop of a started route, a deterministic spread of the stops over what is left of the wave's delivery window; announced once at `StartRoute` and never retracted | `route.EtaWindows`, `StopEtaWindowAssigned` |
 | Delivery attempt | One try at one package on one route, `DELIVERED` or `FAILED` with a reason | `route.Attempt`, `DeliveryAttempted` |
 | Failure reason | Free text supplied exactly when an attempt failed | `FailureReason` |
 | Package attempt history | Per tracking number: status and failed-attempt count (G16) | `history.History`, `package_histories` |
