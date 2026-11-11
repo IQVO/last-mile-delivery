@@ -39,6 +39,9 @@ type Deps struct {
 	// Metrics records the business outcome of each delivery attempt; nil
 	// records nothing, so unit tests need no wiring.
 	Metrics ports.AttemptMetrics
+	// EtaMetrics records the ETA windows StartRoute assigned or skipped; nil
+	// records nothing.
+	EtaMetrics ports.EtaMetrics
 }
 
 // metrics returns the configured AttemptMetrics or a no-op.

@@ -65,9 +65,11 @@ type StartRoute struct{ writer }
 // NewStartRoute builds the use case.
 func NewStartRoute(d Deps) *StartRoute { return &StartRoute{writer{d}} }
 
-// Execute starts the route and saves it with one PackageOutForDelivery per package (A14).
+// Execute starts the route and saves it with one PackageOutForDelivery per package
+// (A14) and, in the same transaction, one StopEtaWindowAssigned per stop (ADR 0013).
 func (uc *StartRoute) Execute(ctx context.Context, id route.ID) (views.Route, error) {
-	return transact(ctx, uc.UoW, func(ctx context.Context) (views.Route, error) {
+	assigned := 0
+	v, err := transact(ctx, uc.UoW, func(ctx context.Context) (views.Route, error) {
 		r, err := uc.Routes.Get(ctx, id)
 		if err != nil {
 			return views.Route{}, err
@@ -79,10 +81,11 @@ func (uc *StartRoute) Execute(ctx context.Context, id route.ID) (views.Route, er
 		if wv.State() != wave.StateDispatched {
 			return views.Route{}, fmt.Errorf("%w: StartRoute needs wave %s DISPATCHED but it is %s", shared.ErrIllegalTransition, wv.ID(), wv.State())
 		}
-		events, err := r.Start(uc.now())
+		events, err := r.Start(uc.now(), wv)
 		if err != nil {
 			return views.Route{}, err
 		}
+		assigned = countEtaEvents(events)
 		if err := uc.Routes.Save(ctx, r); err != nil {
 			return views.Route{}, err
 		}
@@ -91,6 +94,10 @@ func (uc *StartRoute) Execute(ctx context.Context, id route.ID) (views.Route, er
 		}
 		return views.RouteFrom(r), nil
 	})
+	if err == nil {
+		uc.recordEta(ctx, assigned)
+	}
+	return v, err
 }
 
 // RecordAttemptCommand is the input of RecordAttempt.

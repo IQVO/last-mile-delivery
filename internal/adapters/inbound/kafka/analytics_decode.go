@@ -41,6 +41,7 @@ func projectedKinds() map[string]report.Kind {
 func acknowledgedTypes() map[string]bool {
 	return map[string]bool{
 		cloudevents.Type(entityHistory, "PackageInductionDeferred"): true,
+		cloudevents.Type(entityRoute, "StopEtaWindowAssigned"):      true,
 	}
 }
 

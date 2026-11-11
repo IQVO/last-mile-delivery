@@ -153,7 +153,7 @@ func savedStartedRoute(t *testing.T, f Fixture, id route.ID, waveID wave.ID) *ro
 		route.Planning{Wave: w, Partner: NewPartner(t, "dsp-1", station1)}, Now)
 	noErr(t, err)
 	noErr(t, f.Routes.Save(ctxb(), r))
-	_, err = r.Start(Now)
+	_, err = r.Start(Now, w)
 	noErr(t, err)
 	noErr(t, f.Routes.Save(ctxb(), r))
 	return r

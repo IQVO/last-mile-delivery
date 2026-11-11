@@ -76,7 +76,7 @@ func planned(t *testing.T) *Route {
 func started(t *testing.T) *Route {
 	t.Helper()
 	r := planned(t)
-	_, err := r.Start(t1)
+	_, err := r.Start(t1, closedWave(t))
 	wantNoErr(t, err)
 	return r
 }
@@ -191,11 +191,11 @@ func TestPlanCapacityBoundary(t *testing.T) {
 
 func TestStart(t *testing.T) {
 	r := planned(t)
-	events, err := r.Start(t1)
+	events, err := r.Start(t1, closedWave(t))
 	wantNoErr(t, err)
 	assertState(t, r, StateOutForDelivery, 2)
-	if len(events) != 3 {
-		t.Fatalf("events = %d, want 3", len(events))
+	if len(events) != 5 {
+		t.Fatalf("events = %d, want 3 PackageOutForDelivery then 2 StopEtaWindowAssigned", len(events))
 	}
 	for i, tn := range []string{"TRK-1", "TRK-2", "TRK-3"} {
 		want := PackageOutForDelivery{
@@ -220,7 +220,7 @@ func TestRouteTransitionsLegalAndIllegal(t *testing.T) {
 		to    State
 		apply func(*Route) error
 	}{
-		{"StartRoute", StatePlanned, StateOutForDelivery, func(r *Route) error { _, err := r.Start(t1); return err }},
+		{"StartRoute", StatePlanned, StateOutForDelivery, func(r *Route) error { _, err := r.Start(t1, closedWave(t)); return err }},
 		{"CompleteRoute", StateOutForDelivery, StateCompleted, func(r *Route) error { attemptAll(t, r); return r.Complete() }},
 	}
 	for _, c := range commands {

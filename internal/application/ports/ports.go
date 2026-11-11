@@ -168,3 +168,14 @@ type AttemptMetrics interface {
 	// is a stable, low-cardinality slug.
 	AttemptRejected(ctx context.Context, reason string)
 }
+
+// EtaMetrics records what StartRoute did about the day-of ETA windows (ADR
+// 0013). The implementation lives in internal/adapters/outbound/telemetry; a
+// nil Deps.EtaMetrics records nothing.
+type EtaMetrics interface {
+	// EtaAssigned counts n StopEtaWindowAssigned events raised by a committed start.
+	EtaAssigned(ctx context.Context, n int)
+	// EtaSkipped counts a committed start that raised no ETA; reason is a
+	// stable slug ("window_elapsed").
+	EtaSkipped(ctx context.Context, reason string)
+}

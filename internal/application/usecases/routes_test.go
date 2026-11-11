@@ -109,7 +109,7 @@ func TestStartRoute(t *testing.T) {
 		t.Fatalf("state = %s", v.State)
 	}
 	names := e.eventNames()
-	if names[len(names)-1] != "PackageOutForDelivery:route-1" {
+	if got := names[len(names)-2:]; got[0] != "PackageOutForDelivery:route-1" || got[1] != "StopEtaWindowAssigned:route-1" {
 		t.Fatalf("events = %v", names)
 	}
 	e.wantUnchanged(t, func() {

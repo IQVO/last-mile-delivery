@@ -24,13 +24,13 @@ info:
     delivery window, stop capacity), the routes of delivery service partners
     and every delivery attempt (ADR 0001, ADR 0002).
 
-    **Published.** Eight events. Seven go to the integration topic
+    **Published.** Ten events. Nine go to the integration topic
     `retailnetwork.last-mile-delivery.events`; `RoutePlanned` is analytics only
     and goes ONLY to `retailnetwork.last-mile-delivery.analytics`. Every event
     leaves through a **transactional outbox**: the aggregates and their
     already-encoded events are written in ONE database transaction and an
     always-on relay drains them to Kafka (at-least-once; the CloudEvents `id` is
-    stored with the outbox row, so a retry republishes the same `id`). The eight
+    stored with the outbox row, so a retry republishes the same `id`). The ten
     types are catalogued in ADR 0004.
 
     **Consumed.** Four events (ADR 0003): `LoadArrived` from
@@ -111,6 +111,8 @@ channels:
         $ref: "#/components/messages/PackageOutForDelivery"
       DeliveryAttempted:
         $ref: "#/components/messages/DeliveryAttempted"
+      StopEtaWindowAssigned:
+        $ref: "#/components/messages/StopEtaWindowAssigned"
       PackageInductionDeferred:
         $ref: "#/components/messages/PackageInductionDeferred"
       PackageReturnInitiated:
@@ -156,14 +158,15 @@ operations:
   publishLastMileEvents:
     action: send
     title: Publish last-mile-delivery integration events
-    summary: Publish the eight integration events through the transactional outbox.
+    summary: Publish the nine integration events through the transactional outbox.
     description: |
       The service sends the events of its three event-raising aggregates
       (DeliveryWave, Route, PackageAttemptHistory) to
       `retailnetwork.last-mile-delivery.events`. Consumers route on the full
       `type`: delivery-promise and order-sourcing read the wave events,
-      shipping-and-tracking reads PackageOutForDelivery, DeliveryAttempted and
-      PackageReturnInitiated, delivery-promise reads PackageInductionDeferred.
+      shipping-and-tracking reads PackageOutForDelivery, DeliveryAttempted,
+      StopEtaWindowAssigned and PackageReturnInitiated, delivery-promise reads
+      PackageInductionDeferred.
       order-sourcing also reads WaveCostDeclared into its money-denominated
       AssignmentCost (roadmap F7).
     tags:
@@ -177,6 +180,7 @@ operations:
       - $ref: "#/channels/lastMileEvents/messages/WaveCostDeclared"
       - $ref: "#/channels/lastMileEvents/messages/PackageOutForDelivery"
       - $ref: "#/channels/lastMileEvents/messages/DeliveryAttempted"
+      - $ref: "#/channels/lastMileEvents/messages/StopEtaWindowAssigned"
       - $ref: "#/channels/lastMileEvents/messages/PackageInductionDeferred"
       - $ref: "#/channels/lastMileEvents/messages/PackageReturnInitiated"
 
@@ -495,6 +499,38 @@ components:
               failureReason: "recipient absent"
               at: "2026-10-24T14:19:30Z"
 
+    StopEtaWindowAssigned:
+      name: StopEtaWindowAssigned
+      title: Stop ETA window assigned
+      summary: A two-hour ETA window for one stop of a started route.
+      description: "`type` = `com.retailnetwork.logistics.last-mile-delivery.route.StopEtaWindowAssigned`; subject = the routeId, key = the routeId (the key of PackageOutForDelivery, so the two stay ordered). Raised by StartRoute in the same transaction, AFTER every PackageOutForDelivery, one per stop in stop order (ADR 0013). The CloudEvents `time` is the route start instant (the assignment time). The window is a deterministic spread of the route's stops over what is left of the wave's delivery window, at most two hours wide; it is not a prediction. No event is raised when less than 30 minutes of the wave window is left at the start instant. An ETA is never retracted and never re-raised for the same start; a re-inducted package gets a new one from its next StartRoute. `stopKey` is the opaque stop key (`pkg:<trackingNumber>` when the package has no label data); no address, name or phone is carried. A window may fall after the promised delivery window; it is published as computed."
+      contentType: application/cloudevents+json
+      headers:
+        $ref: "#/components/schemas/KafkaHeaders"
+      tags:
+        - name: route
+      payload:
+        $ref: "#/components/schemas/StopEtaWindowAssignedEvent"
+      examples:
+        - name: stopEtaWindowAssigned
+          summary: The second stop of a route started at 12:02 in a wave window of 12:00 to 20:00.
+          payload:
+            specversion: "1.0"
+            id: "7c2d9e41-5b83-4a6f-9e10-d4a8b3f6c299"
+            source: "/retailnetwork/last-mile-delivery"
+            type: "com.retailnetwork.logistics.last-mile-delivery.route.StopEtaWindowAssigned"
+            subject: "route-81c2"
+            time: "2026-10-24T12:02:00Z"
+            datacontenttype: "application/json"
+            dataschema: "urn:retailnetwork:last-mile-delivery:events:StopEtaWindowAssigned:v1"
+            data:
+              routeId: "route-81c2"
+              stopNo: 2
+              stopKey: "7d1f0c5a9e3b4a2c8f6d0e1b3a5c7e9f2b4d6a8c0e1f3a5b7c9d1e3f5a7b9c0d"
+              trackingNumbers: ["TRK-000124", "TRK-000125"]
+              etaStart: "2026-10-24T17:00:00Z"
+              etaEnd: "2026-10-24T19:00:00Z"
+
     PackageInductionDeferred:
       name: PackageInductionDeferred
       title: Package induction deferred
@@ -784,6 +820,22 @@ components:
                 outcome: { $ref: "#/components/schemas/Outcome" }
                 failureReason: { type: string, description: Present only when outcome is FAILED. }
                 at: { type: string, format: date-time, description: The instant of the attempt as reported by the driver app. }
+
+    StopEtaWindowAssignedEvent:
+      allOf:
+        - $ref: "#/components/schemas/CloudEventEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [routeId, stopNo, stopKey, trackingNumbers, etaStart, etaEnd]
+              properties:
+                routeId: { type: string }
+                stopNo: { type: integer, minimum: 1, description: The 1-based stop number on the route; a route may hold two stops with one stopKey. }
+                stopKey: { type: string, description: "The opaque stop key; pkg:<trackingNumber> when the package has no label data." }
+                trackingNumbers: { type: array, minItems: 1, items: { type: string }, description: The packages of the stop in stop order. }
+                etaStart: { type: string, format: date-time }
+                etaEnd: { type: string, format: date-time, description: Later than etaStart; the window is at most two hours wide. }
 
     PackageInductionDeferredEvent:
       allOf:
