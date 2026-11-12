@@ -75,6 +75,13 @@ const (
 	INSERT INTO delivery_attempts (event_id, route_id, tracking_number, outcome, attempted_at)
 	VALUES ($1, $2, $3, $4, $5)`
 
+	// One row per package of the stop, from one statement per event; the first
+	// row of a (route, package) stays (an ETA is never re-raised for a start).
+	insertEtaSQL = `
+	INSERT INTO stop_eta_windows (route_id, tracking_number, stop_no, eta_start, eta_end, assigned_at, event_id)
+	SELECT $1, t, $2, $3, $4, $5, $6 FROM unnest($7::text[]) AS t
+	ON CONFLICT (route_id, tracking_number) DO NOTHING`
+
 	insertReturnSQL = `
 	INSERT INTO package_returns (event_id, tracking_number, initiated_at)
 	VALUES ($1, $2, $3)`
@@ -131,6 +138,8 @@ func statementFor(e report.Event) (string, []any, bool) {
 		return insertRoutePackageSQL, []any{e.RouteID, e.TrackingNumber, e.StationNodeID, e.OccurredAt, e.EventID}, true
 	case report.KindDeliveryAttempted:
 		return insertAttemptSQL, []any{e.EventID, e.RouteID, e.TrackingNumber, e.Outcome, e.OccurredAt}, true
+	case report.KindStopEtaWindowAssigned:
+		return insertEtaSQL, []any{e.RouteID, e.StopNo, e.EtaStart, e.EtaEnd, e.OccurredAt, e.EventID, e.TrackingNumbers}, true
 	case report.KindReturnInitiated:
 		return insertReturnSQL, []any{e.EventID, e.TrackingNumber, e.OccurredAt}, true
 	default:

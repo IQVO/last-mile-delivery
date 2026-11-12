@@ -128,7 +128,7 @@ func TestGetRoute(t *testing.T) {
 		t.Fatalf("attempts = %v", got["attempts"])
 	}
 	a := attempts[0].(map[string]any)
-	if a["trackingNumber"] != "TRK-1" || a["outcome"] != "DELIVERED" || a["at"] != "2026-10-24T13:00:00Z" {
+	if a["trackingNumber"] != "TRK-1" || a["outcome"] != "DELIVERED" || a["outcomeDetail"] != "SAFE_PLACE_USED" || a["at"] != "2026-10-24T13:00:00Z" {
 		t.Fatalf("attempt = %v", a)
 	}
 	if _, has := a["failureReason"]; has {

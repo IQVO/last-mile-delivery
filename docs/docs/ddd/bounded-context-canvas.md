@@ -52,7 +52,7 @@ Runs each delivery station: publishes delivery waves (induct cutoff, delivery wi
 | Message | Type | To | Collaboration |
 | --- | --- | --- | --- |
 | `DeliveryWaveScheduled`, `DeliveryWaveCapacityChanged` | event | `delivery-promise`, `order-sourcing` | OHS + PL / Conformist |
-| `PackageOutForDelivery`, `DeliveryAttempted` | event | `shipping-and-tracking` | OHS + PL / Conformist |
+| `PackageOutForDelivery`, `StopEtaWindowAssigned`, `DeliveryAttempted` | event | `shipping-and-tracking` | OHS + PL / Conformist |
 | `DeliveryWaveCancelled`, `PackageInductionDeferred`, `PackageReturnInitiated` | event | no named consumer | OHS + PL |
 | `RoutePlanned` | event (analytics topic only) | analytics | OHS + PL |
 

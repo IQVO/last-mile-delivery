@@ -584,6 +584,43 @@ paths:
           $ref: '#/components/responses/InvalidReportRange'
         '500':
           $ref: '#/components/responses/InternalError'
+  /reports/eta-window:
+    servers:
+      - url: http://localhost:8092
+    get:
+      tags: [reports]
+      operationId: getEtaWindowReport
+      x-pagination-exempt: report
+      summary: Share of deliveries inside their day-of ETA window per day and station
+      description: >-
+        Per UTC day of the DELIVERED attempt and per delivery station (the
+        station of the attempt's route, UNKNOWN while its PackageOutForDelivery
+        is not projected). deliveriesWithEta counts the delivered packages that
+        had a StopEtaWindowAssigned window for the same route (ADR 0013);
+        deliveriesInsideEta those delivered with etaStart <= attempt instant <=
+        etaEnd (both bounds are inside), deliveriesBeforeEta before etaStart and
+        deliveriesAfterEta after etaEnd; etaHitRate = deliveriesInsideEta /
+        deliveriesWithEta, null when no delivery of the day and station had an
+        ETA. Only the attempt that DELIVERED counts; a delivered package whose
+        ETA was never projected (no ETA was raised, or the projection has not
+        caught up) is not in the denominator. Days without a delivery are
+        omitted. The windows are a deterministic spread of the route's stops
+        over the wave window, so the first weeks of etaHitRate are a baseline,
+        not a verdict.
+      parameters:
+        - $ref: '#/components/parameters/ReportFrom'
+        - $ref: '#/components/parameters/ReportTo'
+      responses:
+        '200':
+          description: The report for the range.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EtaWindowReport'
+        '400':
+          $ref: '#/components/responses/InvalidReportRange'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /reports/wave-utilisation:
     servers:
       - url: http://localhost:8092
@@ -880,6 +917,48 @@ components:
         returnsInitiated:
           type: integer
           minimum: 0
+    EtaWindowReport:
+      type: object
+      required: [from, to, days]
+      properties:
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/EtaWindowDay'
+    EtaWindowDay:
+      type: object
+      required: [day, stationNodeId, deliveriesWithEta, deliveriesInsideEta, deliveriesBeforeEta, deliveriesAfterEta, etaHitRate]
+      properties:
+        day:
+          type: string
+          format: date
+          description: The UTC day of the DELIVERED attempt.
+        stationNodeId:
+          type: string
+          description: The delivery station node id, or UNKNOWN while the route's out-for-delivery fact is not projected.
+        deliveriesWithEta:
+          type: integer
+          minimum: 0
+        deliveriesInsideEta:
+          type: integer
+          minimum: 0
+        deliveriesBeforeEta:
+          type: integer
+          minimum: 0
+        deliveriesAfterEta:
+          type: integer
+          minimum: 0
+        etaHitRate:
+          type: number
+          minimum: 0
+          maximum: 1
+          nullable: true
     WaveUtilisationReport:
       type: object
       required: [from, to, days]
@@ -1173,9 +1252,18 @@ components:
           minLength: 1
           maxLength: 200
           description: Required when outcome is FAILED and forbidden when DELIVERED; free text (trimmed, no control characters), the model defines no vocabulary.
+        outcomeDetail:
+          $ref: '#/components/schemas/OutcomeDetail'
         at:
           type: string
           format: date-time
+    OutcomeDetail:
+      type: string
+      enum: [NOT_HOME, ACCESS_PROBLEM, OTHER, SAFE_PLACE_USED]
+      description: >-
+        Optional category of the attempt, reported by the driver client. FAILED accepts NOT_HOME, ACCESS_PROBLEM
+        and OTHER; DELIVERED accepts SAFE_PLACE_USED; any other pairing is 422 validation-failed. Omitted means
+        not reported (a legacy client), which is not the same as OTHER. It never replaces failureReason.
     Attempt:
       type: object
       required: [routeId, trackingNumber, outcome, at]
@@ -1186,6 +1274,8 @@ components:
           type: string
         outcome:
           $ref: '#/components/schemas/Outcome'
+        outcomeDetail:
+          $ref: '#/components/schemas/OutcomeDetail'
         failureReason:
           type: string
         at:

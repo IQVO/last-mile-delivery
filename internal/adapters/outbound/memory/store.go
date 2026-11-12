@@ -19,6 +19,7 @@ import (
 	"sync"
 
 	"github.com/claudioed/last-mile-delivery/internal/application/views"
+	"github.com/claudioed/last-mile-delivery/internal/domain/deliverypoint"
 	"github.com/claudioed/last-mile-delivery/internal/domain/history"
 	"github.com/claudioed/last-mile-delivery/internal/domain/partner"
 	"github.com/claudioed/last-mile-delivery/internal/domain/route"
@@ -35,6 +36,7 @@ type state struct {
 	routes    map[route.ID]route.Snapshot
 	partners  map[partner.ID]partner.Snapshot
 	histories map[string]history.Snapshot
+	points    map[string]deliverypoint.Snapshot
 	stations  map[string]views.Station
 	areas     map[string]views.ServiceArea
 	stops     map[string]views.PackageStop
@@ -46,7 +48,7 @@ type state struct {
 func newState() state {
 	return state{
 		waves: map[wave.ID]wave.Snapshot{}, routes: map[route.ID]route.Snapshot{}, partners: map[partner.ID]partner.Snapshot{},
-		histories: map[string]history.Snapshot{}, stations: map[string]views.Station{}, areas: map[string]views.ServiceArea{},
+		histories: map[string]history.Snapshot{}, points: map[string]deliverypoint.Snapshot{}, stations: map[string]views.Station{}, areas: map[string]views.ServiceArea{},
 		stops: map[string]views.PackageStop{}, inbound: map[inboundKey]views.InboundPackage{}, inbox: map[string]string{},
 	}
 }
@@ -61,7 +63,7 @@ func cloneMap[K comparable, V any](m map[K]V) map[K]V {
 
 func (st state) clone() state {
 	return state{
-		waves: cloneMap(st.waves), routes: cloneMap(st.routes), partners: cloneMap(st.partners), histories: cloneMap(st.histories),
+		waves: cloneMap(st.waves), routes: cloneMap(st.routes), partners: cloneMap(st.partners), histories: cloneMap(st.histories), points: cloneMap(st.points),
 		stations: cloneMap(st.stations), areas: cloneMap(st.areas), stops: cloneMap(st.stops), inbound: cloneMap(st.inbound),
 		inbox: cloneMap(st.inbox), outbox: append([]shared.Event(nil), st.outbox...),
 	}
@@ -101,6 +103,9 @@ func (s *Store) Partners() *PartnerRepository { return &PartnerRepository{s} }
 // Histories returns the HistoryRepository double.
 func (s *Store) Histories() *HistoryRepository { return &HistoryRepository{s} }
 
+// DeliveryPoints returns the DeliveryPointRepository double.
+func (s *Store) DeliveryPoints() *DeliveryPointRepository { return &DeliveryPointRepository{s} }
+
 // Stations returns the StationRepository double.
 func (s *Store) Stations() *StationRepository { return &StationRepository{s} }
 
@@ -124,7 +129,7 @@ func (s *Store) UnitOfWork() *UnitOfWork { return &UnitOfWork{s} }
 
 // Counts is how many rows each table of the store holds.
 type Counts struct {
-	Waves, Routes, Partners, Histories, Stations, ServiceAreas, PackageStops, InboundPackages, ProcessedEvents, OutboxEvents int
+	Waves, Routes, Partners, Histories, DeliveryPoints, Stations, ServiceAreas, PackageStops, InboundPackages, ProcessedEvents, OutboxEvents int
 	// VersionSum is the sum of every aggregate version: any saved change moves it.
 	VersionSum int64
 }
@@ -147,8 +152,11 @@ func (s *Store) Counts() Counts {
 	for _, h := range s.st.histories {
 		versions += h.Version
 	}
+	for _, d := range s.st.points {
+		versions += d.Version
+	}
 	return Counts{
-		Waves: len(s.st.waves), Routes: len(s.st.routes), Partners: len(s.st.partners), Histories: len(s.st.histories),
+		Waves: len(s.st.waves), Routes: len(s.st.routes), Partners: len(s.st.partners), Histories: len(s.st.histories), DeliveryPoints: len(s.st.points),
 		Stations: len(s.st.stations), ServiceAreas: len(s.st.areas), PackageStops: len(s.st.stops),
 		InboundPackages: len(s.st.inbound), ProcessedEvents: len(s.st.inbox), OutboxEvents: len(s.st.outbox), VersionSum: versions,
 	}

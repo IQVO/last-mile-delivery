@@ -42,6 +42,7 @@ type recordAttemptRequest struct {
 	TrackingNumber string    `json:"trackingNumber"`
 	Outcome        string    `json:"outcome"`
 	FailureReason  string    `json:"failureReason"`
+	OutcomeDetail  string    `json:"outcomeDetail"`
 	At             time.Time `json:"at"`
 }
 
@@ -81,6 +82,7 @@ type attemptBody struct {
 	RouteID        string    `json:"routeId"`
 	TrackingNumber string    `json:"trackingNumber"`
 	Outcome        string    `json:"outcome"`
+	OutcomeDetail  string    `json:"outcomeDetail,omitempty"`
 	FailureReason  string    `json:"failureReason,omitempty"`
 	At             time.Time `json:"at"`
 }
@@ -112,7 +114,7 @@ func toWaveBody(w views.Wave) waveBody {
 }
 
 func toAttemptBody(a views.Attempt) attemptBody {
-	return attemptBody{RouteID: a.RouteID, TrackingNumber: a.TrackingNumber, Outcome: a.Outcome, FailureReason: a.FailureReason, At: a.At.UTC()}
+	return attemptBody{RouteID: a.RouteID, TrackingNumber: a.TrackingNumber, Outcome: a.Outcome, OutcomeDetail: a.OutcomeDetail, FailureReason: a.FailureReason, At: a.At.UTC()}
 }
 
 func toRouteBody(r views.Route) routeBody {

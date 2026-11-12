@@ -10,12 +10,13 @@ import (
 	"github.com/claudioed/last-mile-delivery/internal/analytics/report"
 )
 
-// The CloudEvents entity segments of this context's three event-raising
-// aggregates.
+// The CloudEvents entity segments of this context's event-raising aggregates.
 const (
 	entityWave    = "wave"
 	entityRoute   = "route"
 	entityHistory = "packageattempthistory"
+	// entityPoint is the DeliveryPointProfile aggregate (ADR 0014).
+	entityPoint = "deliverypointprofile"
 )
 
 // serviceDateLayout is the wire form of a wave's serviceDate.
@@ -25,14 +26,15 @@ const serviceDateLayout = "2006-01-02"
 // (ADR 0012) to its report.Kind.
 func projectedKinds() map[string]report.Kind {
 	return map[string]report.Kind{
-		cloudevents.Type(entityWave, string(report.KindWaveScheduled)):       report.KindWaveScheduled,
-		cloudevents.Type(entityWave, string(report.KindWaveCapacityChanged)): report.KindWaveCapacityChanged,
-		cloudevents.Type(entityWave, string(report.KindWaveCancelled)):       report.KindWaveCancelled,
-		cloudevents.Type(entityWave, string(report.KindWaveCostDeclared)):    report.KindWaveCostDeclared,
-		cloudevents.Type(entityRoute, string(report.KindRoutePlanned)):       report.KindRoutePlanned,
-		cloudevents.Type(entityRoute, string(report.KindOutForDelivery)):     report.KindOutForDelivery,
-		cloudevents.Type(entityRoute, string(report.KindDeliveryAttempted)):  report.KindDeliveryAttempted,
-		cloudevents.Type(entityHistory, string(report.KindReturnInitiated)):  report.KindReturnInitiated,
+		cloudevents.Type(entityWave, string(report.KindWaveScheduled)):          report.KindWaveScheduled,
+		cloudevents.Type(entityWave, string(report.KindWaveCapacityChanged)):    report.KindWaveCapacityChanged,
+		cloudevents.Type(entityWave, string(report.KindWaveCancelled)):          report.KindWaveCancelled,
+		cloudevents.Type(entityWave, string(report.KindWaveCostDeclared)):       report.KindWaveCostDeclared,
+		cloudevents.Type(entityRoute, string(report.KindRoutePlanned)):          report.KindRoutePlanned,
+		cloudevents.Type(entityRoute, string(report.KindOutForDelivery)):        report.KindOutForDelivery,
+		cloudevents.Type(entityRoute, string(report.KindDeliveryAttempted)):     report.KindDeliveryAttempted,
+		cloudevents.Type(entityRoute, string(report.KindStopEtaWindowAssigned)): report.KindStopEtaWindowAssigned,
+		cloudevents.Type(entityHistory, string(report.KindReturnInitiated)):     report.KindReturnInitiated,
 	}
 }
 
@@ -41,6 +43,7 @@ func projectedKinds() map[string]report.Kind {
 func acknowledgedTypes() map[string]bool {
 	return map[string]bool{
 		cloudevents.Type(entityHistory, "PackageInductionDeferred"): true,
+		cloudevents.Type(entityPoint, "DeliveryPointFlagged"):       true,
 	}
 }
 
@@ -62,6 +65,10 @@ type analyticsData struct {
 	TrackingNumber   string    `json:"trackingNumber"`
 	Outcome          string    `json:"outcome"`
 	At               time.Time `json:"at"`
+	StopNo           *int      `json:"stopNo"`
+	TrackingNumbers  []string  `json:"trackingNumbers"`
+	EtaStart         time.Time `json:"etaStart"`
+	EtaEnd           time.Time `json:"etaEnd"`
 }
 
 // toEvent decodes and validates a CloudEvent of a projected kind. Every error
@@ -86,6 +93,7 @@ func toEvent(kind report.Kind, evt ce.Event) (report.Event, error) {
 		WaveID: d.WaveID, StationNodeID: d.StationNodeID, ServiceDate: serviceDate,
 		StopCapacity: deref(d.StopCapacity), AssignedStops: deref(d.AssignedStops), CostPerStopCents: deref(d.CostPerStopCents),
 		RouteID: d.RouteID, DSPID: d.DSPID, StopCount: deref(d.StopCount), Outcome: d.Outcome, TrackingNumber: d.TrackingNumber,
+		StopNo: deref(d.StopNo), TrackingNumbers: d.TrackingNumbers, EtaStart: d.EtaStart.UTC(), EtaEnd: d.EtaEnd.UTC(),
 	}
 	if err := e.Validate(); err != nil {
 		return report.Event{}, err
@@ -142,10 +150,11 @@ func (d analyticsData) absentCount(kind report.Kind) string {
 		name    string
 		present bool
 	}{
-		report.KindWaveScheduled:       {"stopCapacity", d.StopCapacity != nil},
-		report.KindWaveCapacityChanged: {"assignedStops", d.AssignedStops != nil},
-		report.KindWaveCostDeclared:    {"costPerStopCents", d.CostPerStopCents != nil},
-		report.KindRoutePlanned:        {"stopCount", d.StopCount != nil},
+		report.KindWaveScheduled:         {"stopCapacity", d.StopCapacity != nil},
+		report.KindWaveCapacityChanged:   {"assignedStops", d.AssignedStops != nil},
+		report.KindWaveCostDeclared:      {"costPerStopCents", d.CostPerStopCents != nil},
+		report.KindRoutePlanned:          {"stopCount", d.StopCount != nil},
+		report.KindStopEtaWindowAssigned: {"stopNo", d.StopNo != nil},
 	}
 	if r, ok := required[kind]; ok && !r.present {
 		return r.name

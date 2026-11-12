@@ -14,7 +14,7 @@ import (
 var routeCases = []named{
 	{"save then get round-trips stops and attempts", routeRoundTrip},
 	{unknownIDCase, routeGetMiss},
-	{"stale, duplicate and orphan saves are ErrConcurrentUpdate", routeConcurrency},
+	{concurrencyCase, routeConcurrency},
 	{"packages in a wave and uncompleted routes count every route of the wave only", routeWaveQueries},
 }
 
@@ -31,16 +31,19 @@ func routeRoundTrip(t *testing.T, f Fixture) {
 	if !reflect.DeepEqual(got.Snapshot(), r.Snapshot()) {
 		t.Fatalf("snapshot = %+v, want %+v", got.Snapshot(), r.Snapshot())
 	}
-	_, err = got.RecordAttempt(trk1, route.OutcomeFailed, "absent", Now.Add(time.Hour), Now)
+	_, err = got.RecordAttempt(trk1, route.OutcomeFailed, route.DetailNotHome, "absent", Now.Add(time.Hour), Now)
 	noErr(t, err)
 	noErr(t, f.Routes.Save(ctxb(), got))
-	_, err = got.RecordAttempt(trk2, route.OutcomeDelivered, "", Now.Add(time.Hour), Now)
+	_, err = got.RecordAttempt(trk2, route.OutcomeDelivered, route.DetailSafePlaceUsed, "", Now.Add(time.Hour), Now)
 	noErr(t, err)
 	noErr(t, f.Routes.Save(ctxb(), got))
 	again, err := f.Routes.Get(ctxb(), "route-1")
 	noErr(t, err)
 	if !reflect.DeepEqual(again.Snapshot(), got.Snapshot()) || len(again.Attempts()) != 2 {
 		t.Fatalf("snapshot = %+v, want %+v", again.Snapshot(), got.Snapshot())
+	}
+	if a := again.Attempts(); a[0].Detail != route.DetailNotHome || a[1].Detail != route.DetailSafePlaceUsed {
+		t.Fatalf("outcomeDetail did not round-trip: %+v", a)
 	}
 }
 
@@ -56,14 +59,14 @@ func routeConcurrency(t *testing.T, f Fixture) {
 	noErr(t, err)
 	loser, err := f.Routes.Get(ctxb(), "route-1")
 	noErr(t, err)
-	_, err = winner.RecordAttempt(trk1, route.OutcomeDelivered, "", Now, Now)
+	_, err = winner.RecordAttempt(trk1, route.OutcomeDelivered, "", "", Now, Now)
 	noErr(t, err)
-	_, err = loser.RecordAttempt(trk2, route.OutcomeDelivered, "", Now, Now)
+	_, err = loser.RecordAttempt(trk2, route.OutcomeDelivered, "", "", Now, Now)
 	noErr(t, err)
 	noErr(t, f.Routes.Save(ctxb(), winner))
 	wantErr(t, f.Routes.Save(ctxb(), loser), ports.ErrConcurrentUpdate)
 	orphan, _ := StartedRoute(t, "route-9", "wave-9")
-	_, err = orphan.RecordAttempt(trk1, route.OutcomeDelivered, "", Now, Now)
+	_, err = orphan.RecordAttempt(trk1, route.OutcomeDelivered, "", "", Now, Now)
 	noErr(t, err)
 	wantErr(t, f.Routes.Save(ctxb(), orphan), ports.ErrConcurrentUpdate)
 }
@@ -92,7 +95,7 @@ func routeWaveQueries(t *testing.T, f Fixture) {
 	loaded, err := f.Routes.Get(ctxb(), "route-1")
 	noErr(t, err)
 	for _, tn := range loaded.Packages() {
-		_, err = loaded.RecordAttempt(tn, route.OutcomeDelivered, "", Now, Now)
+		_, err = loaded.RecordAttempt(tn, route.OutcomeDelivered, "", "", Now, Now)
 		noErr(t, err)
 		noErr(t, f.Routes.Save(ctxb(), loaded))
 	}
@@ -153,7 +156,7 @@ func savedStartedRoute(t *testing.T, f Fixture, id route.ID, waveID wave.ID) *ro
 		route.Planning{Wave: w, Partner: NewPartner(t, "dsp-1", station1)}, Now)
 	noErr(t, err)
 	noErr(t, f.Routes.Save(ctxb(), r))
-	_, err = r.Start(Now)
+	_, err = r.Start(Now, w)
 	noErr(t, err)
 	noErr(t, f.Routes.Save(ctxb(), r))
 	return r

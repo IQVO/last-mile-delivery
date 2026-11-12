@@ -192,7 +192,7 @@ func TestAnalyticsReadSide_EndToEnd(t *testing.T) {
 	d := usecases.Deps{
 		Waves: postgres.NewWaveRepository(oltp), Routes: postgres.NewRouteRepository(oltp), Partners: postgres.NewPartnerRepository(oltp),
 		Histories: postgres.NewHistoryRepository(oltp), Stations: postgres.NewStationRepository(oltp),
-		ServiceAreas: postgres.NewServiceAreaRepository(oltp), PackageStops: postgres.NewPackageStopRepository(oltp),
+		ServiceAreas: postgres.NewServiceAreaRepository(oltp), PackageStops: postgres.NewPackageStopRepository(oltp), DeliveryPoints: postgres.NewDeliveryPointRepository(oltp),
 		Inbound: postgres.NewInboundPackageRepository(oltp), Inbox: postgres.NewInbox(oltp),
 		Outbox: postgres.NewOutbox(oltp, &outboundkafka.Encoder{EventsTopic: eventsTopic, AnalyticsTopic: analyticsTopic}),
 		UoW:    postgres.NewUnitOfWork(oltp), Clock: clock, IDs: system.IDs{},
@@ -260,8 +260,14 @@ func TestAnalyticsReadSide_EndToEnd(t *testing.T) {
 	// W1 (capacity 4) holds the two stops; W2 (capacity 5) was cancelled empty.
 	wantWaves := []map[string]any{{"day": "2026-11-03", "stationNodeId": e2eStation, "wavesScheduled": 2.0, "wavesCancelled": 1.0,
 		"stopCapacity": 9.0, "stopsInducted": 2.0, "utilisation": 2.0 / 9}}
+	// The route started at 11:00, before the wave window (12:00 to 20:00) opened: two stops spread over
+	// it get 13:00-15:00 and 17:00-19:00 (ADR 0013). A (13:00, the first bound) and B (13:10) were
+	// delivered inside stop 1's window; C failed, and a failed attempt never counts.
+	wantEta := []map[string]any{{"day": "2026-11-03", "stationNodeId": e2eStation, "deliveriesWithEta": 2.0, "deliveriesInsideEta": 2.0,
+		"deliveriesBeforeEta": 0.0, "deliveriesAfterEta": 0.0, "etaHitRate": 1.0}}
 	waitForReports(t, days, map[string][]map[string]any{
 		"/reports/route-efficiency": wantRoutes, "/reports/attempt-outcomes": wantAttempts, "/reports/wave-utilisation": wantWaves,
+		"/reports/eta-window": wantEta,
 	})
 	var fresh struct {
 		AsOf       *time.Time `json:"asOf"`

@@ -26,6 +26,8 @@ func runContract(t *testing.T, newStore func(t *testing.T) store) {
 	t.Run("route efficiency per day and station", func(t *testing.T) { contractRoutes(t, newStore(t)) })
 	t.Run("attempt outcomes per day and station", func(t *testing.T) { contractAttempts(t, newStore(t)) })
 	t.Run("wave utilisation per service date and station", func(t *testing.T) { contractWaves(t, newStore(t)) })
+	t.Run("ETA window hits per day and station", func(t *testing.T) { contractEta(t, newStore(t)) })
+	t.Run("an invalid ETA fact is rejected and leaves nothing", func(t *testing.T) { contractEtaRejected(t, newStore(t)) })
 	t.Run("the latest cost declaration wins", func(t *testing.T) { contractCostLastWins(t, newStore(t)) })
 	t.Run("the freshness basis is the newest CloudEvents time", func(t *testing.T) { contractLastEvent(t, newStore(t)) })
 	t.Run("an invalid fact is rejected and leaves nothing", func(t *testing.T) { contractRejected(t, newStore(t)) })
@@ -175,6 +177,10 @@ func contractEmpty(t *testing.T, s store) {
 	waves, err := s.WaveUtilisation(ctx, fullRange)
 	if err != nil || waves == nil || len(waves) != 0 {
 		t.Fatalf("waves = %#v, %v; want empty non-nil", waves, err)
+	}
+	etas, err := s.EtaWindow(ctx, fullRange)
+	if err != nil || etas == nil || len(etas) != 0 {
+		t.Fatalf("etas = %#v, %v; want empty non-nil", etas, err)
 	}
 	if last, err := s.LastEventAt(ctx); err != nil || last != nil {
 		t.Fatalf("last = %v, %v; want nil", last, err)

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/claudioed/last-mile-delivery/internal/application/outbox"
+	"github.com/claudioed/last-mile-delivery/internal/domain/deliverypoint"
 	"github.com/claudioed/last-mile-delivery/internal/domain/history"
 	"github.com/claudioed/last-mile-delivery/internal/domain/route"
 	"github.com/claudioed/last-mile-delivery/internal/domain/shared"
@@ -26,6 +27,8 @@ var golden = map[string]string{
 	"RoutePlanned":                `{"specversion":"1.0","id":"5d3a8c1e-0a63-4f0b-9d54-7a1a6b0c2e11","source":"/retailnetwork/last-mile-delivery","type":"com.retailnetwork.logistics.last-mile-delivery.route.RoutePlanned","subject":"route-81c2","datacontenttype":"application/json","dataschema":"urn:retailnetwork:last-mile-delivery:analytics:RoutePlanned:v1","time":"2026-10-24T06:15:00Z","data":{"routeId":"route-81c2","waveId":"wave-3b9f","dspId":"dsp-77a0","stopCount":32}}`,
 	"PackageOutForDelivery":       `{"specversion":"1.0","id":"5d3a8c1e-0a63-4f0b-9d54-7a1a6b0c2e11","source":"/retailnetwork/last-mile-delivery","type":"com.retailnetwork.logistics.last-mile-delivery.route.PackageOutForDelivery","subject":"route-81c2","datacontenttype":"application/json","dataschema":"urn:retailnetwork:last-mile-delivery:events:PackageOutForDelivery:v1","time":"2026-10-24T06:15:00Z","data":{"routeId":"route-81c2","trackingNumber":"TRK-000123","stationNodeId":"node-ds-01","at":"2026-10-24T06:15:00Z"}}`,
 	"DeliveryAttempted":           `{"specversion":"1.0","id":"5d3a8c1e-0a63-4f0b-9d54-7a1a6b0c2e11","source":"/retailnetwork/last-mile-delivery","type":"com.retailnetwork.logistics.last-mile-delivery.route.DeliveryAttempted","subject":"route-81c2","datacontenttype":"application/json","dataschema":"urn:retailnetwork:last-mile-delivery:events:DeliveryAttempted:v1","time":"2026-10-24T06:15:00Z","data":{"routeId":"route-81c2","trackingNumber":"TRK-000123","outcome":"FAILED","failureReason":"recipient absent","at":"2026-10-24T06:15:00Z"}}`,
+	"StopEtaWindowAssigned":       `{"specversion":"1.0","id":"5d3a8c1e-0a63-4f0b-9d54-7a1a6b0c2e11","source":"/retailnetwork/last-mile-delivery","type":"com.retailnetwork.logistics.last-mile-delivery.route.StopEtaWindowAssigned","subject":"route-81c2","datacontenttype":"application/json","dataschema":"urn:retailnetwork:last-mile-delivery:events:StopEtaWindowAssigned:v1","time":"2026-10-24T06:15:00Z","data":{"routeId":"route-81c2","stopNo":2,"stopKey":"pkg:TRK-000124","trackingNumbers":["TRK-000124","TRK-000125"],"etaStart":"2026-10-24T12:00:00Z","etaEnd":"2026-10-24T14:00:00Z"}}`,
+	"DeliveryPointFlagged":        `{"specversion":"1.0","id":"5d3a8c1e-0a63-4f0b-9d54-7a1a6b0c2e11","source":"/retailnetwork/last-mile-delivery","type":"com.retailnetwork.logistics.last-mile-delivery.deliverypointprofile.DeliveryPointFlagged","subject":"9f2c4a1e7b3d5c60e1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708","datacontenttype":"application/json","dataschema":"urn:retailnetwork:last-mile-delivery:events:DeliveryPointFlagged:v1","time":"2026-10-24T06:15:00Z","data":{"stopKey":"9f2c4a1e7b3d5c60e1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708","reason":"ACCESS_PROBLEM","failures":3,"trackingNumbers":["TRK-000123","TRK-000124"],"flaggedAt":"2026-10-24T06:14:30Z"}}`,
 	"PackageInductionDeferred":    `{"specversion":"1.0","id":"5d3a8c1e-0a63-4f0b-9d54-7a1a6b0c2e11","source":"/retailnetwork/last-mile-delivery","type":"com.retailnetwork.logistics.last-mile-delivery.packageattempthistory.PackageInductionDeferred","subject":"TRK-000123","datacontenttype":"application/json","dataschema":"urn:retailnetwork:last-mile-delivery:events:PackageInductionDeferred:v1","time":"2026-10-24T06:15:00Z","data":{"trackingNumber":"TRK-000123","assignmentId":"asg-5531"}}`,
 	"PackageReturnInitiated":      `{"specversion":"1.0","id":"5d3a8c1e-0a63-4f0b-9d54-7a1a6b0c2e11","source":"/retailnetwork/last-mile-delivery","type":"com.retailnetwork.logistics.last-mile-delivery.packageattempthistory.PackageReturnInitiated","subject":"TRK-000123","datacontenttype":"application/json","dataschema":"urn:retailnetwork:last-mile-delivery:events:PackageReturnInitiated:v1","time":"2026-10-24T06:15:00Z","data":{"trackingNumber":"TRK-000123"}}`,
 }
@@ -41,6 +44,11 @@ func fixedEvents() []shared.Event {
 		route.RoutePlanned{Header: h, RouteID: "route-81c2", WaveID: "wave-3b9f", DSPID: "dsp-77a0", StopCount: 32},
 		route.PackageOutForDelivery{Header: h, RouteID: "route-81c2", TrackingNumber: "TRK-000123", StationNodeID: "node-ds-01", At: at},
 		route.DeliveryAttempted{Header: h, RouteID: "route-81c2", TrackingNumber: "TRK-000123", Outcome: route.OutcomeFailed, FailureReason: "recipient absent", At: at},
+		route.StopEtaWindowAssigned{Header: h, RouteID: "route-81c2", StopNo: 2, StopKey: "pkg:TRK-000124", TrackingNumbers: []string{"TRK-000124", "TRK-000125"}, EtaStart: at.Add(5*time.Hour + 45*time.Minute), EtaEnd: at.Add(7*time.Hour + 45*time.Minute)},
+		deliverypoint.DeliveryPointFlagged{
+			Header: h, StopKey: "9f2c4a1e7b3d5c60e1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708", Reason: deliverypoint.CategoryAccessProblem, Failures: 3,
+			TrackingNumbers: []string{"TRK-000123", "TRK-000124"}, FlaggedAt: at.Add(-30 * time.Second),
+		},
 		history.PackageInductionDeferred{Header: h, TrackingNumber: "TRK-000123", AssignmentID: "asg-5531"},
 		history.PackageReturnInitiated{Header: h, TrackingNumber: "TRK-000123"},
 	}
@@ -76,7 +84,9 @@ func TestMessageEnvelopeAroundTheValue(t *testing.T) {
 		{"DeliveryWaveScheduled", EventsTopic, "wave-3b9f", "com.retailnetwork.logistics.last-mile-delivery.wave.DeliveryWaveScheduled", "urn:retailnetwork:last-mile-delivery:events:DeliveryWaveScheduled:v1"},
 		{"DeliveryWaveCancelled", EventsTopic, "wave-3b9f", "com.retailnetwork.logistics.last-mile-delivery.wave.DeliveryWaveCancelled", "urn:retailnetwork:last-mile-delivery:events:DeliveryWaveCancelled:v1"},
 		{"RoutePlanned", AnalyticsTopic, "route-81c2", "com.retailnetwork.logistics.last-mile-delivery.route.RoutePlanned", "urn:retailnetwork:last-mile-delivery:analytics:RoutePlanned:v1"},
+		{"StopEtaWindowAssigned", EventsTopic, "route-81c2", "com.retailnetwork.logistics.last-mile-delivery.route.StopEtaWindowAssigned", "urn:retailnetwork:last-mile-delivery:events:StopEtaWindowAssigned:v1"},
 		{"DeliveryAttempted", EventsTopic, "route-81c2", "com.retailnetwork.logistics.last-mile-delivery.route.DeliveryAttempted", "urn:retailnetwork:last-mile-delivery:events:DeliveryAttempted:v1"},
+		{"DeliveryPointFlagged", EventsTopic, "9f2c4a1e7b3d5c60e1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708", "com.retailnetwork.logistics.last-mile-delivery.deliverypointprofile.DeliveryPointFlagged", "urn:retailnetwork:last-mile-delivery:events:DeliveryPointFlagged:v1"},
 		{"PackageReturnInitiated", EventsTopic, "TRK-000123", "com.retailnetwork.logistics.last-mile-delivery.packageattempthistory.PackageReturnInitiated", "urn:retailnetwork:last-mile-delivery:events:PackageReturnInitiated:v1"},
 	}
 	byName := map[string]shared.Event{}
@@ -160,5 +170,17 @@ func TestAnUnpublishedEventFailsTheWholeCall(t *testing.T) {
 	empty := history.PackageReturnInitiated{Header: shared.Header{Version: 1, At: time.Now()}}
 	if _, err := fixedEncoder().Encode(empty); err == nil {
 		t.Fatal("an event with an empty subject must not encode")
+	}
+}
+
+func TestStopEtaTrackingNumbersAreNeverNull(t *testing.T) {
+	at := time.Date(2026, 10, 24, 6, 15, 0, 0, time.UTC)
+	ev := route.StopEtaWindowAssigned{Header: shared.Header{Version: 2, At: at}, RouteID: "r", StopNo: 1, StopKey: "k", EtaStart: at, EtaEnd: at.Add(time.Hour)}
+	msgs, err := fixedEncoder().Encode(ev)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(msgs[0].Value), `"trackingNumbers":[]`) {
+		t.Fatalf("trackingNumbers must encode as an empty array, not null: %s", msgs[0].Value)
 	}
 }

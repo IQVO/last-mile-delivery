@@ -15,7 +15,7 @@ Record: `docs/adr/0012-analytics-read-side.md`. The read side consumes the facts
 change the encoder, the outbox or the topic contracts from here.
 
 - Sources: ONLY `retailnetwork.last-mile-delivery.events` and `retailnetwork.last-mile-delivery.analytics` (one reader,
-  one group; never a sibling's topic). Eight projected types, dispatched on the FULL CloudEvents `type`
+  one group; never a sibling's topic). Nine projected types (ADR 0013 added StopEtaWindowAssigned), dispatched on the FULL CloudEvents `type`
   (`internal/adapters/inbound/kafka/analytics_decode.go`); PackageInductionDeferred is acknowledged silently; anything
   else (and non-CloudEvents) is skipped with a sampled WARN.
 - `cmd/lm-projector` is the ONLY writer of the SEPARATE analytical database (`ANALYTICS_DATABASE_URL`, `KAFKA_BROKERS`,

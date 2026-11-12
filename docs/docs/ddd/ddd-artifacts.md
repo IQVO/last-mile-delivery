@@ -19,7 +19,7 @@ The strategic and tactical design of `last-mile-delivery`, drawn with the [ddd-c
 | [EventStorming](/docs/ddd/eventstorming) | [EventStorming glossary and cheat sheet](https://github.com/ddd-crew/eventstorming-glossary-cheat-sheet) | Process flow with sticky-note colours, policies and hotspots. |
 | [Ubiquitous language](/docs/ddd/ubiquitous-language) | Glossary | Every term with the code identifier that implements it. |
 | [Class diagram](/docs/ddd/class-diagram) | UML class diagram | Domain types, events, ports and the adapters that exist. |
-| [Entity-relationship diagram](/docs/ddd/entity-relationship) | ER diagram | The 15 tables of `0001_last_mile_delivery_schema.up.sql`. |
+| [Entity-relationship diagram](/docs/ddd/entity-relationship) | ER diagram | The 15 OLTP tables of `0001_last_mile_delivery_schema.up.sql` (with the columns changed by `0002` and `0003`) and the 9 tables of the analytical database. |
 | [Sequence diagrams](/docs/ddd/sequence-diagrams) | UML sequence diagram | Schedule, induct on arrival, plan and start, record an attempt, cancel, MCP read, with error branches. |
 | [Domain events](/docs/ddd/domain-events) | Event catalogue | Every event published and consumed: full CloudEvents type, topic, key, payload. |
 

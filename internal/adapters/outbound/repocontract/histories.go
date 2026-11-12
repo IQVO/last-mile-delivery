@@ -11,7 +11,7 @@ import (
 var historyCases = []named{
 	{"save then get round-trips the snapshot", historyRoundTrip},
 	{"get of an unknown tracking number is ErrNotFound", historyGetMiss},
-	{"stale, duplicate and orphan saves are ErrConcurrentUpdate", historyConcurrency},
+	{concurrencyCase, historyConcurrency},
 	{"list waiting returns the AT_STATION packages of the station, oldest first, up to the limit", historyListWaiting},
 }
 

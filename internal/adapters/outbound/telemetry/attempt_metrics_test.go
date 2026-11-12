@@ -25,10 +25,16 @@ func TestAttemptMetricsCountsByOutcomeAndReason(t *testing.T) {
 	metrics.AttemptDelivered(ctx)
 	metrics.AttemptDelivered(ctx)
 	metrics.AttemptFailed(ctx)
+	metrics.PointFlagged(ctx, "NOT_HOME")
+	metrics.PointFlagged(ctx, "NOT_HOME")
+	metrics.PointFlagged(ctx, "ACCESS_PROBLEM")
 	metrics.AttemptRejected(ctx, "route-not-started")
 	metrics.AttemptRejected(ctx, "already-delivered")
 	metrics.AttemptRejected(ctx, "already-delivered")
 
+	if got := collectFlaggedPoints(t, reader); got["NOT_HOME"] != 2 || got["ACCESS_PROBLEM"] != 1 || len(got) != 2 {
+		t.Fatalf("flagged points = %v", got)
+	}
 	got := collectAttemptPoints(t, reader)
 	want := map[string]int64{"delivered/": 2, "failed/": 1, "rejected/route-not-started": 1, "rejected/already-delivered": 2}
 	if len(got) != len(want) {
@@ -85,4 +91,31 @@ func TestAttemptMetricsRecordingNeverPanics(t *testing.T) {
 	metrics.AttemptDelivered(context.Background())
 	metrics.AttemptFailed(context.Background())
 	metrics.AttemptRejected(context.Background(), "internal-error")
+	metrics.PointFlagged(context.Background(), "NOT_HOME")
+}
+
+// collectFlaggedPoints reads the last_mile_delivery.delivery_point.flagged data
+// points as reason -> value, checking the unit and description.
+func collectFlaggedPoints(t *testing.T, reader sdkmetric.Reader) map[string]int64 {
+	t.Helper()
+	var collected metricdata.ResourceMetrics
+	if err := reader.Collect(context.Background(), &collected); err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	got := map[string]int64{}
+	for _, scope := range collected.ScopeMetrics {
+		for _, m := range scope.Metrics {
+			if m.Name != "last_mile_delivery.delivery_point.flagged" {
+				continue
+			}
+			if m.Unit != "{event}" || m.Description == "" {
+				t.Errorf("unit = %q, description empty = %v", m.Unit, m.Description == "")
+			}
+			for _, point := range m.Data.(metricdata.Sum[int64]).DataPoints {
+				reason, _ := point.Attributes.Value("reason")
+				got[reason.AsString()] = point.Value
+			}
+		}
+	}
+	return got
 }

@@ -23,22 +23,27 @@ var ErrUnknownStation = errors.New("unknown station")
 
 // Deps bundles the ports the use cases need.
 type Deps struct {
-	Waves        ports.WaveRepository
-	Routes       ports.RouteRepository
-	Partners     ports.PartnerRepository
-	Histories    ports.HistoryRepository
-	Stations     ports.StationRepository
-	ServiceAreas ports.ServiceAreaRepository
-	PackageStops ports.PackageStopRepository
-	Inbound      ports.InboundPackageRepository
-	Inbox        ports.Inbox
-	Outbox       ports.EventOutbox
-	UoW          ports.UnitOfWork
-	Clock        ports.Clock
-	IDs          ports.IDGenerator
+	Waves     ports.WaveRepository
+	Routes    ports.RouteRepository
+	Partners  ports.PartnerRepository
+	Histories ports.HistoryRepository
+	// DeliveryPoints holds the DeliveryPointProfile of every address stop (ADR 0014).
+	DeliveryPoints ports.DeliveryPointRepository
+	Stations       ports.StationRepository
+	ServiceAreas   ports.ServiceAreaRepository
+	PackageStops   ports.PackageStopRepository
+	Inbound        ports.InboundPackageRepository
+	Inbox          ports.Inbox
+	Outbox         ports.EventOutbox
+	UoW            ports.UnitOfWork
+	Clock          ports.Clock
+	IDs            ports.IDGenerator
 	// Metrics records the business outcome of each delivery attempt; nil
 	// records nothing, so unit tests need no wiring.
 	Metrics ports.AttemptMetrics
+	// EtaMetrics records the ETA windows StartRoute assigned or skipped; nil
+	// records nothing.
+	EtaMetrics ports.EtaMetrics
 }
 
 // metrics returns the configured AttemptMetrics or a no-op.
@@ -55,6 +60,7 @@ type noMetrics struct{}
 func (noMetrics) AttemptDelivered(context.Context)        {}
 func (noMetrics) AttemptFailed(context.Context)           {}
 func (noMetrics) AttemptRejected(context.Context, string) {}
+func (noMetrics) PointFlagged(context.Context, string)    {}
 
 // writer is what every use case embeds.
 type writer struct{ Deps }

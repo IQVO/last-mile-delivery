@@ -57,6 +57,18 @@ Feature: Routes and delivery attempts
     And the "PackageOutForDelivery" event for route "route-1" has "trackingNumber" "TRK-1"
     And the "PackageOutForDelivery" event for route "route-1" has "trackingNumber" "TRK-2"
 
+  Scenario: Starting a route assigns an ETA window to every stop
+    Given the packages "TRK-1" and "TRK-2" are inducted in wave "wave-1" and induction is closed
+    And the planner plans a route with 2 stops
+    And the planner dispatches wave "wave-1"
+    When the driver starts route "route-1"
+    Then exactly 2 "StopEtaWindowAssigned" events were published
+    And the "StopEtaWindowAssigned" event for route "route-1" has "stopNo" "1"
+    And the "StopEtaWindowAssigned" event for route "route-1" has "stopKey" "pkg:TRK-1"
+    And the "StopEtaWindowAssigned" event for route "route-1" has "trackingNumbers" "TRK-1"
+    And the "StopEtaWindowAssigned" event for route "route-1" has "stopNo" "2"
+    And the "StopEtaWindowAssigned" event for route "route-1" has "trackingNumbers" "TRK-2"
+
   Scenario: An attempt is published with its outcome
     Given a started route "route-1" with the packages "TRK-1" and "TRK-2"
     When the driver records the package "TRK-1" as delivered

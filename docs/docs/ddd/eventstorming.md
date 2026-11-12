@@ -52,6 +52,7 @@ flowchart LR
     DW["DispatchWave"]:::command --> W1
     SR["StartRoute"]:::command --> R1
     R1 --> E5["PackageOutForDelivery"]:::event
+    R1 --> E5b["StopEtaWindowAssigned<br/>(one per stop)"]:::event
     RA["RecordAttempt"]:::command --> R1
     R1 --> E6["DeliveryAttempted"]:::event
     E6 --> P3["RetryNextWave"]:::policy

@@ -5,7 +5,7 @@
       "openWorldHint": false,
       "readOnlyHint": true
     },
-    "description": "Read one route of a delivery service partner: its state (PLANNED, OUT_FOR_DELIVERY or COMPLETED), its numbered stops with the trackingNumbers of each and the outcome derived from the per-package attempts (omitted until every package of the stop has one), and every recorded attempt (trackingNumber, DELIVERED or FAILED, failureReason, at). Read-only; an unknown route fails with not-found.",
+    "description": "Read one route of a delivery service partner: its state (PLANNED, OUT_FOR_DELIVERY or COMPLETED), its numbered stops with the trackingNumbers of each and the outcome derived from the per-package attempts (omitted until every package of the stop has one), and every recorded attempt (trackingNumber, DELIVERED or FAILED, the optional outcomeDetail, failureReason, at). Read-only; an unknown route fails with not-found.",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -34,6 +34,9 @@
                 "type": "string"
               },
               "outcome": {
+                "type": "string"
+              },
+              "outcomeDetail": {
                 "type": "string"
               },
               "routeId": {

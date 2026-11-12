@@ -15,7 +15,7 @@ func TestMemoryPassesTheRepositoryContract(t *testing.T) {
 		s := memory.NewStore()
 		return repocontract.Fixture{
 			Waves: s.Waves(), Routes: s.Routes(), Partners: s.Partners(), Histories: s.Histories(), Stations: s.Stations(),
-			ServiceAreas: s.ServiceAreas(), PackageStops: s.PackageStops(), Inbound: s.Inbound(), Inbox: s.Inbox(),
+			ServiceAreas: s.ServiceAreas(), PackageStops: s.PackageStops(), DeliveryPoints: s.DeliveryPoints(), Inbound: s.Inbound(), Inbox: s.Inbox(),
 			Outbox: s.Outbox(), UoW: s.UnitOfWork(),
 			OutboxCount: func(context.Context) (int, error) { return s.Counts().OutboxEvents, nil },
 		}

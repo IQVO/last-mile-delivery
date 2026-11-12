@@ -59,6 +59,7 @@ type Attempt struct {
 	RouteID        string
 	TrackingNumber string
 	Outcome        string
+	OutcomeDetail  string
 	FailureReason  string
 	At             time.Time
 }
@@ -93,7 +94,7 @@ func RouteFrom(r *route.Route) Route {
 
 // AttemptFrom builds the view of one attempt of a route.
 func AttemptFrom(id route.ID, a route.Attempt) Attempt {
-	return Attempt{RouteID: string(id), TrackingNumber: a.TrackingNumber, Outcome: string(a.Outcome), FailureReason: a.FailureReason, At: a.At}
+	return Attempt{RouteID: string(id), TrackingNumber: a.TrackingNumber, Outcome: string(a.Outcome), OutcomeDetail: string(a.Detail), FailureReason: a.FailureReason, At: a.At}
 }
 
 // Partner is a delivery service partner as returned by the API.

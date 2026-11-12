@@ -1,6 +1,7 @@
 // Package reportshttp is the read-only REST inbound adapter of the analytics
 // read side (ADR 0012): GET /reports/route-efficiency,
-// /reports/attempt-outcomes, /reports/wave-utilisation and /reports/freshness
+// /reports/attempt-outcomes, /reports/wave-utilisation, /reports/eta-window
+// (ADR 0013) and /reports/freshness
 // over a report.Reader, plus /healthz and /readyz. It is served by
 // cmd/lm-reports, never by cmd/api. Every error is an RFC 9457 problem; there
 // is no auth (fleet decision 2026-09-11) and no write route.
@@ -90,6 +91,10 @@ func NewRouter(s *Server, logger *slog.Logger, serviceName string) http.Handler 
 	r.Get("/reports/wave-utilisation", reportHandler(s, func(ctx context.Context, rg report.Range) (any, error) {
 		days, err := s.Reader.WaveUtilisation(ctx, rg)
 		return wavesBody(rg, report.WaveUtilisationRows(days)), err
+	}))
+	r.Get("/reports/eta-window", reportHandler(s, func(ctx context.Context, rg report.Range) (any, error) {
+		days, err := s.Reader.EtaWindow(ctx, rg)
+		return etaBody(rg, report.EtaWindowRows(days)), err
 	}))
 	r.Get("/reports/freshness", s.handleFreshness)
 	return r

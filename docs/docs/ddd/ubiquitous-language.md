@@ -20,6 +20,7 @@ Source: `internal/domain/*`, `internal/application/views/views.go`, `apis/openap
 | Delivery window | The period in which the wave's packages are delivered | `WindowStart`, `WindowEnd` |
 | Stop | One delivery address; several packages for one address are one stop | `route.Stop`, grouped by `stopKey` |
 | Stop key | Opaque keyed hash of the normalised address (never the address); `pkg:<trackingNumber>` when no label data arrived | `stopKey`, table `rm_package_stops` |
+| Delivery point | The address behind one stop key and its delivery history (counted failed attempts by outcome detail, decaying over 60 days); after two counted failures the point is flagged so the shopper can be warned (ADR 0014) | `deliverypoint.DeliveryPointProfile`, `DeliveryPointFlagged` |
 | Stop capacity | How many stops a wave can take (counted in stops, not packages) | `StopCapacity`, `AssignedStops`, `RemainingStops` |
 | Induction | Placing a package in a wave | `DeliveryWave.Induct`, `wave_inductions` |
 | Induct on arrival | Policy: when a load arrives at a station, induct every package into the earliest eligible wave | `usecases.InductOnArrival` |
@@ -33,6 +34,7 @@ Source: `internal/domain/*`, `internal/application/views/views.go`, `apis/openap
 | Route | One partner's van run within a wave: ordered stops and attempts | `route.Route` |
 | Plan a route | Assign inducted packages, grouped into numbered stops, to a partner | `PlanRoute`, `route.Plan` |
 | Out for delivery | A started route; each of its packages is announced | `StateOutForDelivery`, `PackageOutForDelivery` |
+| ETA window | The at most two-hour window of one stop of a started route, a deterministic spread of the stops over what is left of the wave's delivery window; announced once at `StartRoute` and never retracted | `route.EtaWindows`, `StopEtaWindowAssigned` |
 | Delivery attempt | One try at one package on one route, `DELIVERED` or `FAILED` with a reason | `route.Attempt`, `DeliveryAttempted` |
 | Failure reason | Free text supplied exactly when an attempt failed | `FailureReason` |
 | Package attempt history | Per tracking number: status and failed-attempt count (G16) | `history.History`, `package_histories` |

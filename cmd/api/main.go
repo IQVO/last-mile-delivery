@@ -68,6 +68,11 @@ func run(ctx context.Context) error {
 		return err
 	}
 	ad.deps.Metrics = attemptMetrics
+	etaMetrics, err := telemetry.NewEtaMetrics()
+	if err != nil {
+		return err
+	}
+	ad.deps.EtaMetrics = etaMetrics
 
 	readiness := newReadiness(ad.pool.Ping, rt.brokers)
 	httpServer := &http.Server{

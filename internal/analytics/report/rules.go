@@ -82,6 +82,9 @@ func (e Event) kindChecks() ([]required, bool) {
 		return []required{route, tracking, {"an outcome of the vocabulary", IsAttemptOutcome(e.Outcome)}}, true
 	case KindReturnInitiated:
 		return []required{tracking}, true
+	case KindStopEtaWindowAssigned:
+		return []required{route, {"a positive stopNo", e.StopNo >= 1}, {"at least one trackingNumber, none blank", allNonBlank(e.TrackingNumbers)},
+			{"etaStart before etaEnd", !e.EtaStart.IsZero() && e.EtaStart.Before(e.EtaEnd)}}, true
 	default:
 		return nil, false
 	}
@@ -101,4 +104,9 @@ func firstMissing(fields ...required) string {
 		}
 	}
 	return ""
+}
+
+// allNonBlank reports whether values holds at least one entry and no blank one.
+func allNonBlank(values []string) bool {
+	return len(values) > 0 && !slices.Contains(values, "")
 }

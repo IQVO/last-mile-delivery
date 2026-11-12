@@ -103,12 +103,12 @@ REST errors are RFC 9457 `application/problem+json`; the `type` is the slug (`in
 
 - **Trigger**: DSP driver app, `POST /routes/{routeId}/starts`.
 - **Invariants**: the route is `PLANNED` and its wave is `DISPATCHED` (else `illegal-transition`).
-- **Events**: one `PackageOutForDelivery` per tracking number, in stop order (A14).
+- **Events**: one `PackageOutForDelivery` per tracking number, in stop order (A14), then one `StopEtaWindowAssigned` per stop, in stop order, in the same transaction ([ADR 0013](/docs/adr/0013-stop-eta-window)): a window of at most two hours per stop, spread over what is left of the wave's delivery window from the start instant. When less than 30 minutes are left no ETA event is raised and the route starts normally (counter `last_mile_delivery.stop_eta.skipped`). Nothing about the ETA is stored on the route.
 
 ## RecordAttempt
 
 - **Trigger**: DSP driver app, `POST /routes/{routeId}/attempts`.
-- **Input**: `trackingNumber`, `outcome` (`DELIVERED` or `FAILED`), `failureReason` (required exactly when `FAILED`), `at`.
+- **Input**: `trackingNumber`, `outcome` (`DELIVERED` or `FAILED`), `failureReason` (required exactly when `FAILED`), optional `outcomeDetail` (the category the driver client reports, validated against the outcome; ADR 0014), `at`.
 - **Invariants**: the route is `OUT_FOR_DELIVERY` (`route-not-started`); the package is on the route (`package-not-on-route`); one attempt per package per route (`attempt-already-recorded`); a delivered package cannot be delivered again, on any route (`already-delivered`, also enforced by a partial unique index).
 - **Flow**: record the attempt on the route; update the package's `PackageAttemptHistory`: `DELIVERED` marks it delivered; `FAILED` counts a failure, and unless this would be the third, **`RetryNextWave`** places the package on the next eligible wave (A18, A19). Save, publish, then complete the route when every package has an attempt (A16) and the wave when its last route completes (A9).
 - **Events**: `DeliveryAttempted`; on a failure that finds a wave `DeliveryWaveCapacityChanged`, with none `PackageInductionDeferred`; on the third failure `PackageReturnInitiated`.

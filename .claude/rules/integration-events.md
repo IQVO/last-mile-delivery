@@ -7,7 +7,7 @@ paths:
 
 # Cross-service integration events (Kafka)
 
-last-mile-delivery PUBLISHES eight events: seven to
+last-mile-delivery PUBLISHES ten events: nine to
 `retailnetwork.last-mile-delivery.events` and `RoutePlanned` ONLY to
 `retailnetwork.last-mile-delivery.analytics`; it CONSUMES four (ADR 0003). Never
 produce or consume a `warehouse.*` topic.
@@ -61,6 +61,7 @@ structured content mode. This is a hard rule, not a preference:
 | `com.retailnetwork.logistics.last-mile-delivery.route.RoutePlanned` | analytics | routeId |
 | `com.retailnetwork.logistics.last-mile-delivery.route.PackageOutForDelivery` | events | routeId |
 | `com.retailnetwork.logistics.last-mile-delivery.route.DeliveryAttempted` | events | routeId |
+| `com.retailnetwork.logistics.last-mile-delivery.route.StopEtaWindowAssigned` | events | routeId |
 | `com.retailnetwork.logistics.last-mile-delivery.packageattempthistory.PackageInductionDeferred` | events | trackingNumber |
 | `com.retailnetwork.logistics.last-mile-delivery.packageattempthistory.PackageReturnInitiated` | events | trackingNumber |
 

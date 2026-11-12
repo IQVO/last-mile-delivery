@@ -80,6 +80,7 @@ Source: `internal/domain/route/route.go` (`Plan`, `Start`, `RecordAttempt`, `Com
 | an attempt only on an `OUT_FOR_DELIVERY` route, on a package of the route, once per package | `ErrRouteNotStarted`, `ErrPackageNotOnRoute`, `ErrAttemptAlreadyRecorded` |
 | a package is delivered at most once across routes | `ErrAlreadyDelivered`, partial unique index `idx_route_attempts_delivered_once` |
 | `failureReason` exactly when `FAILED` | check `route_attempts_reason_check` |
+| `outcomeDetail` matches the outcome (`FAILED`: `NOT_HOME`, `ACCESS_PROBLEM`, `OTHER`; `DELIVERED`: `SAFE_PLACE_USED`; empty = not reported) | `Detail.Valid`, check `route_attempts_detail_check` |
 | completion needs every package attempted | `ErrRouteIncomplete` |
 
 The van capacity belongs to another aggregate: `PlanRoute` reads the partner when the route is created and checks the stop count; a later change to the partner does not re-check planned routes.
@@ -87,11 +88,11 @@ The van capacity belongs to another aggregate: `PlanRoute` reads the partner whe
 | Command | Transition | Issued by | Event |
 | --- | --- | --- | --- |
 | `PlanRoute` | creates `PLANNED` | REST `POST /routes` | `RoutePlanned` (analytics topic) |
-| `StartRoute` | `PLANNED` to `OUT_FOR_DELIVERY` | REST `POST /routes/{routeId}/starts` | `PackageOutForDelivery` per package |
+| `StartRoute` | `PLANNED` to `OUT_FOR_DELIVERY` | REST `POST /routes/{routeId}/starts` | `PackageOutForDelivery` per package, then `StopEtaWindowAssigned` per stop |
 | `RecordAttempt` | records the attempt | REST `POST /routes/{routeId}/attempts` | `DeliveryAttempted` |
 | `Complete` | `OUT_FOR_DELIVERY` to `COMPLETED` | inside `RecordAttempt` when the last package is attempted | none |
 
-**Neighbour reaction**: `shipping-and-tracking` turns `PackageOutForDelivery` and `DeliveryAttempted` into scans on its package journey.
+**Neighbour reaction**: `shipping-and-tracking` turns `PackageOutForDelivery` and `DeliveryAttempted` into scans on its package journey and relays `StopEtaWindowAssigned` per tracking number.
 
 **Throughput / size**: one write per attempt, from one driver app per route (low contention), peaking inside the delivery window. A route holds up to the van capacity in stops.
 

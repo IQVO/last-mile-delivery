@@ -17,6 +17,7 @@ import (
 	"github.com/claudioed/last-mile-delivery/internal/application/outbox"
 	"github.com/claudioed/last-mile-delivery/internal/application/repository"
 	"github.com/claudioed/last-mile-delivery/internal/application/views"
+	"github.com/claudioed/last-mile-delivery/internal/domain/deliverypoint"
 	"github.com/claudioed/last-mile-delivery/internal/domain/history"
 	"github.com/claudioed/last-mile-delivery/internal/domain/partner"
 	"github.com/claudioed/last-mile-delivery/internal/domain/route"
@@ -68,6 +69,19 @@ type HistoryRepository interface {
 	ListWaiting(ctx context.Context, stationNodeID string, limit int) ([]*history.History, error)
 	// Save persists the history under the concurrency rule of the package comment.
 	Save(ctx context.Context, h *history.History) error
+}
+
+// DeliveryPointRepository persists DeliveryPointProfile aggregates by stopKey.
+type DeliveryPointRepository interface {
+	// Get returns the profile of the stop key, or ErrNotFound.
+	Get(ctx context.Context, stopKey string) (*deliverypoint.Profile, error)
+	// GetMany returns the profiles of the stop keys that have one, keyed by
+	// stop key; a key with no profile is simply absent, never an error.
+	GetMany(ctx context.Context, stopKeys []string) (map[string]*deliverypoint.Profile, error)
+	// Save persists the profile under the concurrency rule of the package
+	// comment: a create (version 1) expects absence, a unique violation is
+	// ErrConcurrentUpdate.
+	Save(ctx context.Context, p *deliverypoint.Profile) error
 }
 
 // StationRepository is the StationView read model fed by NodeRegistered.
@@ -167,4 +181,18 @@ type AttemptMetrics interface {
 	// AttemptRejected counts an attempt report that recorded nothing; reason
 	// is a stable, low-cardinality slug.
 	AttemptRejected(ctx context.Context, reason string)
+	// PointFlagged counts a DeliveryPointFlagged raised by the attempt; reason
+	// is NOT_HOME or ACCESS_PROBLEM.
+	PointFlagged(ctx context.Context, reason string)
+}
+
+// EtaMetrics records what StartRoute did about the day-of ETA windows (ADR
+// 0013). The implementation lives in internal/adapters/outbound/telemetry; a
+// nil Deps.EtaMetrics records nothing.
+type EtaMetrics interface {
+	// EtaAssigned counts n StopEtaWindowAssigned events raised by a committed start.
+	EtaAssigned(ctx context.Context, n int)
+	// EtaSkipped counts a committed start that raised no ETA; reason is a
+	// stable slug ("window_elapsed").
+	EtaSkipped(ctx context.Context, reason string)
 }

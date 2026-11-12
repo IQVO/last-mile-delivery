@@ -49,7 +49,7 @@ func TestSpecReportsPathsMatchTheRouter(t *testing.T) {
 	}
 	slices.Sort(documented)
 	slices.Sort(served)
-	if len(documented) != 4 || !slices.Equal(documented, served) {
+	if len(documented) != 5 || !slices.Equal(documented, served) {
 		t.Fatalf("spec /reports paths %v != router %v", documented, served)
 	}
 }
@@ -57,7 +57,7 @@ func TestSpecReportsPathsMatchTheRouter(t *testing.T) {
 // Every JSON field the wire bodies write is a property name in the spec.
 func TestSpecDocumentsEveryWireField(t *testing.T) {
 	spec := specText(t)
-	for _, v := range []any{routeDayBody{}, routeReportBody{}, attemptDayBody{}, attemptReportBody{}, waveDayBody{}, waveReportBody{}, freshnessBody{}} {
+	for _, v := range []any{routeDayBody{}, routeReportBody{}, attemptDayBody{}, attemptReportBody{}, waveDayBody{}, waveReportBody{}, etaDayBody{}, etaReportBody{}, freshnessBody{}} {
 		typ := reflect.TypeOf(v)
 		for i := range typ.NumField() {
 			name, _, _ := strings.Cut(typ.Field(i).Tag.Get("json"), ",")

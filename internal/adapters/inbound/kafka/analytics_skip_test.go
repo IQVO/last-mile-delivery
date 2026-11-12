@@ -82,6 +82,20 @@ func TestAnalyticsConsumerAcknowledgesTheUnprojectedOwnTypeSilently(t *testing.T
 	}
 }
 
+func TestAnalyticsConsumerAcknowledgesDeliveryPointFlaggedSilently(t *testing.T) {
+	warns := &warnCounter{}
+	p, dlq := &fakeProjection{}, &analyticsDLQ{}
+	c := analyticsConsumer(p, dlq, slog.New(warns))
+	data := map[string]any{"stopKey": "k", "reason": "NOT_HOME", "failures": 2, "trackingNumbers": []string{"T1"}, "flaggedAt": "2026-10-24T06:15:00Z"}
+	msg := kafkago.Message{Value: ownEvent(t, entityPoint, "DeliveryPointFlagged", "k", data)}
+	if err := c.HandleMessage(context.Background(), msg); err != nil {
+		t.Fatal(err)
+	}
+	if warns.warns != 0 || len(p.events) != 0 || len(dlq.msgs) != 0 {
+		t.Fatalf("warns=%d applied=%d dlq=%d, want all zero", warns.warns, len(p.events), len(dlq.msgs))
+	}
+}
+
 func TestSkipWarnInterval(t *testing.T) {
 	if skipWarnEvery() != time.Minute {
 		t.Fatalf("skipWarnEvery = %v", skipWarnEvery())

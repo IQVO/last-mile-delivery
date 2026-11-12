@@ -30,7 +30,7 @@ func newEnv(t *testing.T) *env {
 	clock := memory.NewClock(t0)
 	return &env{store: store, clock: clock, deps: usecases.Deps{
 		Waves: store.Waves(), Routes: store.Routes(), Partners: store.Partners(), Histories: store.Histories(),
-		Stations: store.Stations(), ServiceAreas: store.ServiceAreas(), PackageStops: store.PackageStops(), Inbound: store.Inbound(),
+		Stations: store.Stations(), ServiceAreas: store.ServiceAreas(), PackageStops: store.PackageStops(), DeliveryPoints: store.DeliveryPoints(), Inbound: store.Inbound(),
 		Inbox: store.Inbox(), Outbox: store.Outbox(), UoW: store.UnitOfWork(), Clock: clock, IDs: &memory.SequentialIDs{},
 	}}
 }

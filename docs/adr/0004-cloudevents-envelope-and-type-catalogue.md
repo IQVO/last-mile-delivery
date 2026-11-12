@@ -30,17 +30,20 @@ against `apis/asyncapi.yaml`. The consumed types are listed in ADR 0003.
   RFC 3339 UTC; the service date is `YYYY-MM-DD`.
 - Built and decoded only through `internal/adapters/kafka/cloudevents`.
 - `<entity>` is the raising aggregate, lowercase, no separators: `wave`,
-  `route`, `packageattempthistory`. Tier is `logistics`.
+  `route`, `packageattempthistory`, `deliverypointprofile`. Tier is `logistics`.
 
 ### Published types
 
-Eight types go ONLY to the integration topic `retailnetwork.last-mile-delivery.events`
+Nine types go ONLY to the integration topic `retailnetwork.last-mile-delivery.events`
 (`stream: events`); `RoutePlanned` is analytics-only and goes ONLY to
 `retailnetwork.last-mile-delivery.analytics` (`stream: analytics`).
 `DeliveryWaveCancelled` is an integration event (Gap Register G5, contracts-delta
 E5), no longer analytics-only. `PackageInductionDeferred` and
 `PackageReturnInitiated` are the Gap Register G16 additions (contracts-delta E15).
 `WaveCostDeclared` is the roadmap F7 provider-B addition (ADR 0011).
+`StopEtaWindowAssigned` is the roadmap E3 addition (ADR 0013).
+`DeliveryPointFlagged` is the roadmap C5 addition (ADR 0014); its entity is
+`deliverypointprofile` and its subject and key are the opaque `stopKey`.
 
 ```text
 type: com.retailnetwork.logistics.last-mile-delivery.wave.DeliveryWaveScheduled stream: events
@@ -50,8 +53,10 @@ type: com.retailnetwork.logistics.last-mile-delivery.wave.WaveCostDeclared strea
 type: com.retailnetwork.logistics.last-mile-delivery.route.RoutePlanned stream: analytics
 type: com.retailnetwork.logistics.last-mile-delivery.route.PackageOutForDelivery stream: events
 type: com.retailnetwork.logistics.last-mile-delivery.route.DeliveryAttempted stream: events
+type: com.retailnetwork.logistics.last-mile-delivery.route.StopEtaWindowAssigned stream: events
 type: com.retailnetwork.logistics.last-mile-delivery.packageattempthistory.PackageInductionDeferred stream: events
 type: com.retailnetwork.logistics.last-mile-delivery.packageattempthistory.PackageReturnInitiated stream: events
+type: com.retailnetwork.logistics.last-mile-delivery.deliverypointprofile.DeliveryPointFlagged stream: events
 ```
 
 | Event | Subject / key | Raised when | `data` |
@@ -62,16 +67,18 @@ type: com.retailnetwork.logistics.last-mile-delivery.packageattempthistory.Packa
 | `WaveCostDeclared` | `waveId` | DeclareCost is saved (planner's stop-cost declaration, ADR 0011) | `{waveId, costPerStopCents, declaredAt}` |
 | `RoutePlanned` | `routeId` | PlanRoute is saved | `{routeId, waveId, dspId, stopCount}` |
 | `PackageOutForDelivery` | `routeId` | StartRoute is saved, one per tracking number | `{routeId, trackingNumber, stationNodeId, at}` |
-| `DeliveryAttempted` | `routeId` | RecordAttempt is saved, one per package | `{routeId, trackingNumber, outcome, failureReason?, at}` |
+| `DeliveryAttempted` | `routeId` | RecordAttempt is saved, one per package | `{routeId, trackingNumber, outcome, outcomeDetail?, failureReason?, at}` |
+| `StopEtaWindowAssigned` | `routeId` | StartRoute is saved, one per stop, after every `PackageOutForDelivery` (ADR 0013) | `{routeId, stopNo, stopKey, trackingNumbers, etaStart, etaEnd}` |
 | `PackageInductionDeferred` | `trackingNumber` | no wave accepts a package that is at the station | `{trackingNumber, assignmentId?}` |
 | `PackageReturnInitiated` | `trackingNumber` | the third failed attempt of a package | `{trackingNumber}` |
+| `DeliveryPointFlagged` | `stopKey` | RecordAttempt leaves a delivery point with two open counted failures and packages not told yet (ADR 0014) | `{stopKey, reason, failures, trackingNumbers, flaggedAt}` |
 
 Payload rules:
 
 - The `data` field lists are exactly the model's `publishes[].data` lists plus the
   two Gap Register G16 events. Wire types are recorded in `apis/asyncapi.yaml`
   (ADR 0002, assumption A24).
-- `failureReason` is present only when `outcome` is `FAILED`; `assignmentId` is
+- `outcomeDetail` is optional and present only when the driver client reported one (ADR 0014); `failureReason` is present only when `outcome` is `FAILED`; `assignmentId` is
   omitted only when no `LabelIssued` was received for the package.
 - `CloseInduction`, `DispatchWave`, `CompleteWave`, `StartRoute` (other than its
   per-package events), `CompleteRoute`, `ContractPartner` and `DeactivatePartner`

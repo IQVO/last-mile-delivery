@@ -65,9 +65,11 @@ type StartRoute struct{ writer }
 // NewStartRoute builds the use case.
 func NewStartRoute(d Deps) *StartRoute { return &StartRoute{writer{d}} }
 
-// Execute starts the route and saves it with one PackageOutForDelivery per package (A14).
+// Execute starts the route and saves it with one PackageOutForDelivery per package
+// (A14) and, in the same transaction, one StopEtaWindowAssigned per stop (ADR 0013).
 func (uc *StartRoute) Execute(ctx context.Context, id route.ID) (views.Route, error) {
-	return transact(ctx, uc.UoW, func(ctx context.Context) (views.Route, error) {
+	assigned := 0
+	v, err := transact(ctx, uc.UoW, func(ctx context.Context) (views.Route, error) {
 		r, err := uc.Routes.Get(ctx, id)
 		if err != nil {
 			return views.Route{}, err
@@ -79,10 +81,11 @@ func (uc *StartRoute) Execute(ctx context.Context, id route.ID) (views.Route, er
 		if wv.State() != wave.StateDispatched {
 			return views.Route{}, fmt.Errorf("%w: StartRoute needs wave %s DISPATCHED but it is %s", shared.ErrIllegalTransition, wv.ID(), wv.State())
 		}
-		events, err := r.Start(uc.now())
+		events, err := r.Start(uc.now(), wv)
 		if err != nil {
 			return views.Route{}, err
 		}
+		assigned = countEtaEvents(events)
 		if err := uc.Routes.Save(ctx, r); err != nil {
 			return views.Route{}, err
 		}
@@ -91,6 +94,10 @@ func (uc *StartRoute) Execute(ctx context.Context, id route.ID) (views.Route, er
 		}
 		return views.RouteFrom(r), nil
 	})
+	if err == nil {
+		uc.recordEta(ctx, assigned)
+	}
+	return v, err
 }
 
 // RecordAttemptCommand is the input of RecordAttempt.
@@ -98,6 +105,7 @@ type RecordAttemptCommand struct {
 	RouteID        route.ID
 	TrackingNumber string
 	Outcome        route.Outcome
+	Detail         route.Detail
 	FailureReason  string
 	At             time.Time
 }
@@ -113,18 +121,27 @@ func NewRecordAttempt(d Deps) *RecordAttempt { return &RecordAttempt{writer{d}} 
 // RetryNextWave on a failure (A18, A19), completes the route when its last
 // package is recorded (A16) and the wave when its last route completes (A9).
 func (uc *RecordAttempt) Execute(ctx context.Context, cmd RecordAttemptCommand) (views.Attempt, error) {
-	a, err := uc.execute(ctx, cmd)
+	a, flagged, err := uc.execute(ctx, cmd)
 	uc.recordOutcome(ctx, cmd.Outcome, err)
+	if err == nil {
+		for _, reason := range flagged {
+			uc.metrics().PointFlagged(ctx, reason)
+		}
+	}
 	return a, err
 }
 
-func (uc *RecordAttempt) execute(ctx context.Context, cmd RecordAttemptCommand) (views.Attempt, error) {
-	return transact(ctx, uc.UoW, func(ctx context.Context) (views.Attempt, error) {
+// execute runs the unit of work and returns the reasons of the points it
+// flagged, taken from the run that committed.
+func (uc *RecordAttempt) execute(ctx context.Context, cmd RecordAttemptCommand) (views.Attempt, []string, error) {
+	var flagged []string
+	a, err := transact(ctx, uc.UoW, func(ctx context.Context) (views.Attempt, error) {
+		flagged = nil
 		r, err := uc.Routes.Get(ctx, cmd.RouteID)
 		if err != nil {
 			return views.Attempt{}, err
 		}
-		events, err := r.RecordAttempt(cmd.TrackingNumber, cmd.Outcome, cmd.FailureReason, cmd.At, uc.now())
+		events, err := r.RecordAttempt(cmd.TrackingNumber, cmd.Outcome, cmd.Detail, cmd.FailureReason, cmd.At, uc.now())
 		if err != nil {
 			return views.Attempt{}, err
 		}
@@ -132,6 +149,11 @@ func (uc *RecordAttempt) execute(ctx context.Context, cmd RecordAttemptCommand) 
 		if err != nil {
 			return views.Attempt{}, err
 		}
+		pointEvents, err := uc.updateProfile(ctx, r, cmd)
+		if err != nil {
+			return views.Attempt{}, err
+		}
+		more, flagged = append(more, pointEvents...), flagReasons(pointEvents)
 		if err := uc.Routes.Save(ctx, r); err != nil {
 			return views.Attempt{}, err
 		}
@@ -144,6 +166,7 @@ func (uc *RecordAttempt) execute(ctx context.Context, cmd RecordAttemptCommand) 
 		a, _ := r.AttemptOf(cmd.TrackingNumber)
 		return views.AttemptFrom(r.ID(), a), nil
 	})
+	return a, flagged, err
 }
 
 // updateHistory applies the attempt to the package's history and, on a failure

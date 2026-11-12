@@ -52,6 +52,7 @@ type DeliveryAttempted struct {
 	RouteID        ID
 	TrackingNumber string
 	Outcome        Outcome
+	Detail         Detail
 	FailureReason  string
 	At             time.Time
 }
@@ -65,8 +66,31 @@ func (DeliveryAttempted) Entity() string { return entity }
 // SubjectID returns the routeId.
 func (e DeliveryAttempted) SubjectID() string { return string(e.RouteID) }
 
+// StopEtaWindowAssigned is raised by Start, once per stop, after every
+// PackageOutForDelivery (ADR 0013). The header instant is the route start
+// instant, which consumers read as the assignment time.
+type StopEtaWindowAssigned struct {
+	shared.Header
+	RouteID         ID
+	StopNo          int
+	StopKey         string
+	TrackingNumbers []string
+	EtaStart        time.Time
+	EtaEnd          time.Time
+}
+
+// EventName returns "StopEtaWindowAssigned".
+func (StopEtaWindowAssigned) EventName() string { return "StopEtaWindowAssigned" }
+
+// Entity returns "route".
+func (StopEtaWindowAssigned) Entity() string { return entity }
+
+// SubjectID returns the routeId.
+func (e StopEtaWindowAssigned) SubjectID() string { return string(e.RouteID) }
+
 var (
 	_ shared.Event = RoutePlanned{}
 	_ shared.Event = PackageOutForDelivery{}
 	_ shared.Event = DeliveryAttempted{}
+	_ shared.Event = StopEtaWindowAssigned{}
 )
