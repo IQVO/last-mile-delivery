@@ -17,15 +17,19 @@ import (
 //
 //	$1 from, $2 to, $3 unknown station, $4 DELIVERED
 const etaSQL = `
-	SELECT (a.attempted_at AT TIME ZONE 'UTC')::date AS day, COALESCE(p.station_node_id, $3) AS station,
-	       count(e.route_id),
-	       count(*) FILTER (WHERE a.attempted_at >= e.eta_start AND a.attempted_at <= e.eta_end),
-	       count(*) FILTER (WHERE a.attempted_at < e.eta_start),
-	       count(*) FILTER (WHERE a.attempted_at > e.eta_end)
-	FROM delivery_attempts a
-	LEFT JOIN route_packages p ON p.route_id = a.route_id AND p.tracking_number = a.tracking_number
-	LEFT JOIN stop_eta_windows e ON e.route_id = a.route_id AND e.tracking_number = a.tracking_number
-	WHERE a.outcome = $4 AND a.attempted_at >= $1 AND a.attempted_at < $2
+	WITH delivered AS (
+		SELECT (a.attempted_at AT TIME ZONE 'UTC')::date AS day, COALESCE(p.station_node_id, $3) AS station,
+		       a.attempted_at, e.route_id AS eta_route, e.eta_start, e.eta_end
+		FROM delivery_attempts a
+		LEFT JOIN route_packages p ON p.route_id = a.route_id AND p.tracking_number = a.tracking_number
+		LEFT JOIN stop_eta_windows e ON e.route_id = a.route_id AND e.tracking_number = a.tracking_number
+		WHERE a.outcome = $4 AND a.attempted_at >= $1 AND a.attempted_at < $2
+	)
+	SELECT day, station, count(eta_route),
+	       count(*) FILTER (WHERE attempted_at >= eta_start AND attempted_at <= eta_end),
+	       count(*) FILTER (WHERE attempted_at < eta_start),
+	       count(*) FILTER (WHERE attempted_at > eta_end)
+	FROM delivered
 	GROUP BY day, station
 	ORDER BY day, station COLLATE "C"`
 
