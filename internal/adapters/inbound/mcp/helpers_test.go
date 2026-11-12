@@ -36,7 +36,7 @@ func newHarness(t *testing.T) *harness {
 	store := memory.NewStore()
 	deps := usecases.Deps{
 		Waves: store.Waves(), Routes: store.Routes(), Partners: store.Partners(), Histories: store.Histories(), Stations: store.Stations(),
-		ServiceAreas: store.ServiceAreas(), PackageStops: store.PackageStops(), Inbound: store.Inbound(), Inbox: store.Inbox(),
+		ServiceAreas: store.ServiceAreas(), PackageStops: store.PackageStops(), DeliveryPoints: store.DeliveryPoints(), Inbound: store.Inbound(), Inbox: store.Inbox(),
 		Outbox: store.Outbox(), UoW: store.UnitOfWork(), Clock: memory.NewClock(t0), IDs: &memory.SequentialIDs{},
 	}
 	if err := deps.Stations.Save(context.Background(), views.Station{NodeID: "node-ds-01", NodeType: views.DeliveryStation, RegionID: "region-se"}); err != nil {
@@ -140,7 +140,7 @@ func withRoute(t *testing.T) *harness {
 	_, err = usecases.NewStartRoute(h.deps).Execute(t.Context(), route.ID("route-1"))
 	must(t, err)
 	_, err = usecases.NewRecordAttempt(h.deps).Execute(t.Context(), usecases.RecordAttemptCommand{
-		RouteID: route.ID("route-1"), TrackingNumber: "TRK-1", Outcome: route.OutcomeDelivered, At: t0.Add(7 * time.Hour),
+		RouteID: route.ID("route-1"), TrackingNumber: "TRK-1", Outcome: route.OutcomeDelivered, Detail: route.DetailSafePlaceUsed, At: t0.Add(7 * time.Hour),
 	})
 	must(t, err)
 	return h

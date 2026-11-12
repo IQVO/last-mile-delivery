@@ -18,6 +18,8 @@ info:
       description: Events raised by the Route aggregate.
     - name: packageattempthistory
       description: Events raised by the PackageAttemptHistory aggregate.
+    - name: deliverypointprofile
+      description: Events raised by the DeliveryPointProfile aggregate (ADR 0014).
   description: |
     Event catalog for the **last-mile-delivery** bounded context of the retail
     network (logistics tier): the delivery stations' waves (induct cutoff,
@@ -48,7 +50,8 @@ info:
     WaveCostDeclared, PackageOutForDelivery, DeliveryAttempted,
     StopEtaWindowAssigned (ADR 0013), PackageReturnInitiated (events topic) and
     RoutePlanned (analytics topic)
-    into a separate analytical database. It dedupes on the CloudEvents `id` in
+    into a separate analytical database; it acknowledges DeliveryPointFlagged
+    and PackageInductionDeferred without projecting them. It dedupes on the CloudEvents `id` in
     the same transaction as the projection, dead-letters only deterministic
     poison to `retailnetwork.last-mile-delivery.analytics.dlq` and retries
     transient failures without a bound. It reads no sibling's topic.
@@ -118,6 +121,8 @@ channels:
         $ref: "#/components/messages/PackageInductionDeferred"
       PackageReturnInitiated:
         $ref: "#/components/messages/PackageReturnInitiated"
+      DeliveryPointFlagged:
+        $ref: "#/components/messages/DeliveryPointFlagged"
 
   lastMileAnalytics:
     address: retailnetwork.last-mile-delivery.analytics
@@ -161,15 +166,16 @@ operations:
     title: Publish last-mile-delivery integration events
     summary: Publish the nine integration events through the transactional outbox.
     description: |
-      The service sends the events of its three event-raising aggregates
-      (DeliveryWave, Route, PackageAttemptHistory) to
+      The service sends the events of its four event-raising aggregates
+      (DeliveryWave, Route, PackageAttemptHistory, DeliveryPointProfile) to
       `retailnetwork.last-mile-delivery.events`. Consumers route on the full
       `type`: delivery-promise and order-sourcing read the wave events,
       shipping-and-tracking reads PackageOutForDelivery, DeliveryAttempted,
       StopEtaWindowAssigned and PackageReturnInitiated, delivery-promise reads
       PackageInductionDeferred.
       order-sourcing also reads WaveCostDeclared into its money-denominated
-      AssignmentCost (roadmap F7).
+      AssignmentCost (roadmap F7). shipping-and-tracking reads
+      DeliveryPointFlagged, per tracking number, to warn the shopper (roadmap C5).
     tags:
       - name: last-mile-delivery
     channel:
@@ -184,6 +190,7 @@ operations:
       - $ref: "#/channels/lastMileEvents/messages/StopEtaWindowAssigned"
       - $ref: "#/channels/lastMileEvents/messages/PackageInductionDeferred"
       - $ref: "#/channels/lastMileEvents/messages/PackageReturnInitiated"
+      - $ref: "#/channels/lastMileEvents/messages/DeliveryPointFlagged"
 
   publishLastMileAnalytics:
     action: send
@@ -207,8 +214,8 @@ operations:
       Inbound adapter internal/adapters/inbound/kafka/analytics_consumer.go, run by
       cmd/lm-projector in the consumer group ANALYTICS_CONSUMER_GROUP (default
       last-mile-delivery-analytics), one reader over this topic and the analytics
-      topic. Dispatches on the full `type`; PackageInductionDeferred is acknowledged
-      without projection; any other type or a non-CloudEvents message is skipped
+      topic. Dispatches on the full `type`; PackageInductionDeferred and
+      DeliveryPointFlagged are acknowledged without projection; any other type or a non-CloudEvents message is skipped
       with a sampled warning; poison goes to
       retailnetwork.last-mile-delivery.analytics.dlq.
     tags:
@@ -474,7 +481,7 @@ components:
       name: DeliveryAttempted
       title: Delivery attempted
       summary: One delivery attempt of one package was recorded.
-      description: "`type` = `com.retailnetwork.logistics.last-mile-delivery.route.DeliveryAttempted`; subject = the routeId, key = the routeId. Raised by RecordAttempt, per package (Gap Register G17: outcomes are per package, the stop outcome is derived). `outcome` is DELIVERED or FAILED; `failureReason` is present only when FAILED. A FAILED attempt re-inducts the package onto the next wave, or after the third failure raises PackageReturnInitiated."
+      description: "`type` = `com.retailnetwork.logistics.last-mile-delivery.route.DeliveryAttempted`; subject = the routeId, key = the routeId. Raised by RecordAttempt, per package (Gap Register G17: outcomes are per package, the stop outcome is derived). `outcome` is DELIVERED or FAILED; `failureReason` is present only when FAILED; `outcomeDetail` (NOT_HOME, ACCESS_PROBLEM or OTHER on FAILED, SAFE_PLACE_USED on DELIVERED) is present only when the driver client reported one (additive and optional, same v1 dataschema). A FAILED attempt re-inducts the package onto the next wave, or after the third failure raises PackageReturnInitiated."
       contentType: application/cloudevents+json
       headers:
         $ref: "#/components/schemas/KafkaHeaders"
@@ -587,6 +594,37 @@ components:
             dataschema: "urn:retailnetwork:last-mile-delivery:events:PackageReturnInitiated:v1"
             data:
               trackingNumber: "TRK-000123"
+
+    DeliveryPointFlagged:
+      name: DeliveryPointFlagged
+      title: Delivery point flagged
+      summary: A drop-off point reached two counted failed visits; these packages are newly affected.
+      description: "`type` = `com.retailnetwork.logistics.last-mile-delivery.deliverypointprofile.DeliveryPointFlagged`; subject and key = the stopKey (opaque; no address, name or free text anywhere in the event). Raised by RecordAttempt, in the same transaction as the attempt, while a DeliveryPointProfile holds at least two open strikes (a strike is one failed visit reported as NOT_HOME or ACCESS_PROBLEM; one strike per route; strikes older than 60 days from the newest attempt do not count) and the attempt reached packages that were not told yet. `trackingNumbers` holds only the newly affected packages (1 to 5); `failures` is the number of strikes open at that moment; `reason` is ACCESS_PROBLEM when any open strike has it, else NOT_HOME; `flaggedAt` is the attempt instant that triggered it. No optional fields. No event means no new package was affected; there is no cleared event. Consumers are idempotent per tracking number. Dormant until the driver client sends an outcomeDetail on the attempt (ADR 0014)."
+      contentType: application/cloudevents+json
+      headers:
+        $ref: "#/components/schemas/KafkaHeaders"
+      tags:
+        - name: deliverypointprofile
+      payload:
+        $ref: "#/components/schemas/DeliveryPointFlaggedEvent"
+      examples:
+        - name: deliveryPointFlagged
+          summary: A second NOT_HOME visit at one point.
+          payload:
+            specversion: "1.0"
+            id: "6a1d3c5e-8b2f-4d70-9e14-2c4f6a8b0d22"
+            source: "/retailnetwork/last-mile-delivery"
+            type: "com.retailnetwork.logistics.last-mile-delivery.deliverypointprofile.DeliveryPointFlagged"
+            subject: "9f2c4a1e7b3d5c60e1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708"
+            time: "2026-11-11T14:21:00Z"
+            datacontenttype: "application/json"
+            dataschema: "urn:retailnetwork:last-mile-delivery:events:DeliveryPointFlagged:v1"
+            data:
+              stopKey: "9f2c4a1e7b3d5c60e1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708"
+              reason: NOT_HOME
+              failures: 2
+              trackingNumbers: ["TRK-000123", "TRK-000124"]
+              flaggedAt: "2026-11-11T14:20:30Z"
 
     LoadArrived:
       name: LoadArrived
@@ -820,6 +858,7 @@ components:
                 routeId: { type: string }
                 trackingNumber: { type: string }
                 outcome: { $ref: "#/components/schemas/Outcome" }
+                outcomeDetail: { type: string, enum: [NOT_HOME, ACCESS_PROBLEM, OTHER, SAFE_PLACE_USED], description: "Optional category reported by the driver client; omitted when not reported. FAILED carries NOT_HOME, ACCESS_PROBLEM or OTHER; DELIVERED carries SAFE_PLACE_USED." }
                 failureReason: { type: string, description: Present only when outcome is FAILED. }
                 at: { type: string, format: date-time, description: The instant of the attempt as reported by the driver app. }
 
@@ -861,6 +900,21 @@ components:
               required: [trackingNumber]
               properties:
                 trackingNumber: { type: string }
+
+    DeliveryPointFlaggedEvent:
+      allOf:
+        - $ref: "#/components/schemas/CloudEventEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [stopKey, reason, failures, trackingNumbers, flaggedAt]
+              properties:
+                stopKey: { type: string, description: Opaque keyed hash of the address; never an address. }
+                reason: { type: string, enum: [NOT_HOME, ACCESS_PROBLEM] }
+                failures: { type: integer, minimum: 2, maximum: 5, description: Strikes open at that moment. }
+                trackingNumbers: { type: array, minItems: 1, maxItems: 5, items: { type: string }, description: Only the packages newly affected by this event. }
+                flaggedAt: { type: string, format: date-time, description: The attempt instant that triggered the event. }
 
     LoadArrivedEvent:
       allOf:

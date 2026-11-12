@@ -61,7 +61,7 @@ func loadStops(ctx context.Context, q querier, routeID string) ([]route.Stop, er
 }
 
 func loadAttempts(ctx context.Context, q querier, routeID string) ([]route.Attempt, error) {
-	rows, err := q.Query(ctx, `SELECT tracking_number, outcome, COALESCE(failure_reason, ''), attempted_at
+	rows, err := q.Query(ctx, `SELECT tracking_number, outcome, COALESCE(outcome_detail, ''), COALESCE(failure_reason, ''), attempted_at
 		FROM route_attempts WHERE route_id = $1 ORDER BY position`, routeID)
 	if err != nil {
 		return nil, fmt.Errorf("load attempts: %w", err)
@@ -70,11 +70,12 @@ func loadAttempts(ctx context.Context, q querier, routeID string) ([]route.Attem
 	var out []route.Attempt
 	for rows.Next() {
 		var a route.Attempt
-		var outcome string
-		if err := rows.Scan(&a.TrackingNumber, &outcome, &a.FailureReason, &a.At); err != nil {
+		var outcome, detail string
+		if err := rows.Scan(&a.TrackingNumber, &outcome, &detail, &a.FailureReason, &a.At); err != nil {
 			return nil, fmt.Errorf("scan attempt: %w", err)
 		}
 		a.Outcome = route.Outcome(outcome)
+		a.Detail = route.Detail(detail)
 		out = append(out, a)
 	}
 	return out, rows.Err()
@@ -124,8 +125,8 @@ func (r *RouteRepository) Save(ctx context.Context, rt *route.Route) error {
 		}
 		for i := stored; i < len(s.Attempts); i++ {
 			a := s.Attempts[i]
-			if _, err := q.Exec(ctx, `INSERT INTO route_attempts (route_id, tracking_number, outcome, failure_reason, attempted_at, position)
-				VALUES ($1, $2, $3, $4, $5, $6)`, string(s.ID), a.TrackingNumber, string(a.Outcome), nullable(a.FailureReason), a.At, i); err != nil {
+			if _, err := q.Exec(ctx, `INSERT INTO route_attempts (route_id, tracking_number, outcome, failure_reason, attempted_at, position, outcome_detail)
+				VALUES ($1, $2, $3, $4, $5, $6, $7)`, string(s.ID), a.TrackingNumber, string(a.Outcome), nullable(a.FailureReason), a.At, i, nullable(string(a.Detail))); err != nil {
 				return fmt.Errorf("insert attempt: %w", err)
 			}
 		}

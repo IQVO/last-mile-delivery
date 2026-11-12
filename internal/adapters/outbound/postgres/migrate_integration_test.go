@@ -49,3 +49,45 @@ func TestMigrationsGoUpDownUp(t *testing.T) {
 		t.Fatalf("tables after up again = %d, want %d", n, full)
 	}
 }
+
+// TestMigrationsCreateTheC5Objects proves migration 0004 (route_attempts.outcome_detail)
+// and 0005 (delivery_point_profiles) are applied, and that stepping back over
+// them removes exactly those objects (ADR 0014).
+func TestMigrationsCreateTheC5Objects(t *testing.T) {
+	url := pgtest.URL(t)
+	pool, err := adapter.NewPool(context.Background(), url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	exists := func(sql string) bool {
+		var n int
+		if err := pool.QueryRow(context.Background(), sql).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n == 1
+	}
+	const column = `SELECT count(*) FROM information_schema.columns WHERE table_name = 'route_attempts' AND column_name = 'outcome_detail'`
+	const table = `SELECT count(*) FROM information_schema.tables WHERE table_name = 'delivery_point_profiles'`
+	if !exists(column) || !exists(table) {
+		t.Fatal("migrations 0004 and 0005 must be applied")
+	}
+	src, err := iofs.New(adapter.MigrationsFS(), "migrations")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := migrate.NewWithSourceInstance("iofs", src, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _, _ = m.Close() }()
+	if err := m.Steps(-1); err != nil || exists(table) || !exists(column) {
+		t.Fatalf("0005 down: err=%v, the table must go and the column stay", err)
+	}
+	if err := m.Steps(-1); err != nil || exists(column) {
+		t.Fatalf("0004 down: err=%v, the column must go", err)
+	}
+	if err := m.Up(); err != nil || !exists(column) || !exists(table) {
+		t.Fatalf("up again: err=%v", err)
+	}
+}

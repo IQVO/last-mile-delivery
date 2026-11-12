@@ -91,6 +91,7 @@ type Stop struct {
 type Attempt struct {
 	TrackingNumber string
 	Outcome        Outcome
+	Detail         Detail
 	FailureReason  string
 	At             time.Time
 }
@@ -160,8 +161,8 @@ func cloneStops(in []Stop) []Stop {
 // RecordAttempt records one delivery attempt of one package and raises
 // DeliveryAttempted. at is the instant the driver reports, now the instant of
 // the change.
-func (r *Route) RecordAttempt(trackingNumber string, outcome Outcome, failureReason string, at, now time.Time) ([]shared.Event, error) {
-	if err := checkAttempt(trackingNumber, outcome, failureReason, at); err != nil {
+func (r *Route) RecordAttempt(trackingNumber string, outcome Outcome, detail Detail, failureReason string, at, now time.Time) ([]shared.Event, error) {
+	if err := checkAttempt(trackingNumber, outcome, detail, failureReason, at); err != nil {
 		return nil, shared.Invalid("%v", err)
 	}
 	if r.state != StateOutForDelivery {
@@ -176,17 +177,17 @@ func (r *Route) RecordAttempt(trackingNumber string, outcome Outcome, failureRea
 		}
 		return nil, fmt.Errorf("%w: %s on route %s", ErrAttemptAlreadyRecorded, trackingNumber, r.id)
 	}
-	a := Attempt{TrackingNumber: trackingNumber, Outcome: outcome, FailureReason: failureReason, At: shared.UTC(at)}
+	a := Attempt{TrackingNumber: trackingNumber, Outcome: outcome, Detail: detail, FailureReason: failureReason, At: shared.UTC(at)}
 	r.attempts = append(r.attempts, a)
 	r.version++
 	ev := DeliveryAttempted{
 		Header: shared.Header{Version: r.version, At: shared.UTC(now)}, RouteID: r.id, TrackingNumber: trackingNumber,
-		Outcome: outcome, FailureReason: failureReason, At: a.At,
+		Outcome: outcome, Detail: detail, FailureReason: failureReason, At: a.At,
 	}
 	return []shared.Event{ev}, nil
 }
 
-func checkAttempt(trackingNumber string, outcome Outcome, reason string, at time.Time) error {
+func checkAttempt(trackingNumber string, outcome Outcome, detail Detail, reason string, at time.Time) error {
 	if !shared.ValidID(trackingNumber) {
 		return fmt.Errorf("trackingNumber %q is not a valid id", trackingNumber)
 	}
@@ -195,6 +196,9 @@ func checkAttempt(trackingNumber string, outcome Outcome, reason string, at time
 	}
 	if at.IsZero() {
 		return errors.New("the attempt instant is required")
+	}
+	if !detail.Valid(outcome) {
+		return fmt.Errorf("outcomeDetail %q is not allowed for a %s attempt", detail, outcome)
 	}
 	if outcome == OutcomeDelivered && reason != "" {
 		return errors.New("failureReason is only for a FAILED attempt")

@@ -55,7 +55,7 @@ func postgresAdapters(pool *pgxpool.Pool) adapters {
 		deps: usecases.Deps{
 			Waves: postgres.NewWaveRepository(pool), Routes: postgres.NewRouteRepository(pool), Partners: postgres.NewPartnerRepository(pool),
 			Histories: postgres.NewHistoryRepository(pool), Stations: postgres.NewStationRepository(pool),
-			ServiceAreas: postgres.NewServiceAreaRepository(pool), PackageStops: postgres.NewPackageStopRepository(pool),
+			ServiceAreas: postgres.NewServiceAreaRepository(pool), PackageStops: postgres.NewPackageStopRepository(pool), DeliveryPoints: postgres.NewDeliveryPointRepository(pool),
 			Inbound: postgres.NewInboundPackageRepository(pool), Inbox: postgres.NewInbox(pool),
 			Outbox: postgres.NewOutbox(pool, outboundkafka.NewEncoder()), UoW: postgres.NewUnitOfWork(pool),
 			Clock: system.Clock{}, IDs: system.IDs{},

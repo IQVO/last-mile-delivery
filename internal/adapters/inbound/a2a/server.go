@@ -94,7 +94,7 @@ func Card(cfg Config) *a2a.AgentCard {
 			{
 				ID:          skillGetRoute,
 				Name:        "Look up where one route stands",
-				Description: "Read one route of a delivery service partner: its state (PLANNED, OUT_FOR_DELIVERY or COMPLETED), its numbered stops with the trackingNumbers of each and the outcome derived from the per-package attempts (omitted until every package of the stop has one), and every recorded attempt (trackingNumber, DELIVERED or FAILED, failureReason, at). Answers a 404 not-found problem when no route has that id. Persists nothing.",
+				Description: "Read one route of a delivery service partner: its state (PLANNED, OUT_FOR_DELIVERY or COMPLETED), its numbered stops with the trackingNumbers of each and the outcome derived from the per-package attempts (omitted until every package of the stop has one), and every recorded attempt (trackingNumber, DELIVERED or FAILED, the optional outcomeDetail, failureReason, at). Answers a 404 not-found problem when no route has that id. Persists nothing.",
 				Tags:        []string{"route", "delivery-attempt", "read"},
 				InputModes:  []string{mediaTypeJSON},
 				Examples: []string{

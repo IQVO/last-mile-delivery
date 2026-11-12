@@ -13,6 +13,10 @@ const (
 	stopKeyB = "k-b"
 	stopKeyC = "k-c"
 
+	pointKeyA = "9f2c4a1e7b3d0000"
+	pointKeyB = "0b7d5e3c1a9f0000"
+	pointKeyC = "5a1c3e7f9b2d0000"
+
 	station1 = "node-ds-01"
 	station2 = "node-ds-02"
 

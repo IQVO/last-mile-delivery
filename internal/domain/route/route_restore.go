@@ -24,7 +24,7 @@ func normaliseAttempts(in []Attempt) []Attempt {
 	}
 	out := make([]Attempt, len(in))
 	for i, a := range in {
-		out[i] = Attempt{TrackingNumber: a.TrackingNumber, Outcome: a.Outcome, FailureReason: a.FailureReason, At: shared.UTC(a.At)}
+		out[i] = Attempt{TrackingNumber: a.TrackingNumber, Outcome: a.Outcome, Detail: a.Detail, FailureReason: a.FailureReason, At: shared.UTC(a.At)}
 	}
 	return out
 }
@@ -61,7 +61,7 @@ func checkSnapshotAttempts(s Snapshot) error {
 			return fmt.Errorf("attempt of %q is not a first attempt of a package on the route", a.TrackingNumber)
 		}
 		seen[a.TrackingNumber] = true
-		if err := checkAttempt(a.TrackingNumber, a.Outcome, a.FailureReason, a.At); err != nil {
+		if err := checkAttempt(a.TrackingNumber, a.Outcome, a.Detail, a.FailureReason, a.At); err != nil {
 			return err
 		}
 	}

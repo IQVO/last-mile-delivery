@@ -32,6 +32,8 @@ func (m *recordingMetrics) AttemptRejected(_ context.Context, reason string) {
 	m.add("rejected/" + reason)
 }
 
+func (m *recordingMetrics) PointFlagged(_ context.Context, reason string) { m.add("flagged/" + reason) }
+
 func TestRecordAttemptCountsEachReportOnceByOutcome(t *testing.T) {
 	e := dispatchedRoute(t, true)
 	m := &recordingMetrics{}

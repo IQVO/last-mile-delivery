@@ -18,7 +18,7 @@ func snapshotWith(state State, attempts []Attempt) Snapshot {
 
 func allAttempts() []Attempt {
 	return []Attempt{
-		{"TRK-1", OutcomeDelivered, "", t2}, {"TRK-2", OutcomeFailed, "absent", t2}, {"TRK-3", OutcomeDelivered, "", t2},
+		{TrackingNumber: "TRK-1", Outcome: OutcomeDelivered, FailureReason: "", At: t2}, {TrackingNumber: "TRK-2", Outcome: OutcomeFailed, FailureReason: "absent", At: t2}, {TrackingNumber: "TRK-3", Outcome: OutcomeDelivered, FailureReason: "", At: t2},
 	}
 }
 
@@ -79,14 +79,24 @@ func TestRestoreRejectsCorruptRows(t *testing.T) {
 		{"empty stop", func(s *Snapshot) { s.Stops[1].TrackingNumbers = nil }},
 		{"duplicate package", func(s *Snapshot) { s.Stops[1].TrackingNumbers = []string{"TRK-1"} }},
 		{"attempts on a planned route", func(s *Snapshot) { s.State, s.Attempts = StatePlanned, allAttempts()[:1] }},
-		{"attempt of a foreign package", func(s *Snapshot) { s.Attempts = []Attempt{{"TRK-9", OutcomeDelivered, "", t2}} }},
-		{"two attempts of one package", func(s *Snapshot) {
-			s.Attempts = []Attempt{{"TRK-1", OutcomeFailed, "a", t2}, {"TRK-1", OutcomeDelivered, "", t2}}
+		{"attempt of a foreign package", func(s *Snapshot) {
+			s.Attempts = []Attempt{{TrackingNumber: "TRK-9", Outcome: OutcomeDelivered, FailureReason: "", At: t2}}
 		}},
-		{"attempt with a bad outcome", func(s *Snapshot) { s.Attempts = []Attempt{{"TRK-1", "LOST", "", t2}} }},
-		{"failed attempt without a reason", func(s *Snapshot) { s.Attempts = []Attempt{{"TRK-1", OutcomeFailed, "", t2}} }},
-		{"delivered attempt with a reason", func(s *Snapshot) { s.Attempts = []Attempt{{"TRK-1", OutcomeDelivered, "x", t2}} }},
-		{"attempt without an instant", func(s *Snapshot) { s.Attempts = []Attempt{{"TRK-1", OutcomeDelivered, "", time.Time{}}} }},
+		{"two attempts of one package", func(s *Snapshot) {
+			s.Attempts = []Attempt{{TrackingNumber: "TRK-1", Outcome: OutcomeFailed, FailureReason: "a", At: t2}, {TrackingNumber: "TRK-1", Outcome: OutcomeDelivered, FailureReason: "", At: t2}}
+		}},
+		{"attempt with a bad outcome", func(s *Snapshot) {
+			s.Attempts = []Attempt{{TrackingNumber: "TRK-1", Outcome: "LOST", FailureReason: "", At: t2}}
+		}},
+		{"failed attempt without a reason", func(s *Snapshot) {
+			s.Attempts = []Attempt{{TrackingNumber: "TRK-1", Outcome: OutcomeFailed, FailureReason: "", At: t2}}
+		}},
+		{"delivered attempt with a reason", func(s *Snapshot) {
+			s.Attempts = []Attempt{{TrackingNumber: "TRK-1", Outcome: OutcomeDelivered, FailureReason: "x", At: t2}}
+		}},
+		{"attempt without an instant", func(s *Snapshot) {
+			s.Attempts = []Attempt{{TrackingNumber: "TRK-1", Outcome: OutcomeDelivered, FailureReason: "", At: time.Time{}}}
+		}},
 		{"completed with a missing attempt", func(s *Snapshot) { s.State, s.Attempts = StateCompleted, allAttempts()[:2] }},
 	}
 	for _, c := range cases {

@@ -192,7 +192,7 @@ func TestAnalyticsReadSide_EndToEnd(t *testing.T) {
 	d := usecases.Deps{
 		Waves: postgres.NewWaveRepository(oltp), Routes: postgres.NewRouteRepository(oltp), Partners: postgres.NewPartnerRepository(oltp),
 		Histories: postgres.NewHistoryRepository(oltp), Stations: postgres.NewStationRepository(oltp),
-		ServiceAreas: postgres.NewServiceAreaRepository(oltp), PackageStops: postgres.NewPackageStopRepository(oltp),
+		ServiceAreas: postgres.NewServiceAreaRepository(oltp), PackageStops: postgres.NewPackageStopRepository(oltp), DeliveryPoints: postgres.NewDeliveryPointRepository(oltp),
 		Inbound: postgres.NewInboundPackageRepository(oltp), Inbox: postgres.NewInbox(oltp),
 		Outbox: postgres.NewOutbox(oltp, &outboundkafka.Encoder{EventsTopic: eventsTopic, AnalyticsTopic: analyticsTopic}),
 		UoW:    postgres.NewUnitOfWork(oltp), Clock: clock, IDs: system.IDs{},

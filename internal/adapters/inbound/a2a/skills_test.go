@@ -43,7 +43,7 @@ func newFixture(t *testing.T) *fixture {
 	store := memory.NewStore()
 	deps := usecases.Deps{
 		Waves: store.Waves(), Routes: store.Routes(), Partners: store.Partners(), Histories: store.Histories(), Stations: store.Stations(),
-		ServiceAreas: store.ServiceAreas(), PackageStops: store.PackageStops(), Inbound: store.Inbound(), Inbox: store.Inbox(),
+		ServiceAreas: store.ServiceAreas(), PackageStops: store.PackageStops(), DeliveryPoints: store.DeliveryPoints(), Inbound: store.Inbound(), Inbox: store.Inbox(),
 		Outbox: store.Outbox(), UoW: store.UnitOfWork(), Clock: memory.NewClock(t0), IDs: &memory.SequentialIDs{},
 	}
 	if err := deps.Stations.Save(context.Background(), views.Station{NodeID: "node-ds-01", NodeType: views.DeliveryStation, RegionID: "region-se"}); err != nil {
@@ -94,7 +94,7 @@ func (f *fixture) withRoute() *fixture {
 	_, err = usecases.NewStartRoute(f.deps).Execute(ctx, route.ID("route-1"))
 	f.must(err)
 	_, err = usecases.NewRecordAttempt(f.deps).Execute(ctx, usecases.RecordAttemptCommand{
-		RouteID: route.ID("route-1"), TrackingNumber: "TRK-1", Outcome: route.OutcomeDelivered, At: t0.Add(7 * time.Hour),
+		RouteID: route.ID("route-1"), TrackingNumber: "TRK-1", Outcome: route.OutcomeDelivered, Detail: route.DetailSafePlaceUsed, At: t0.Add(7 * time.Hour),
 	})
 	f.must(err)
 	return f
@@ -156,6 +156,7 @@ type wireRoute struct {
 		RouteID        string `json:"routeId"`
 		TrackingNumber string `json:"trackingNumber"`
 		Outcome        string `json:"outcome"`
+		OutcomeDetail  string `json:"outcomeDetail"`
 		At             string `json:"at"`
 	} `json:"attempts"`
 }
@@ -281,7 +282,7 @@ func assertRouteStopsAndAttempts(t *testing.T, r *wireRoute) {
 		t.Fatalf("stops = %+v", r.Stops)
 	}
 	a := r.Attempts[0]
-	if got := []string{a.TrackingNumber, a.Outcome, a.At}; !slices.Equal(got, []string{"TRK-1", "DELIVERED", "2026-10-24T13:00:00Z"}) {
+	if got := []string{a.TrackingNumber, a.Outcome, a.OutcomeDetail, a.At}; !slices.Equal(got, []string{"TRK-1", "DELIVERED", "SAFE_PLACE_USED", "2026-10-24T13:00:00Z"}) {
 		t.Fatalf("attempt = %+v", a)
 	}
 }

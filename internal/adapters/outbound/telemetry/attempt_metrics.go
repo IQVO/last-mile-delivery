@@ -19,6 +19,10 @@ const meterName = "github.com/claudioed/last-mile-delivery"
 // reports, by outcome.
 const packagesAttemptedName = "last_mile_delivery.package.attempted"
 
+// pointFlaggedName counts the DeliveryPointFlagged events raised by attempts
+// (ADR 0014), by the reason the point was flagged for.
+const pointFlaggedName = "last_mile_delivery.delivery_point.flagged"
+
 const (
 	outcomeKey = attribute.Key("outcome")
 	reasonKey  = attribute.Key("reason")
@@ -33,6 +37,7 @@ const (
 // no-op, so recording is cheap and safe in tests and local runs.
 type AttemptMetrics struct {
 	counter metric.Int64Counter
+	flagged metric.Int64Counter
 }
 
 var _ ports.AttemptMetrics = (*AttemptMetrics)(nil)
@@ -54,7 +59,17 @@ func NewAttemptMetrics() (*AttemptMetrics, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &AttemptMetrics{counter: counter}, nil
+	flagged, err := otel.Meter(meterName).Int64Counter(
+		pointFlaggedName,
+		metric.WithDescription("DeliveryPointFlagged events raised because a drop-off point reached two counted failed visits, by reason "+
+			"(NOT_HOME or ACCESS_PROBLEM). Stays at zero until the driver client reports an outcome detail; a rising count means "+
+			"customers or access at specific addresses cost first-attempt deliveries."),
+		metric.WithUnit("{event}"),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &AttemptMetrics{counter: counter, flagged: flagged}, nil
 }
 
 // AttemptDelivered counts a recorded attempt that delivered the package.
@@ -71,4 +86,9 @@ func (m *AttemptMetrics) AttemptFailed(ctx context.Context) {
 // reason why.
 func (m *AttemptMetrics) AttemptRejected(ctx context.Context, reason string) {
 	m.counter.Add(ctx, 1, metric.WithAttributes(outcomeKey.String(outcomeRejected), reasonKey.String(reason)))
+}
+
+// PointFlagged counts a DeliveryPointFlagged raised by an attempt, by reason.
+func (m *AttemptMetrics) PointFlagged(ctx context.Context, reason string) {
+	m.flagged.Add(ctx, 1, metric.WithAttributes(reasonKey.String(reason)))
 }

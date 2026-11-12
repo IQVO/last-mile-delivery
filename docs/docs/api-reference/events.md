@@ -33,6 +33,7 @@ Source: `apis/asyncapi.yaml` (channels `lastMileEvents`, `lastMileAnalytics`, `l
 | `StopEtaWindowAssigned` | `com.retailnetwork.logistics.last-mile-delivery.route.StopEtaWindowAssigned` | `...last-mile-delivery.events` | `routeId` |
 | `PackageInductionDeferred` | `com.retailnetwork.logistics.last-mile-delivery.packageattempthistory.PackageInductionDeferred` | `...last-mile-delivery.events` | tracking number |
 | `PackageReturnInitiated` | `com.retailnetwork.logistics.last-mile-delivery.packageattempthistory.PackageReturnInitiated` | `...last-mile-delivery.events` | tracking number |
+| `DeliveryPointFlagged` | `com.retailnetwork.logistics.last-mile-delivery.deliverypointprofile.DeliveryPointFlagged` | `...last-mile-delivery.events` | the profile's `stopKey` |
 | `RoutePlanned` | `com.retailnetwork.logistics.last-mile-delivery.route.RoutePlanned` | `...last-mile-delivery.analytics` **only** | `routeId` |
 
 Nine events travel on the events topic and `RoutePlanned` only on the analytics topic. Producer guarantees: written in the aggregate's transaction (transactional outbox), published at least once with a stable CloudEvents `id`, ordered per key, acks=all.

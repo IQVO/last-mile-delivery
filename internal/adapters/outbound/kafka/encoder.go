@@ -9,6 +9,7 @@ import (
 	"github.com/claudioed/last-mile-delivery/internal/adapters/kafka/cloudevents"
 	"github.com/claudioed/last-mile-delivery/internal/application/outbox"
 	"github.com/claudioed/last-mile-delivery/internal/application/ports"
+	"github.com/claudioed/last-mile-delivery/internal/domain/deliverypoint"
 	"github.com/claudioed/last-mile-delivery/internal/domain/history"
 	"github.com/claudioed/last-mile-delivery/internal/domain/route"
 	"github.com/claudioed/last-mile-delivery/internal/domain/shared"
@@ -76,6 +77,7 @@ type attemptedData struct {
 	RouteID        string `json:"routeId"`
 	TrackingNumber string `json:"trackingNumber"`
 	Outcome        string `json:"outcome"`
+	OutcomeDetail  string `json:"outcomeDetail,omitempty"`
 	FailureReason  string `json:"failureReason,omitempty"`
 	At             string `json:"at"`
 }
@@ -181,10 +183,12 @@ func payloadFor(ev shared.Event) (any, string, error) {
 		return outForDeliveryData{RouteID: string(e.RouteID), TrackingNumber: e.TrackingNumber, StationNodeID: e.StationNodeID, At: ts(e.At)}, events, nil
 	case route.DeliveryAttempted:
 		return attemptedData{
-			RouteID: string(e.RouteID), TrackingNumber: e.TrackingNumber, Outcome: string(e.Outcome), FailureReason: e.FailureReason, At: ts(e.At),
+			RouteID: string(e.RouteID), TrackingNumber: e.TrackingNumber, Outcome: string(e.Outcome), OutcomeDetail: string(e.Detail), FailureReason: e.FailureReason, At: ts(e.At),
 		}, events, nil
 	case route.StopEtaWindowAssigned:
 		return stopEtaPayload(e), events, nil
+	case deliverypoint.DeliveryPointFlagged:
+		return pointFlaggedPayload(e), events, nil
 	case history.PackageInductionDeferred:
 		return inductionDeferredData{TrackingNumber: e.TrackingNumber, AssignmentID: e.AssignmentID}, events, nil
 	case history.PackageReturnInitiated:

@@ -82,7 +82,7 @@ A full snapshot, not a delta: the latest event by `time` wins and a duplicate do
 
 ### DeliveryAttempted
 
-`routeId`, `trackingNumber` (strings), `outcome` (`DELIVERED` or `FAILED`), `failureReason` (string, omitted when `DELIVERED`) and `at` (date-time, when the driver says the attempt happened).
+`routeId`, `trackingNumber` (strings), `outcome` (`DELIVERED` or `FAILED`), `outcomeDetail` (optional, omitted when the driver client did not report one: `NOT_HOME`, `ACCESS_PROBLEM`, `OTHER` for `FAILED`, `SAFE_PLACE_USED` for `DELIVERED`; ADR 0014), `failureReason` (string, omitted when `DELIVERED`) and `at` (date-time, when the driver says the attempt happened).
 
 ### StopEtaWindowAssigned
 

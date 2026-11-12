@@ -174,7 +174,7 @@ func buildDeps(ctx context.Context, logger *slog.Logger, databaseURL, migrations
 	d := usecases.Deps{
 		Waves:        postgres.NewWaveRepository(pool),
 		Routes:       postgres.NewRouteRepository(pool),
-		PackageStops: postgres.NewPackageStopRepository(pool),
+		PackageStops: postgres.NewPackageStopRepository(pool), DeliveryPoints: postgres.NewDeliveryPointRepository(pool),
 	}
 	return inbounda2a.Deps{
 		ListWaves: usecases.NewListWaves(d),

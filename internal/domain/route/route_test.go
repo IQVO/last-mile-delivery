@@ -255,7 +255,7 @@ func attemptAll(t *testing.T, r *Route) {
 	}
 	for _, tn := range r.Packages() {
 		if _, ok := r.AttemptOf(tn); !ok {
-			_, err := r.RecordAttempt(tn, OutcomeDelivered, "", t2, t2)
+			_, err := r.RecordAttempt(tn, OutcomeDelivered, "", "", t2, t2)
 			wantNoErr(t, err)
 		}
 	}
@@ -271,7 +271,7 @@ func completedRoute(t *testing.T) *Route {
 
 func TestCompleteNeedsEveryPackageAttempted(t *testing.T) {
 	r := started(t)
-	_, err := r.RecordAttempt("TRK-1", OutcomeDelivered, "", t2, t2)
+	_, err := r.RecordAttempt("TRK-1", OutcomeDelivered, "", "", t2, t2)
 	wantNoErr(t, err)
 	if r.AllAttempted() {
 		t.Fatal("one of three attempted is not all")
@@ -283,7 +283,7 @@ func TestCompleteNeedsEveryPackageAttempted(t *testing.T) {
 
 func TestRecordAttempt(t *testing.T) {
 	r := started(t)
-	events, err := r.RecordAttempt("TRK-1", OutcomeFailed, "recipient absent", t2, t2.Add(time.Minute))
+	events, err := r.RecordAttempt("TRK-1", OutcomeFailed, "", "recipient absent", t2, t2.Add(time.Minute))
 	wantNoErr(t, err)
 	assertState(t, r, StateOutForDelivery, 3)
 	want := DeliveryAttempted{
@@ -312,7 +312,7 @@ func assertAttempt(t *testing.T, r *Route, tn string, outcome Outcome, reason st
 
 func TestRecordDeliveredAttemptAndLookups(t *testing.T) {
 	r := started(t)
-	events, err := r.RecordAttempt("TRK-2", OutcomeDelivered, "", t2, t2)
+	events, err := r.RecordAttempt("TRK-2", OutcomeDelivered, "", "", t2, t2)
 	wantNoErr(t, err)
 	if got := events[0].(DeliveryAttempted); got.FailureReason != "" || got.Outcome != OutcomeDelivered {
 		t.Fatalf("delivered event = %+v", got)
@@ -354,7 +354,7 @@ func TestRecordAttemptRefusals(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			r := c.build(t)
 			before := r.Snapshot()
-			events, err := r.RecordAttempt(c.tn, c.outcome, c.reason, c.at, t2)
+			events, err := r.RecordAttempt(c.tn, c.outcome, "", c.reason, c.at, t2)
 			wantIs(t, err, c.want)
 			if events != nil || !reflect.DeepEqual(r.Snapshot(), before) {
 				t.Fatal("a refused attempt changed the route")
@@ -363,12 +363,12 @@ func TestRecordAttemptRefusals(t *testing.T) {
 	}
 	t.Run("a reason at the limit is accepted", func(t *testing.T) {
 		r := started(t)
-		_, err := r.RecordAttempt("TRK-1", OutcomeFailed, strings.Repeat("x", MaxFailureReason), t2, t2)
+		_, err := r.RecordAttempt("TRK-1", OutcomeFailed, "", strings.Repeat("x", MaxFailureReason), t2, t2)
 		wantNoErr(t, err)
 	})
 	t.Run("a refusal of the first attempt is not already delivered", func(t *testing.T) {
 		r := withAttempt(t, OutcomeFailed, "absent")
-		_, err := r.RecordAttempt("TRK-1", OutcomeDelivered, "", t2, t2)
+		_, err := r.RecordAttempt("TRK-1", OutcomeDelivered, "", "", t2, t2)
 		if errors.Is(err, ErrAlreadyDelivered) {
 			t.Fatal("a failed package was never delivered")
 		}
@@ -378,7 +378,7 @@ func TestRecordAttemptRefusals(t *testing.T) {
 func withAttempt(t *testing.T, o Outcome, reason string) *Route {
 	t.Helper()
 	r := started(t)
-	_, err := r.RecordAttempt("TRK-1", o, reason, t2, t2)
+	_, err := r.RecordAttempt("TRK-1", o, "", reason, t2, t2)
 	wantNoErr(t, err)
 	return r
 }
@@ -393,17 +393,17 @@ func TestStopOutcomeIsDerivedPerPackage(t *testing.T) {
 		set2     bool
 	}{
 		{"no attempts", nil, "", false, "", false},
-		{"half of stop 1", []Attempt{{"TRK-1", OutcomeDelivered, "", t2}}, "", false, "", false},
-		{"stop 1 delivered", []Attempt{{"TRK-1", OutcomeDelivered, "", t2}, {"TRK-2", OutcomeDelivered, "", t2}}, OutcomeDelivered, true, "", false},
-		{"stop 1 mixed is failed", []Attempt{{"TRK-1", OutcomeDelivered, "", t2}, {"TRK-2", OutcomeFailed, "absent", t2}}, OutcomeFailed, true, "", false},
-		{"stop 1 failed first", []Attempt{{"TRK-1", OutcomeFailed, "absent", t2}, {"TRK-2", OutcomeDelivered, "", t2}}, OutcomeFailed, true, "", false},
-		{"stop 2 failed", []Attempt{{"TRK-3", OutcomeFailed, "absent", t2}}, "", false, OutcomeFailed, true},
+		{"half of stop 1", []Attempt{{TrackingNumber: "TRK-1", Outcome: OutcomeDelivered, FailureReason: "", At: t2}}, "", false, "", false},
+		{"stop 1 delivered", []Attempt{{TrackingNumber: "TRK-1", Outcome: OutcomeDelivered, FailureReason: "", At: t2}, {TrackingNumber: "TRK-2", Outcome: OutcomeDelivered, FailureReason: "", At: t2}}, OutcomeDelivered, true, "", false},
+		{"stop 1 mixed is failed", []Attempt{{TrackingNumber: "TRK-1", Outcome: OutcomeDelivered, FailureReason: "", At: t2}, {TrackingNumber: "TRK-2", Outcome: OutcomeFailed, FailureReason: "absent", At: t2}}, OutcomeFailed, true, "", false},
+		{"stop 1 failed first", []Attempt{{TrackingNumber: "TRK-1", Outcome: OutcomeFailed, FailureReason: "absent", At: t2}, {TrackingNumber: "TRK-2", Outcome: OutcomeDelivered, FailureReason: "", At: t2}}, OutcomeFailed, true, "", false},
+		{"stop 2 failed", []Attempt{{TrackingNumber: "TRK-3", Outcome: OutcomeFailed, FailureReason: "absent", At: t2}}, "", false, OutcomeFailed, true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			r := started(t)
 			for _, a := range c.attempts {
-				_, err := r.RecordAttempt(a.TrackingNumber, a.Outcome, a.FailureReason, a.At, a.At)
+				_, err := r.RecordAttempt(a.TrackingNumber, a.Outcome, a.Detail, a.FailureReason, a.At, a.At)
 				wantNoErr(t, err)
 			}
 			assertOutcome(t, r, 1, c.stop1, c.set1)

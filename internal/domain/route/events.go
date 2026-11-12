@@ -52,6 +52,7 @@ type DeliveryAttempted struct {
 	RouteID        ID
 	TrackingNumber string
 	Outcome        Outcome
+	Detail         Detail
 	FailureReason  string
 	At             time.Time
 }

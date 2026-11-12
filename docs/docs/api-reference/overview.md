@@ -30,7 +30,7 @@ sidebar_position: 1
 | Routes | `POST /routes` | `planRoute` | `201`, the route `PLANNED`; body `{waveId, dspId, stops[{stopNo, trackingNumbers[]}]}` |
 | Routes | `GET /routes/{routeId}` | `getRoute` | `200`, stops with derived outcome and every attempt |
 | Routes | `POST /routes/{routeId}/starts` | `startRoute` | `200`, the route `OUT_FOR_DELIVERY` |
-| Routes | `POST /routes/{routeId}/attempts` | `recordAttempt` | `201`, the attempt; body `{trackingNumber, outcome, failureReason?, at}` |
+| Routes | `POST /routes/{routeId}/attempts` | `recordAttempt` | `201`, the attempt; body `{trackingNumber, outcome, outcomeDetail?, failureReason?, at}` (`outcomeDetail`: `NOT_HOME`, `ACCESS_PROBLEM`, `OTHER` on `FAILED`, `SAFE_PLACE_USED` on `DELIVERED`; a mismatch is `422`; ADR 0014) |
 | Partners | `POST /partners` | `contractPartner` | `201`, the partner `ACTIVE`; body `{stationNodeId, vanCapacity}` |
 | Partners | `POST /partners/{dspId}/deactivations` | `deactivatePartner` | `200`, the partner `INACTIVE` |
 | Health | `GET /healthz`, `GET /readyz` | none (not in the spec) | `200`; `/readyz` is `503` while draining or when Postgres or Kafka is unreachable |
