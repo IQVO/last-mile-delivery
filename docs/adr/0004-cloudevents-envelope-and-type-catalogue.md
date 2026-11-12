@@ -30,7 +30,7 @@ against `apis/asyncapi.yaml`. The consumed types are listed in ADR 0003.
   RFC 3339 UTC; the service date is `YYYY-MM-DD`.
 - Built and decoded only through `internal/adapters/kafka/cloudevents`.
 - `<entity>` is the raising aggregate, lowercase, no separators: `wave`,
-  `route`, `packageattempthistory`. Tier is `logistics`.
+  `route`, `packageattempthistory`, `deliverypointprofile`. Tier is `logistics`.
 
 ### Published types
 
@@ -42,6 +42,8 @@ E5), no longer analytics-only. `PackageInductionDeferred` and
 `PackageReturnInitiated` are the Gap Register G16 additions (contracts-delta E15).
 `WaveCostDeclared` is the roadmap F7 provider-B addition (ADR 0011).
 `StopEtaWindowAssigned` is the roadmap E3 addition (ADR 0013).
+`DeliveryPointFlagged` is the roadmap C5 addition (ADR 0014); its entity is
+`deliverypointprofile` and its subject and key are the opaque `stopKey`.
 
 ```text
 type: com.retailnetwork.logistics.last-mile-delivery.wave.DeliveryWaveScheduled stream: events
@@ -54,6 +56,7 @@ type: com.retailnetwork.logistics.last-mile-delivery.route.DeliveryAttempted str
 type: com.retailnetwork.logistics.last-mile-delivery.route.StopEtaWindowAssigned stream: events
 type: com.retailnetwork.logistics.last-mile-delivery.packageattempthistory.PackageInductionDeferred stream: events
 type: com.retailnetwork.logistics.last-mile-delivery.packageattempthistory.PackageReturnInitiated stream: events
+type: com.retailnetwork.logistics.last-mile-delivery.deliverypointprofile.DeliveryPointFlagged stream: events
 ```
 
 | Event | Subject / key | Raised when | `data` |
@@ -68,6 +71,7 @@ type: com.retailnetwork.logistics.last-mile-delivery.packageattempthistory.Packa
 | `StopEtaWindowAssigned` | `routeId` | StartRoute is saved, one per stop, after every `PackageOutForDelivery` (ADR 0013) | `{routeId, stopNo, stopKey, trackingNumbers, etaStart, etaEnd}` |
 | `PackageInductionDeferred` | `trackingNumber` | no wave accepts a package that is at the station | `{trackingNumber, assignmentId?}` |
 | `PackageReturnInitiated` | `trackingNumber` | the third failed attempt of a package | `{trackingNumber}` |
+| `DeliveryPointFlagged` | `stopKey` | RecordAttempt leaves a delivery point with two open counted failures and packages not told yet (ADR 0014) | `{stopKey, reason, failures, trackingNumbers, flaggedAt}` |
 
 Payload rules:
 

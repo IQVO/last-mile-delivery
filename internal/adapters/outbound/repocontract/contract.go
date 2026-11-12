@@ -16,17 +16,19 @@ import (
 
 // Fixture is one implementation of every port, over ONE empty database.
 type Fixture struct {
-	Waves        ports.WaveRepository
-	Routes       ports.RouteRepository
-	Partners     ports.PartnerRepository
-	Histories    ports.HistoryRepository
-	Stations     ports.StationRepository
-	ServiceAreas ports.ServiceAreaRepository
-	PackageStops ports.PackageStopRepository
-	Inbound      ports.InboundPackageRepository
-	Inbox        ports.Inbox
-	Outbox       ports.EventOutbox
-	UoW          ports.UnitOfWork
+	Waves     ports.WaveRepository
+	Routes    ports.RouteRepository
+	Partners  ports.PartnerRepository
+	Histories ports.HistoryRepository
+	// DeliveryPoints is the DeliveryPointProfile store (ADR 0014).
+	DeliveryPoints ports.DeliveryPointRepository
+	Stations       ports.StationRepository
+	ServiceAreas   ports.ServiceAreaRepository
+	PackageStops   ports.PackageStopRepository
+	Inbound        ports.InboundPackageRepository
+	Inbox          ports.Inbox
+	Outbox         ports.EventOutbox
+	UoW            ports.UnitOfWork
 	// OutboxCount returns how many events are stored in the outbox. Nil skips
 	// the outbox atomicity checks.
 	OutboxCount func(ctx context.Context) (int, error)
@@ -52,6 +54,7 @@ func Run(t *testing.T, factory Factory) {
 		{"Route", routeCases},
 		{"Partner", partnerCases},
 		{"History", historyCases},
+		{"DeliveryPoint", deliveryPointCases},
 		{"ReadModels", readModelCases},
 		{"Inbox", inboxCases},
 		{"UnitOfWork", unitOfWorkCases},

@@ -9,6 +9,7 @@ import (
 	"github.com/claudioed/last-mile-delivery/internal/adapters/kafka/cloudevents"
 	"github.com/claudioed/last-mile-delivery/internal/application/outbox"
 	"github.com/claudioed/last-mile-delivery/internal/application/ports"
+	"github.com/claudioed/last-mile-delivery/internal/domain/deliverypoint"
 	"github.com/claudioed/last-mile-delivery/internal/domain/history"
 	"github.com/claudioed/last-mile-delivery/internal/domain/route"
 	"github.com/claudioed/last-mile-delivery/internal/domain/shared"
@@ -186,6 +187,8 @@ func payloadFor(ev shared.Event) (any, string, error) {
 		}, events, nil
 	case route.StopEtaWindowAssigned:
 		return stopEtaPayload(e), events, nil
+	case deliverypoint.DeliveryPointFlagged:
+		return pointFlaggedPayload(e), events, nil
 	case history.PackageInductionDeferred:
 		return inductionDeferredData{TrackingNumber: e.TrackingNumber, AssignmentID: e.AssignmentID}, events, nil
 	case history.PackageReturnInitiated:

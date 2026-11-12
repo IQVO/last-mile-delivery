@@ -14,7 +14,7 @@ import (
 var routeCases = []named{
 	{"save then get round-trips stops and attempts", routeRoundTrip},
 	{unknownIDCase, routeGetMiss},
-	{"stale, duplicate and orphan saves are ErrConcurrentUpdate", routeConcurrency},
+	{concurrencyCase, routeConcurrency},
 	{"packages in a wave and uncompleted routes count every route of the wave only", routeWaveQueries},
 }
 

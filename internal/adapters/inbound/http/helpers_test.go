@@ -33,7 +33,7 @@ func newApp(t *testing.T) *app {
 	store := memory.NewStore()
 	deps := usecases.Deps{
 		Waves: store.Waves(), Routes: store.Routes(), Partners: store.Partners(), Histories: store.Histories(), Stations: store.Stations(),
-		ServiceAreas: store.ServiceAreas(), PackageStops: store.PackageStops(), Inbound: store.Inbound(), Inbox: store.Inbox(),
+		ServiceAreas: store.ServiceAreas(), PackageStops: store.PackageStops(), DeliveryPoints: store.DeliveryPoints(), Inbound: store.Inbound(), Inbox: store.Inbox(),
 		Outbox: store.Outbox(), UoW: store.UnitOfWork(), Clock: memory.NewClock(t0), IDs: &memory.SequentialIDs{},
 	}
 	idem := memory.NewIdempotency(nil)

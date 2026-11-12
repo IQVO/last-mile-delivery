@@ -10,12 +10,13 @@ import (
 	"github.com/claudioed/last-mile-delivery/internal/analytics/report"
 )
 
-// The CloudEvents entity segments of this context's three event-raising
-// aggregates.
+// The CloudEvents entity segments of this context's event-raising aggregates.
 const (
 	entityWave    = "wave"
 	entityRoute   = "route"
 	entityHistory = "packageattempthistory"
+	// entityPoint is the DeliveryPointProfile aggregate (ADR 0014).
+	entityPoint = "deliverypointprofile"
 )
 
 // serviceDateLayout is the wire form of a wave's serviceDate.
@@ -42,6 +43,7 @@ func projectedKinds() map[string]report.Kind {
 func acknowledgedTypes() map[string]bool {
 	return map[string]bool{
 		cloudevents.Type(entityHistory, "PackageInductionDeferred"): true,
+		cloudevents.Type(entityPoint, "DeliveryPointFlagged"):       true,
 	}
 }
 

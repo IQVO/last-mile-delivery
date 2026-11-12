@@ -20,6 +20,7 @@ Source: `internal/domain/*`, `internal/application/views/views.go`, `apis/openap
 | Delivery window | The period in which the wave's packages are delivered | `WindowStart`, `WindowEnd` |
 | Stop | One delivery address; several packages for one address are one stop | `route.Stop`, grouped by `stopKey` |
 | Stop key | Opaque keyed hash of the normalised address (never the address); `pkg:<trackingNumber>` when no label data arrived | `stopKey`, table `rm_package_stops` |
+| Delivery point | The address behind one stop key and its delivery history (counted failed attempts by outcome detail, decaying over 60 days); after two counted failures the point is flagged so the shopper can be warned (ADR 0014) | `deliverypoint.DeliveryPointProfile`, `DeliveryPointFlagged` |
 | Stop capacity | How many stops a wave can take (counted in stops, not packages) | `StopCapacity`, `AssignedStops`, `RemainingStops` |
 | Induction | Placing a package in a wave | `DeliveryWave.Induct`, `wave_inductions` |
 | Induct on arrival | Policy: when a load arrives at a station, induct every package into the earliest eligible wave | `usecases.InductOnArrival` |

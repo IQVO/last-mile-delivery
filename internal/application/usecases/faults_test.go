@@ -224,6 +224,7 @@ func (r faultyOutbox) Append(ctx context.Context, ev ...shared.Event) error {
 func faulty(d usecases.Deps, f *faults) usecases.Deps {
 	d.Waves, d.Routes, d.Partners = faultyWaves{d.Waves, f}, faultyRoutes{d.Routes, f}, faultyPartners{d.Partners, f}
 	d.Histories, d.Stations, d.ServiceAreas = faultyHistories{d.Histories, f}, faultyStations{d.Stations, f}, faultyAreas{d.ServiceAreas, f}
+	d.DeliveryPoints = faultyPoints{d.DeliveryPoints, f}
 	d.PackageStops, d.Inbound, d.Inbox, d.Outbox = faultyStops{d.PackageStops, f}, faultyInbound{d.Inbound, f}, faultyInbox{d.Inbox, f}, faultyOutbox{d.Outbox, f}
 	return d
 }
@@ -359,6 +360,17 @@ func scenarios() []scenario {
 			e.start(t)
 			return e, func(d usecases.Deps) error {
 				_, err := usecases.NewRecordAttempt(d).Execute(ctxb(), usecases.RecordAttemptCommand{RouteID: "route-1", TrackingNumber: "TRK-3", Outcome: route.OutcomeFailed, FailureReason: "absent", At: at})
+				return err
+			}
+		}},
+		{"RecordAttempt failed at a profiled stop, second strike flags it", func(t *testing.T) (*env, func(usecases.Deps) error) {
+			e := dispatchedRoute(t, true)
+			e.seedStrike(t, "k-a", "route-0", "TRK-0")
+			e.start(t)
+			return e, func(d usecases.Deps) error {
+				_, err := usecases.NewRecordAttempt(d).Execute(ctxb(), usecases.RecordAttemptCommand{
+					RouteID: "route-1", TrackingNumber: "TRK-1", Outcome: route.OutcomeFailed, Detail: route.DetailNotHome, FailureReason: "absent", At: at,
+				})
 				return err
 			}
 		}},
