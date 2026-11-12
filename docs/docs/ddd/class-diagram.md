@@ -116,6 +116,7 @@ classDiagram
     class RoutePlanned
     class PackageOutForDelivery
     class DeliveryAttempted
+    class StopEtaWindowAssigned
     class PackageInductionDeferred
     class PackageReturnInitiated
     Event <|.. DeliveryWaveScheduled
@@ -124,6 +125,7 @@ classDiagram
     Event <|.. RoutePlanned
     Event <|.. PackageOutForDelivery
     Event <|.. DeliveryAttempted
+    Event <|.. StopEtaWindowAssigned
     Event <|.. PackageInductionDeferred
     Event <|.. PackageReturnInitiated
 ```

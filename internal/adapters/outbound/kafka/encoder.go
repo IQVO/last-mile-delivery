@@ -183,6 +183,8 @@ func payloadFor(ev shared.Event) (any, string, error) {
 		return attemptedData{
 			RouteID: string(e.RouteID), TrackingNumber: e.TrackingNumber, Outcome: string(e.Outcome), FailureReason: e.FailureReason, At: ts(e.At),
 		}, events, nil
+	case route.StopEtaWindowAssigned:
+		return stopEtaPayload(e), events, nil
 	case history.PackageInductionDeferred:
 		return inductionDeferredData{TrackingNumber: e.TrackingNumber, AssignmentID: e.AssignmentID}, events, nil
 	case history.PackageReturnInitiated:

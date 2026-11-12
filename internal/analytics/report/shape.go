@@ -71,6 +71,23 @@ func WaveUtilisationRows(days []WaveDay) []WaveRow {
 	return out
 }
 
+// EtaRow is an EtaDay plus the E3 KPI of ADR 0013: the share of deliveries with
+// an ETA that fell inside the window (nil when none had an ETA).
+type EtaRow struct {
+	EtaDay
+	EtaHitRate *float64
+}
+
+// EtaWindowRows derives each row's hit rate. Order is preserved; a nil input
+// yields an empty, non-nil slice.
+func EtaWindowRows(days []EtaDay) []EtaRow {
+	out := make([]EtaRow, 0, len(days))
+	for _, d := range days {
+		out = append(out, EtaRow{EtaDay: d, EtaHitRate: Ratio(float64(d.DeliveriesInside), d.DeliveriesWithEta)})
+	}
+	return out
+}
+
 // Ratio is num/den over a defined denominator: nil when den is not positive
 // (the KPI is undefined, never a misleading 0).
 func Ratio(num float64, den int) *float64 {

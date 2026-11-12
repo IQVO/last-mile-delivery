@@ -3,6 +3,7 @@ package features_test
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/cucumber/godog"
 
@@ -71,6 +72,8 @@ func eventField(ev shared.Event, field string) (string, bool) {
 		return attemptedField(e, field)
 	case history.PackageInductionDeferred:
 		return deferredField(e, field)
+	case route.StopEtaWindowAssigned:
+		return etaField(e, field)
 	}
 	return "", false
 }
@@ -125,6 +128,18 @@ func attemptedField(e route.DeliveryAttempted, field string) (string, bool) {
 func deferredField(e history.PackageInductionDeferred, field string) (string, bool) {
 	if field == "assignmentId" {
 		return e.AssignmentID, true
+	}
+	return "", false
+}
+
+func etaField(e route.StopEtaWindowAssigned, field string) (string, bool) {
+	switch field {
+	case "stopNo":
+		return strconv.Itoa(e.StopNo), true
+	case "stopKey":
+		return e.StopKey, true
+	case "trackingNumbers":
+		return strings.Join(e.TrackingNumbers, ","), true
 	}
 	return "", false
 }

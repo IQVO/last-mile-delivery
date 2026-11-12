@@ -103,7 +103,7 @@ REST errors are RFC 9457 `application/problem+json`; the `type` is the slug (`in
 
 - **Trigger**: DSP driver app, `POST /routes/{routeId}/starts`.
 - **Invariants**: the route is `PLANNED` and its wave is `DISPATCHED` (else `illegal-transition`).
-- **Events**: one `PackageOutForDelivery` per tracking number, in stop order (A14).
+- **Events**: one `PackageOutForDelivery` per tracking number, in stop order (A14), then one `StopEtaWindowAssigned` per stop, in stop order, in the same transaction ([ADR 0013](/docs/adr/0013-stop-eta-window)): a window of at most two hours per stop, spread over what is left of the wave's delivery window from the start instant. When less than 30 minutes are left no ETA event is raised and the route starts normally (counter `last_mile_delivery.stop_eta.skipped`). Nothing about the ETA is stored on the route.
 
 ## RecordAttempt
 

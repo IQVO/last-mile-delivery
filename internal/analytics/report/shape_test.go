@@ -102,3 +102,25 @@ func TestComputeFreshness(t *testing.T) {
 		t.Fatalf("a clock behind the event must read zero lag, got %v", *f.LagSeconds)
 	}
 }
+
+func TestEtaWindowRowsDerivesTheHitRate(t *testing.T) {
+	day := utcDay(2026, 11, 3)
+	in := []report.EtaDay{
+		{Day: day, Station: "st1", DeliveriesWithEta: 4, DeliveriesInside: 3, DeliveriesBefore: 1},
+		{Day: day, Station: "st2", DeliveriesWithEta: 2, DeliveriesAfter: 2},
+		{Day: day, Station: "st3"},
+	}
+	got := report.EtaWindowRows(in)
+	if len(got) != 3 || got[0].EtaHitRate == nil || *got[0].EtaHitRate != 0.75 || got[1].EtaHitRate == nil || *got[1].EtaHitRate != 0 {
+		t.Fatalf("rows = %+v, want hit rates 0.75 and 0", got)
+	}
+	if got[2].EtaHitRate != nil {
+		t.Fatalf("no delivery had an ETA: the rate must be null, got %v", *got[2].EtaHitRate)
+	}
+	if got[0].EtaDay != in[0] {
+		t.Fatalf("the counts must pass through: %+v", got[0])
+	}
+	if empty := report.EtaWindowRows(nil); empty == nil || len(empty) != 0 {
+		t.Fatalf("nil input must yield an empty, non-nil slice, got %#v", empty)
+	}
+}

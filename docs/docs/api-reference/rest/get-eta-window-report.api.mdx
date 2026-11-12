@@ -1,0 +1,70 @@
+---
+id: get-eta-window-report
+title: "Share of deliveries inside their day-of ETA window per day and station"
+description: "Per UTC day of the DELIVERED attempt and per delivery station (the station of the attempt's route, UNKNOWN while its PackageOutForDelivery is not projected). deliveriesWithEta counts the delivered packages that had a StopEtaWindowAssigned window for the same route (ADR 0013); deliveriesInsideEta those delivered with etaStart <= attempt instant <= etaEnd (both bounds are inside), deliveriesBeforeEta before etaStart and deliveriesAfterEta after etaEnd; etaHitRate = deliveriesInsideEta / deliveriesWithEta, null when no delivery of the day and station had an ETA. Only the attempt that DELIVERED counts; a delivered package whose ETA was never projected (no ETA was raised, or the projection has not caught up) is not in the denominator. Days without a delivery are omitted. The windows are a deterministic spread of the route's stops over the wave window, so the first weeks of etaHitRate are a baseline, not a verdict."
+sidebar_label: "Share of deliveries inside their day-of ETA window per day and station"
+hide_title: true
+hide_table_of_contents: true
+api: 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
+sidebar_class_name: "get api-method"
+info_path: docs/api-reference/rest/last-mile-delivery-api
+custom_edit_url: null
+hide_send_button: true
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+import Translate from "@docusaurus/Translate";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"Share of deliveries inside their day-of ETA window per day and station"}
+>
+</Heading>
+
+<MethodEndpoint
+  method={"get"}
+  path={"/reports/eta-window"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+
+
+Per UTC day of the DELIVERED attempt and per delivery station (the station of the attempt's route, UNKNOWN while its PackageOutForDelivery is not projected). deliveriesWithEta counts the delivered packages that had a StopEtaWindowAssigned window for the same route (ADR 0013); deliveriesInsideEta those delivered with etaStart &lt; attempt instant &lt; etaEnd (both bounds are inside), deliveriesBeforeEta before etaStart and deliveriesAfterEta after etaEnd; etaHitRate = deliveriesInsideEta / deliveriesWithEta, null when no delivery of the day and station had an ETA. Only the attempt that DELIVERED counts; a delivered package whose ETA was never projected (no ETA was raised, or the projection has not caught up) is not in the denominator. Days without a delivery are omitted. The windows are a deterministic spread of the route's stops over the wave window, so the first weeks of etaHitRate are a baseline, not a verdict.
+
+<Heading
+  id={"request"}
+  as={"h2"}
+  className={"openapi-tabs__heading"}
+>
+  <Translate id="theme.openapi.request.title">Request</Translate>
+</Heading>
+
+<ParamsDetails
+  {...require("./get-eta-window-report.ParamsDetails.json")}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  {...require("./get-eta-window-report.RequestSchema.json")}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  {...require("./get-eta-window-report.StatusCodes.json")}
+>
+  
+</StatusCodes>
+
+
+      

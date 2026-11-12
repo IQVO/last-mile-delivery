@@ -56,6 +56,7 @@ Written to `outbox_events` in the aggregate's transaction and published by the r
 | --- | --- | --- |
 | `DeliveryWaveScheduled`, `DeliveryWaveCapacityChanged` | `retailnetwork.last-mile-delivery.events` | `delivery-promise` (local wave view for its witness path), `order-sourcing` (network graph view) |
 | `PackageOutForDelivery`, `DeliveryAttempted` | same | `shipping-and-tracking` (turns them into journey scans) |
+| `StopEtaWindowAssigned` | same | `shipping-and-tracking` (relays the window per tracking number toward `customer-ordering`; the E3 chain of ADR 0013) |
 | `DeliveryWaveCancelled`, `PackageInductionDeferred`, `PackageReturnInitiated` | same | no consumer in this repository's contract; available to analytics |
 | `RoutePlanned` | `retailnetwork.last-mile-delivery.analytics` | analytics only |
 

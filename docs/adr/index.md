@@ -26,3 +26,4 @@ The *Status* column is copied from each ADR's own `## Status` section.
 | [0010](./0010-adopt-the-fleet-rest-api-guideline.md) | Adopt the fleet REST API guideline | Accepted (2026-11-01) |
 | [0011](./0011-wave-stop-cost-declaration.md) | wave stop-cost declaration (cents, planner-declared, per-stop; F7 provider B) | Accepted (2026-11-05) |
 | [0012](./0012-analytics-read-side.md) | analytics read side (projector, reports, separate analytical database; roadmap F9) | Accepted (2026-11-09) |
+| [0013](./0013-stop-eta-window.md) | the day-of stop ETA window (StopEtaWindowAssigned at StartRoute, E3 KPI read side; roadmap E3 provider) | Accepted (2026-11-11) |

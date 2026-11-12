@@ -39,6 +39,7 @@ Every event is written to `outbox_events` in the same transaction as the aggrega
 | `RoutePlanned` | `com.retailnetwork.logistics.last-mile-delivery.route.RoutePlanned` | **analytics** | `routeId` | `PlanRoute` | analytics only |
 | `PackageOutForDelivery` | `com.retailnetwork.logistics.last-mile-delivery.route.PackageOutForDelivery` | events | `routeId` | `StartRoute` (one per tracking number) | `shipping-and-tracking` |
 | `DeliveryAttempted` | `com.retailnetwork.logistics.last-mile-delivery.route.DeliveryAttempted` | events | `routeId` | `RecordAttempt` | `shipping-and-tracking` |
+| `StopEtaWindowAssigned` | `com.retailnetwork.logistics.last-mile-delivery.route.StopEtaWindowAssigned` | events | `routeId` | `StartRoute` (one per stop, after every `PackageOutForDelivery`; [ADR 0013](/docs/adr/0013-stop-eta-window)) | `shipping-and-tracking` (relays it per tracking number), analytics |
 | `PackageInductionDeferred` | `com.retailnetwork.logistics.last-mile-delivery.packageattempthistory.PackageInductionDeferred` | events | tracking number | a package no wave takes (arrival, un-placement) | none in this repository |
 | `PackageReturnInitiated` | `com.retailnetwork.logistics.last-mile-delivery.packageattempthistory.PackageReturnInitiated` | events | tracking number | the third failed attempt of a package | none in this repository |
 
@@ -82,6 +83,10 @@ A full snapshot, not a delta: the latest event by `time` wins and a duplicate do
 ### DeliveryAttempted
 
 `routeId`, `trackingNumber` (strings), `outcome` (`DELIVERED` or `FAILED`), `failureReason` (string, omitted when `DELIVERED`) and `at` (date-time, when the driver says the attempt happened).
+
+### StopEtaWindowAssigned
+
+`routeId` (string), `stopNo` (integer >= 1, the stop on the route: a route may hold two stops with one `stopKey`), `stopKey` (string, opaque; `pkg:<trackingNumber>` when the package has no label data), `trackingNumbers` (string[], at least one, the packages of the stop in stop order), `etaStart` and `etaEnd` (date-time). The CloudEvents `time` is the route start instant, which consumers read as the assignment time. The window is at most two hours wide and is a deterministic spread of the route's stops over what is left of the wave's delivery window (`route.EtaWindows`): it is not a prediction, and the `GET /reports/eta-window` hit rate measures it. No event is raised when less than 30 minutes of the wave window is left at the start instant; an ETA is never retracted and never re-raised for the same start; a re-inducted package gets a new one from its next `StartRoute`.
 
 ### PackageInductionDeferred
 

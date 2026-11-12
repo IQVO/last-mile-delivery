@@ -136,6 +136,12 @@ const sidebar: SidebarsConfig = {
         },
         {
           type: "doc",
+          id: "api-reference/rest/get-eta-window-report",
+          label: "Share of deliveries inside their day-of ETA window per day and station",
+          className: "api-method get",
+        },
+        {
+          type: "doc",
           id: "api-reference/rest/get-wave-utilisation-report",
           label: "Wave stop-capacity utilisation per service date and station",
           className: "api-method get",

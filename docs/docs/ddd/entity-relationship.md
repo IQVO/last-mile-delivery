@@ -187,6 +187,7 @@ erDiagram
     waves ||..o{ route_plans : "wave_id"
     route_plans ||..o{ route_packages : "route_id"
     route_packages ||..o{ delivery_attempts : "route_id, tracking_number"
+    route_packages ||..o| stop_eta_windows : "route_id, tracking_number"
     delivery_attempts }o..o{ package_returns : "tracking_number"
 
     analytics_processed_events {
@@ -232,6 +233,15 @@ erDiagram
         timestamptz out_at
         text event_id
     }
+    stop_eta_windows {
+        text route_id PK
+        text tracking_number PK
+        int stop_no "at least 1"
+        timestamptz eta_start "before eta_end"
+        timestamptz eta_end
+        timestamptz assigned_at
+        text event_id
+    }
     delivery_attempts {
         text event_id PK
         text route_id
@@ -246,10 +256,10 @@ erDiagram
     }
 ```
 
-Source: `0001_last_mile_facts.up.sql`. Each fact table is fed by one event type:
+Source: `0001_last_mile_facts.up.sql` and `0002_stop_eta_windows.up.sql`. Each fact table is fed by one event type:
 
 - `waves` by `wave.DeliveryWaveScheduled`; `wave_inductions` by the highest `assignedStops` of `wave.DeliveryWaveCapacityChanged`; `wave_cancellations` by `wave.DeliveryWaveCancelled`; `wave_costs` by `wave.WaveCostDeclared` (the last declaration wins; 0 is a declared cost).
-- `route_plans` by `route.RoutePlanned` (the analytics topic); `route_packages` by `route.PackageOutForDelivery`; `delivery_attempts` by `route.DeliveryAttempted` (`attempted_at` is the attempt's own instant); `package_returns` by `packageattempthistory.PackageReturnInitiated` (`initiated_at` is the CloudEvents time, the payload carries no instant).
+- `route_plans` by `route.RoutePlanned` (the analytics topic); `route_packages` by `route.PackageOutForDelivery`; `delivery_attempts` by `route.DeliveryAttempted` (`attempted_at` is the attempt's own instant); `stop_eta_windows` (migration `0002_stop_eta_windows`, ADR 0013: one row per package of a `route.StopEtaWindowAssigned`, the first row of a route and package stays) by `route.StopEtaWindowAssigned`; `package_returns` by `packageattempthistory.PackageReturnInitiated` (`initiated_at` is the CloudEvents time, the payload carries no instant).
 - `analytics_processed_events` is the projector's inbox: every applied CloudEvents id is recorded once, in the same transaction as its effect on a fact table; `occurred_at` is the basis of `GET /reports/freshness`.
 
-Indexes: `idx_delivery_attempts_route` on `(route_id, tracking_number)`, `idx_delivery_attempts_tracking` on `(tracking_number, attempted_at)`, `idx_delivery_attempts_attempted_at`, `idx_package_returns_initiated_at`, `idx_waves_service_date` and `idx_analytics_processed_events_occurred_at`. Down migration: `0001_last_mile_facts.down.sql`.
+Indexes: `idx_delivery_attempts_route` on `(route_id, tracking_number)`, `idx_delivery_attempts_tracking` on `(tracking_number, attempted_at)`, `idx_delivery_attempts_attempted_at`, `idx_package_returns_initiated_at`, `idx_waves_service_date`, `idx_analytics_processed_events_occurred_at` and `idx_stop_eta_windows_tracking` on `(tracking_number)`. Down migration: `0001_last_mile_facts.down.sql`.

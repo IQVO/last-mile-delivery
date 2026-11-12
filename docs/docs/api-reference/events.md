@@ -30,11 +30,12 @@ Source: `apis/asyncapi.yaml` (channels `lastMileEvents`, `lastMileAnalytics`, `l
 | `DeliveryWaveCancelled` | `com.retailnetwork.logistics.last-mile-delivery.wave.DeliveryWaveCancelled` | `...last-mile-delivery.events` | `waveId` |
 | `PackageOutForDelivery` | `com.retailnetwork.logistics.last-mile-delivery.route.PackageOutForDelivery` | `...last-mile-delivery.events` | `routeId` |
 | `DeliveryAttempted` | `com.retailnetwork.logistics.last-mile-delivery.route.DeliveryAttempted` | `...last-mile-delivery.events` | `routeId` |
+| `StopEtaWindowAssigned` | `com.retailnetwork.logistics.last-mile-delivery.route.StopEtaWindowAssigned` | `...last-mile-delivery.events` | `routeId` |
 | `PackageInductionDeferred` | `com.retailnetwork.logistics.last-mile-delivery.packageattempthistory.PackageInductionDeferred` | `...last-mile-delivery.events` | tracking number |
 | `PackageReturnInitiated` | `com.retailnetwork.logistics.last-mile-delivery.packageattempthistory.PackageReturnInitiated` | `...last-mile-delivery.events` | tracking number |
 | `RoutePlanned` | `com.retailnetwork.logistics.last-mile-delivery.route.RoutePlanned` | `...last-mile-delivery.analytics` **only** | `routeId` |
 
-Seven events travel on the events topic and `RoutePlanned` only on the analytics topic. Producer guarantees: written in the aggregate's transaction (transactional outbox), published at least once with a stable CloudEvents `id`, ordered per key, acks=all.
+Nine events travel on the events topic and `RoutePlanned` only on the analytics topic. Producer guarantees: written in the aggregate's transaction (transactional outbox), published at least once with a stable CloudEvents `id`, ordered per key, acks=all.
 
 ## Consumed
 

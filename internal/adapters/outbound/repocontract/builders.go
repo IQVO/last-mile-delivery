@@ -51,7 +51,7 @@ func StartedRoute(t testing.TB, id route.ID, waveID wave.ID) (*route.Route, *wav
 	r, _, err := route.Plan(id, []route.Stop{{No: 1, TrackingNumbers: []string{trk1, trk2}}, {No: 2, TrackingNumbers: []string{trk3}}},
 		route.Planning{Wave: w, Partner: NewPartner(t, "dsp-1", station1)}, Now)
 	noErr(t, err)
-	_, err = r.Start(Now)
+	_, err = r.Start(Now, w)
 	noErr(t, err)
 	return r, w
 }
