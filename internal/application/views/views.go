@@ -136,6 +136,26 @@ type ServiceArea struct {
 	StationNodeID     string
 	RegionID          string
 	AssignmentVersion int64
+	// DeliveryMode is the area's declared final-leg mode (ADR 0015): an area
+	// without one (or an event without the field) is NetworkRoute.
+	DeliveryMode string
+}
+
+// The delivery modes a service area can declare (ADR 0015): a station's own
+// vans, or a contracted carrier from a handoff node.
+const (
+	NetworkRoute   = "NETWORK_ROUTE"
+	CarrierHandoff = "CARRIER_HANDOFF"
+)
+
+// NormalizeDeliveryMode returns the mode an event carried, with an absent or
+// unknown value reading as the current behaviour (ADR 0015: decoding is
+// tolerant; only the two declared modes exist on the wire).
+func NormalizeDeliveryMode(mode string) string {
+	if mode == CarrierHandoff {
+		return CarrierHandoff
+	}
+	return NetworkRoute
 }
 
 // PackageStop is a row of the PackageStopView read model (LabelIssued).

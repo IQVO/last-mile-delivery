@@ -91,3 +91,40 @@ func TestMigrationsCreateTheC5Objects(t *testing.T) {
 		t.Fatalf("up again: err=%v", err)
 	}
 }
+
+// TestMigrationsCreateTheC4AreaMode proves migration 0006
+// (rm_station_service_areas.delivery_mode) is applied and reversed (ADR 0015).
+func TestMigrationsCreateTheC4AreaMode(t *testing.T) {
+	url := pgtest.URL(t)
+	pool, err := adapter.NewPool(context.Background(), url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	const column = `SELECT count(*) FROM information_schema.columns WHERE table_name = 'rm_station_service_areas' AND column_name = 'delivery_mode'`
+	var n int
+	if err := pool.QueryRow(context.Background(), column).Scan(&n); err != nil || n != 1 {
+		t.Fatalf("migration 0006 must be applied: n=%d err=%v", n, err)
+	}
+	src, err := iofs.New(adapter.MigrationsFS(), "migrations")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := migrate.NewWithSourceInstance("iofs", src, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _, _ = m.Close() }()
+	if err := m.Steps(-1); err != nil {
+		t.Fatalf("0006 down: %v", err)
+	}
+	if err := pool.QueryRow(context.Background(), column).Scan(&n); err != nil || n != 0 {
+		t.Fatalf("0006 down must drop the column: n=%d err=%v", n, err)
+	}
+	if err := m.Up(); err != nil {
+		t.Fatalf("up again: %v", err)
+	}
+	if err := pool.QueryRow(context.Background(), column).Scan(&n); err != nil || n != 1 {
+		t.Fatalf("up again must restore the column: n=%d err=%v", n, err)
+	}
+}

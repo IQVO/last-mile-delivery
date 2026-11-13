@@ -70,6 +70,30 @@ func TestServiceAreaAssignedKeepsTheHighestVersion(t *testing.T) {
 	}
 }
 
+func TestServiceAreaAssignedDecodesTheDeliveryMode(t *testing.T) {
+	s := newService()
+	c := s.topology()
+	area := func(id string, v int, extra string) []byte {
+		return envelope(id, kafkaconsumer.TypeServiceAreaAssigned, fmt.Sprintf(`{"postalPrefix":"01310","deliveryStationNodeId":"node-a","regionId":"r","assignmentVersion":%d%s}`, v, extra))
+	}
+	msgs := [][]byte{
+		area("e1", 1, ""), // absent field: the current behaviour
+		area("e2", 2, `,"deliveryMode":"CARRIER_HANDOFF"`),            // the new mode
+		area("e3", 3, `,"deliveryMode":"NETWORK_ROUTE"`),              // explicit network route
+		area("e4", 4, `,"deliveryMode":"SOMETHING_ELSE","unknown":1`), // tolerant: unknown value and fields
+	}
+	want := []string{views.NetworkRoute, views.CarrierHandoff, views.NetworkRoute, views.NetworkRoute}
+	for i, m := range msgs {
+		if err := handle(t, c, m); err != nil {
+			t.Fatal(err)
+		}
+		got, err := s.deps.ServiceAreas.Get(context.Background(), "01310")
+		if err != nil || got.DeliveryMode != want[i] || got.AssignmentVersion != int64(i+1) {
+			t.Fatalf("after event %d: area = %+v, %v (want mode %q)", i+1, got, err, want[i])
+		}
+	}
+}
+
 func TestLabelIssuedFeedsThePackageStopView(t *testing.T) {
 	s := newService()
 	m := envelope("e1", kafkaconsumer.TypeLabelIssued, `{"labelRef":"l","trackingNumber":"TRK-1","assignmentId":"asg-1","stopKey":"k1:abc","destinationPostalPrefix":"01310"}`)
