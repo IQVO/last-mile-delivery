@@ -122,13 +122,13 @@ REST errors are RFC 9457 `application/problem+json`; the `type` is the slug (`in
 ## InductOnArrival (policy, consumer `linehaul`)
 
 - **Trigger**: `com.retailnetwork.logistics.linehaul-transportation.load.LoadArrived`.
-- **Flow**: claim the CloudEvents id in `processed_events` (a repeat is a no-op); ignore a load that did not reach a delivery station (A8: the event's `nodeType` when present, else `rm_stations`); for every valid tracking number record it in `rm_inbound_packages` and `arrive` it: a new package gets its stop key from `rm_package_stops` (or `pkg:<trackingNumber>`), is placed on the first `OPEN` wave whose cutoff is after the arrival (earliest first, skipping full or closed waves), and gets a `PackageAttemptHistory` (`INDUCTED`, or `AT_STATION` when no wave takes it); a package already waiting is retried; one already inducted, delivered or returned is ignored (A18).
+- **Flow**: claim the CloudEvents id in `processed_events` (a repeat is a no-op); ignore a load that did not reach a delivery station (A8: the event's `nodeType` when present, else `rm_stations`); for every valid tracking number record it in `rm_inbound_packages` and `arrive` it: a new package gets its stop key from `rm_package_stops` (or `pkg:<trackingNumber>`), is placed on the first `OPEN` wave whose cutoff is after the arrival (earliest first, skipping full or closed waves), and gets a `PackageAttemptHistory` (`INDUCTED`, or `AT_STATION` when no wave takes it); a package already waiting is retried; one already inducted, delivered or returned is ignored (A18). A package whose `destinationPostalPrefix` is assigned `CARRIER_HANDOFF` is refused first: nothing is raised, no history row is kept, the counter `last_mile_delivery.carrier_area.skipped` is recorded, and the package never enters a wave (ADR 0015; the same refusal guards the waiting-package sweep).
 - **Events**: `DeliveryWaveCapacityChanged` per new stop, `PackageInductionDeferred` per unplaced package.
 
 ## Read-model consumers
 
 - `ApplyNodeRegistered`: claims the event and keeps the node in `rm_stations` only when `nodeType` is `DELIVERY_STATION`.
-- `ApplyServiceAreaAssigned`: keeps the assignment in `rm_station_service_areas` when its `assignmentVersion` is higher than the stored one.
+- `ApplyServiceAreaAssigned`: keeps the assignment in `rm_station_service_areas` when its `assignmentVersion` is higher than the stored one; the declared `deliveryMode` is kept with it (absent or unknown reads as `NETWORK_ROUTE`, ADR 0015).
 - `ApplyLabelIssued`: keeps `stopKey`, `destinationPostalPrefix` and `assignmentId` in `rm_package_stops`; a label without a usable `stopKey` is ignored (A4).
 
 None of them raises events. Deterministic problems (undecodable payload, invalid values) are dead-lettered, transient ones retried ([Runbook](/docs/operations/runbook)).

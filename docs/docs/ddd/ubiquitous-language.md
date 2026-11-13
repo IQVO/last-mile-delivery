@@ -43,6 +43,7 @@ Source: `internal/domain/*`, `internal/application/views/views.go`, `apis/openap
 | Load | A linehaul shipment arriving at a station with its tracking numbers (owner: `linehaul-transportation`) | `LoadArrived` |
 | Label | The shipping label of a package carrying the stop key and postal prefix (owner: `shipping-and-tracking`) | `LabelIssued` |
 | Service area | The postal prefixes a station serves (owner: `node-topology`) | `ServiceAreaAssigned`, `rm_station_service_areas` |
+| Delivery mode | How an area's final leg is carried: `NETWORK_ROUTE` (the station's own vans) or `CARRIER_HANDOFF` (a contracted carrier from a handoff node; the package never enters this context, ADR 0015) | `deliveryMode` on `ServiceAreaAssigned` |
 | Postal prefix | The leading part of the postal code; the only address fragment this context keeps | `destinationPostalPrefix` |
 | Read model | A local, event-fed copy of a neighbour's facts | tables `rm_*` |
 | Outbox / inbox | The transactional outbox of published events and the `processed_events` table of consumed ones | `outbox_events`, `processed_events` |
