@@ -28,3 +28,4 @@ The *Status* column is copied from each ADR's own `## Status` section.
 | [0012](./0012-analytics-read-side.md) | analytics read side (projector, reports, separate analytical database; roadmap F9) | Accepted (2026-11-09) |
 | [0013](./0013-stop-eta-window.md) | the day-of stop ETA window (StopEtaWindowAssigned at StartRoute, E3 KPI read side; roadmap E3 provider) | Accepted (2026-11-11) |
 | [0014](./0014-delivery-point-profile.md) | delivery-point profile (outcome detail, DeliveryPointProfile, DeliveryPointFlagged; roadmap C5) | Accepted (2026-11-11) |
+| [0015](./0015-carrier-area-exclusion.md) | carrier-area exclusion (delivery mode on the area read model, CARRIER_HANDOFF areas never induct; roadmap C4) | Accepted (2026-11-13) |
