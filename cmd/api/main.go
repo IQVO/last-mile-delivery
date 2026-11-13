@@ -73,6 +73,11 @@ func run(ctx context.Context) error {
 		return err
 	}
 	ad.deps.EtaMetrics = etaMetrics
+	areaMetrics, err := telemetry.NewAreaMetrics()
+	if err != nil {
+		return err
+	}
+	ad.deps.AreaMetrics = areaMetrics
 
 	readiness := newReadiness(ad.pool.Ping, rt.brokers)
 	httpServer := &http.Server{
