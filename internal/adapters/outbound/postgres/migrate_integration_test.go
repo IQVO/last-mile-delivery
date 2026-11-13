@@ -81,8 +81,10 @@ func TestMigrationsCreateTheC5Objects(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _, _ = m.Close() }()
-	if err := m.Steps(-1); err != nil || exists(table) || !exists(column) {
-		t.Fatalf("0005 down: err=%v, the table must go and the column stay", err)
+	// 0006 (the area delivery mode) is the ceiling now: stepping back twice
+	// crosses it and 0005 together.
+	if err := m.Steps(-2); err != nil || exists(table) || !exists(column) {
+		t.Fatalf("0006+0005 down: err=%v, the table must go and the column stay", err)
 	}
 	if err := m.Steps(-1); err != nil || exists(column) {
 		t.Fatalf("0004 down: err=%v, the column must go", err)
