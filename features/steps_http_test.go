@@ -46,7 +46,7 @@ func (h *httpWorld) reset(w *world) {
 	h.idem = memory.NewIdempotency(nil)
 	h.srv = handler.NewRouter(&handler.Server{
 		ScheduleWave: usecases.NewScheduleWave(w.deps), CloseInduction: usecases.NewCloseInduction(w.deps), DispatchWave: usecases.NewDispatchWave(w.deps),
-		CancelWave: usecases.NewCancelWave(w.deps), ListWaves: usecases.NewListWaves(w.deps), GetWaveStops: usecases.NewGetWaveStops(w.deps),
+		CancelWave: usecases.NewCancelWave(w.deps), DeclareWaveCost: usecases.NewDeclareWaveCost(w.deps), ListWaves: usecases.NewListWaves(w.deps), GetWaveStops: usecases.NewGetWaveStops(w.deps),
 		PlanRoute: usecases.NewPlanRoute(w.deps), StartRoute: usecases.NewStartRoute(w.deps), RecordAttempt: usecases.NewRecordAttempt(w.deps),
 		GetRoute: usecases.NewGetRoute(w.deps), ContractPartner: usecases.NewContractPartner(w.deps), DeactivatePartner: usecases.NewDeactivatePartner(w.deps),
 		Idempotency: handler.RequireIdempotencyKey(h.idem),
