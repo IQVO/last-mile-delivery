@@ -28,6 +28,7 @@ Source: `apis/asyncapi.yaml` (channels `lastMileEvents`, `lastMileAnalytics`, `l
 | `DeliveryWaveScheduled` | `com.retailnetwork.logistics.last-mile-delivery.wave.DeliveryWaveScheduled` | `...last-mile-delivery.events` | `waveId` |
 | `DeliveryWaveCapacityChanged` | `com.retailnetwork.logistics.last-mile-delivery.wave.DeliveryWaveCapacityChanged` | `...last-mile-delivery.events` | `waveId` |
 | `DeliveryWaveCancelled` | `com.retailnetwork.logistics.last-mile-delivery.wave.DeliveryWaveCancelled` | `...last-mile-delivery.events` | `waveId` |
+| `WaveCostDeclared` | `com.retailnetwork.logistics.last-mile-delivery.wave.WaveCostDeclared` | `...last-mile-delivery.events` | `waveId` |
 | `PackageOutForDelivery` | `com.retailnetwork.logistics.last-mile-delivery.route.PackageOutForDelivery` | `...last-mile-delivery.events` | `routeId` |
 | `DeliveryAttempted` | `com.retailnetwork.logistics.last-mile-delivery.route.DeliveryAttempted` | `...last-mile-delivery.events` | `routeId` |
 | `StopEtaWindowAssigned` | `com.retailnetwork.logistics.last-mile-delivery.route.StopEtaWindowAssigned` | `...last-mile-delivery.events` | `routeId` |
@@ -36,7 +37,7 @@ Source: `apis/asyncapi.yaml` (channels `lastMileEvents`, `lastMileAnalytics`, `l
 | `DeliveryPointFlagged` | `com.retailnetwork.logistics.last-mile-delivery.deliverypointprofile.DeliveryPointFlagged` | `...last-mile-delivery.events` | the profile's `stopKey` |
 | `RoutePlanned` | `com.retailnetwork.logistics.last-mile-delivery.route.RoutePlanned` | `...last-mile-delivery.analytics` **only** | `routeId` |
 
-Nine events travel on the events topic and `RoutePlanned` only on the analytics topic. Producer guarantees: written in the aggregate's transaction (transactional outbox), published at least once with a stable CloudEvents `id`, ordered per key, acks=all.
+Ten events travel on the events topic and `RoutePlanned` only on the analytics topic. Producer guarantees: written in the aggregate's transaction (transactional outbox), published at least once with a stable CloudEvents `id`, ordered per key, acks=all.
 
 ## Consumed
 

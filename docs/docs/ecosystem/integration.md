@@ -16,9 +16,9 @@ flowchart LR
     NT["node-topology"] -->|"NodeRegistered, ServiceAreaAssigned"| LM["last-mile-delivery"]
     LH["linehaul-transportation"] -->|"LoadArrived"| LM
     ST["shipping-and-tracking"] -->|"LabelIssued"| LM
-    LM -->|"DeliveryWaveScheduled, DeliveryWaveCapacityChanged"| DP["delivery-promise"]
-    LM -->|"DeliveryWaveScheduled, DeliveryWaveCapacityChanged"| OS["order-sourcing"]
-    LM -->|"PackageOutForDelivery, DeliveryAttempted"| ST
+    LM -->|"DeliveryWaveScheduled, DeliveryWaveCapacityChanged, DeliveryWaveCancelled, PackageInductionDeferred"| DP["delivery-promise"]
+    LM -->|"DeliveryWaveScheduled, DeliveryWaveCapacityChanged, DeliveryWaveCancelled, WaveCostDeclared"| OS["order-sourcing"]
+    LM -->|"PackageOutForDelivery, StopEtaWindowAssigned, DeliveryAttempted, PackageReturnInitiated, DeliveryPointFlagged"| ST
     LM -.->|"analytics only"| AN["retailnetwork.last-mile-delivery.analytics"]
 ```
 
@@ -55,9 +55,13 @@ Written to `outbox_events` in the aggregate's transaction and published by the r
 | Event | Topic | Known downstream |
 | --- | --- | --- |
 | `DeliveryWaveScheduled`, `DeliveryWaveCapacityChanged` | `retailnetwork.last-mile-delivery.events` | `delivery-promise` (local wave view for its witness path), `order-sourcing` (network graph view) |
+| `DeliveryWaveCancelled` | same | `delivery-promise` (marks the wave cancelled and flags the promises it witnessed as at risk), `order-sourcing` (a cancelled wave is never a candidate), analytics |
+| `WaveCostDeclared` | same | `order-sourcing` (money-denominated assignment cost, ADR 0011), analytics |
+| `PackageInductionDeferred` | same | `delivery-promise` (a risk to the group's promise) |
 | `PackageOutForDelivery`, `DeliveryAttempted` | same | `shipping-and-tracking` (turns them into journey scans) |
 | `StopEtaWindowAssigned` | same | `shipping-and-tracking` (relays the window per tracking number toward `customer-ordering`; the E3 chain of ADR 0013) |
-| `DeliveryWaveCancelled`, `PackageInductionDeferred`, `PackageReturnInitiated` | same | no consumer in this repository's contract; available to analytics |
+| `PackageReturnInitiated` | same | `shipping-and-tracking` (moves the package from `AT_STATION` to `RETURNED`), analytics |
+| `DeliveryPointFlagged` | same | `shipping-and-tracking` (stores the flag on each journey and relays it per package as `PackageDeliveryPointFlagged`; ADR 0014) |
 | `RoutePlanned` | `retailnetwork.last-mile-delivery.analytics` | analytics only |
 
 **Failure behaviour.** A broker outage never fails a REST write: the row stays in the outbox and the relay retries every interval; a row that fails `OUTBOX_MAX_ATTEMPTS` (default 20) times is parked and logged at ERROR until an operator re-arms it ([Runbook](/docs/operations/runbook)). Consumers must be idempotent on the CloudEvents `id`. There is no schema registry; consumers read `dataschema` `urn:retailnetwork:last-mile-delivery:<stream>:<EventName>:v1`.
@@ -78,5 +82,5 @@ Written to `outbox_events` in the aggregate's transaction and published by the r
 - **No PII.** Ship-to addresses and names live in `customer-ordering` and `shipping-and-tracking` only ([ADR 0006 in warehouse-docs](https://iqvo.github.io/warehouse-docs/network/adr/0006-pii-confinement)); this context sees tracking numbers, opaque `stopKey` hashes and a postal prefix.
 - **No edge to `customer-ordering`, `offer-availability`, `vendor-connectivity`, `node-performance`.** Customer returns and customer notification are future contexts.
 - **No edge to the warehouse-systems fleet.** A delivery station is network-operated; the only seam between the organisations is the Vendor API.
-- **No consumer of `DeliveryWaveCancelled`, `PackageInductionDeferred` or `PackageReturnInitiated` is named in `apis/asyncapi.yaml` or in this repository.** They are integration events (G5 for the cancel); whether a sibling reacts is that sibling's business.
+- **This repository names no consumer in code.** Who reads `DeliveryWaveCancelled`, `PackageInductionDeferred`, `PackageReturnInitiated` and the other published events is declared in the siblings' own `apis/asyncapi.yaml` (the table above); whether a sibling reacts is that sibling's business.
 - **No reaction to `LoadArrived` for packages whose `LabelIssued` has not arrived:** such a package is its own stop (`pkg:<trackingNumber>`) until the label data is known.
