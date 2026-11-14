@@ -406,3 +406,76 @@ func TestDeclareWaveCostRefusals(t *testing.T) {
 		wantIs(t, err, shared.ErrIllegalTransition)
 	})
 }
+
+func TestDeclareWaveEmission(t *testing.T) {
+	e := newEnv(t)
+	e.station(t, "node-ds-01")
+	e.wave(t, 2, 5)
+	v, err := usecases.NewDeclareWaveEmission(e.deps).Execute(context.Background(), usecases.DeclareWaveEmissionCommand{
+		WaveID: "wave-1", GCo2ePerStop: 850,
+	})
+	noErr(t, err)
+	if v.GCo2ePerStop != 850 || v.State != "OPEN" {
+		t.Fatalf("view = %+v", v)
+	}
+	e.wantEvents(t, "DeliveryWaveScheduled:wave-1", "WaveEmissionDeclared:wave-1")
+	// a later declaration overwrites the earlier one and publishes again
+	v, err = usecases.NewDeclareWaveEmission(e.deps).Execute(context.Background(), usecases.DeclareWaveEmissionCommand{
+		WaveID: "wave-1", GCo2ePerStop: 0,
+	})
+	noErr(t, err)
+	if v.GCo2ePerStop != 0 {
+		t.Fatalf("a declared zero must overwrite: %+v", v)
+	}
+	stored := e.loadWave(t, "wave-1")
+	if stored.EmissionPerStopG() != 0 || stored.Version() != 3 {
+		t.Fatalf("stored wave = %+v", stored.Snapshot())
+	}
+	e.wantEvents(t, "DeliveryWaveScheduled:wave-1", "WaveEmissionDeclared:wave-1", "WaveEmissionDeclared:wave-1")
+}
+
+func TestDeclareWaveEmissionWhileTheWaveRuns(t *testing.T) {
+	e := newEnv(t)
+	e.station(t, "node-ds-01")
+	e.wave(t, 2, 5)
+	_, err := usecases.NewCloseInduction(e.deps).Execute(context.Background(), "wave-1")
+	noErr(t, err)
+	_, err = usecases.NewDeclareWaveEmission(e.deps).Execute(context.Background(), usecases.DeclareWaveEmissionCommand{
+		WaveID: "wave-1", GCo2ePerStop: 850,
+	})
+	noErr(t, err)
+	if w := e.loadWave(t, "wave-1"); w.State() != wave.StateInductionClosed || w.EmissionPerStopG() != 850 {
+		t.Fatalf("a closed wave still runs and keeps its declared emission: %+v", w.Snapshot())
+	}
+	// a dispatched wave with no route left completes at once (A9) and then
+	// refuses the declaration
+	_, err = usecases.NewDispatchWave(e.deps).Execute(context.Background(), "wave-1")
+	noErr(t, err)
+	e.wantUnchanged(t, func() {
+		_, err := usecases.NewDeclareWaveEmission(e.deps).Execute(context.Background(), usecases.DeclareWaveEmissionCommand{
+			WaveID: "wave-1", GCo2ePerStop: 0,
+		})
+		wantIs(t, err, shared.ErrIllegalTransition)
+	})
+}
+
+func TestDeclareWaveEmissionRefusals(t *testing.T) {
+	e := newEnv(t)
+	e.station(t, "node-ds-01")
+	e.wave(t, 2, 5)
+	uc := usecases.NewDeclareWaveEmission(e.deps)
+	e.wantUnchanged(t, func() {
+		_, err := uc.Execute(context.Background(), usecases.DeclareWaveEmissionCommand{WaveID: "wave-404", GCo2ePerStop: 850})
+		wantIs(t, err, ports.ErrNotFound)
+		_, err = uc.Execute(context.Background(), usecases.DeclareWaveEmissionCommand{WaveID: "wave-1", GCo2ePerStop: -1})
+		wantIs(t, err, shared.ErrValidation)
+		_, err = uc.Execute(context.Background(), usecases.DeclareWaveEmissionCommand{WaveID: "wave-1", GCo2ePerStop: wave.MaxEmissionPerStopG + 1})
+		wantIs(t, err, shared.ErrValidation)
+	})
+	_, err := usecases.NewCancelWave(e.deps).Execute(context.Background(), usecases.CancelWaveCommand{WaveID: "wave-1", Reason: "closed"})
+	noErr(t, err)
+	e.wantUnchanged(t, func() {
+		_, err := uc.Execute(context.Background(), usecases.DeclareWaveEmissionCommand{WaveID: "wave-1", GCo2ePerStop: 850})
+		wantIs(t, err, shared.ErrIllegalTransition)
+	})
+}

@@ -1,0 +1,70 @@
+---
+id: declare-wave-emission
+title: "Declare the stop emission of a wave (DeclareEmission)"
+description: "Records the planner's declared marginal greenhouse emission of ONE delivery stop on the wave (the stop's share of the route's driving), in grams of CO2 equivalent (roadmap feature C9; ADR 0016), and publishes WaveEmissionDeclared for order-sourcing's estimatedCo2eGrams. The emission is per stop (the G11 stopKey grouping), never per package. 0 is a legal declared zero marginal emission; a wave with no declaration reports 0 and leaves a consumer's estimate incomplete. Allowed while the wave still runs (OPEN, INDUCTION_CLOSED or DISPATCHED, illegal-transition once CANCELLED or COMPLETED); a later declaration overwrites the earlier one and publishes again. Ranking is untouched by this fact: carbon is recorded, not optimised, in this slice."
+sidebar_label: "Declare the stop emission of a wave (DeclareEmission)"
+hide_title: true
+hide_table_of_contents: true
+api: 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
+sidebar_class_name: "post api-method"
+info_path: docs/api-reference/rest/last-mile-delivery-api
+custom_edit_url: null
+hide_send_button: true
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+import Translate from "@docusaurus/Translate";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"Declare the stop emission of a wave (DeclareEmission)"}
+>
+</Heading>
+
+<MethodEndpoint
+  method={"post"}
+  path={"/waves/{waveId}/emission-declarations"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+
+
+Records the planner's declared marginal greenhouse emission of ONE delivery stop on the wave (the stop's share of the route's driving), in grams of CO2 equivalent (roadmap feature C9; ADR 0016), and publishes WaveEmissionDeclared for order-sourcing's estimatedCo2eGrams. The emission is per stop (the G11 stopKey grouping), never per package. 0 is a legal declared zero marginal emission; a wave with no declaration reports 0 and leaves a consumer's estimate incomplete. Allowed while the wave still runs (OPEN, INDUCTION_CLOSED or DISPATCHED, illegal-transition once CANCELLED or COMPLETED); a later declaration overwrites the earlier one and publishes again. Ranking is untouched by this fact: carbon is recorded, not optimised, in this slice.
+
+<Heading
+  id={"request"}
+  as={"h2"}
+  className={"openapi-tabs__heading"}
+>
+  <Translate id="theme.openapi.request.title">Request</Translate>
+</Heading>
+
+<ParamsDetails
+  {...require("./declare-wave-emission.ParamsDetails.json")}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  {...require("./declare-wave-emission.RequestSchema.json")}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  {...require("./declare-wave-emission.StatusCodes.json")}
+>
+  
+</StatusCodes>
+
+
+      

@@ -312,6 +312,53 @@ paths:
           $ref: '#/components/responses/Unprocessable'
         '500':
           $ref: '#/components/responses/InternalError'
+  /waves/{waveId}/emission-declarations:
+    post:
+      tags: [Waves]
+      operationId: declareWaveEmission
+      summary: Declare the stop emission of a wave (DeclareEmission)
+      description: >-
+        Records the planner's declared marginal greenhouse emission of ONE
+        delivery stop on the wave (the stop's share of the route's driving),
+        in grams of CO2 equivalent (roadmap feature C9; ADR 0016), and
+        publishes WaveEmissionDeclared for order-sourcing's
+        estimatedCo2eGrams. The emission is per stop (the G11 stopKey
+        grouping), never per package. 0 is a legal declared zero marginal
+        emission; a wave with no declaration reports 0 and leaves a
+        consumer's estimate incomplete. Allowed while the wave still runs
+        (OPEN, INDUCTION_CLOSED or DISPATCHED, illegal-transition once
+        CANCELLED or COMPLETED); a later declaration overwrites the earlier
+        one and publishes again. Ranking is untouched by this fact: carbon
+        is recorded, not optimised, in this slice.
+      parameters:
+        - $ref: '#/components/parameters/WaveId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeclareWaveEmissionRequest'
+      responses:
+        '201':
+          description: Stop emission declared.
+          headers:
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryWave'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /routes:
     post:
       tags: [Routes]
@@ -1106,9 +1153,23 @@ components:
             The declared marginal cost of ONE delivery stop on the wave,
             integer cents (single-currency study; no currency field). 0 is a
             legal declared zero marginal cost.
+    DeclareWaveEmissionRequest:
+      type: object
+      additionalProperties: false
+      required: [gCo2ePerStop]
+      properties:
+        gCo2ePerStop:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 10000000
+          description: >-
+            The declared marginal greenhouse emission of ONE delivery stop
+            on the wave, in grams of CO2 equivalent (gCo2e). 0 is a legal
+            declared zero marginal emission.
     DeliveryWave:
       type: object
-      required: [waveId, stationNodeId, serviceDate, inductCutoffAt, windowStart, windowEnd, stopCapacity, assignedStops, remainingStops, state, costPerStopCents]
+      required: [waveId, stationNodeId, serviceDate, inductCutoffAt, windowStart, windowEnd, stopCapacity, assignedStops, remainingStops, state, costPerStopCents, gCo2ePerStop]
       properties:
         waveId:
           type: string
@@ -1146,6 +1207,12 @@ components:
           minimum: 0
           maximum: 10000000
           description: The declared marginal cost of ONE delivery stop on this wave, integer cents (ADR 0011). 0 until declared and for a declared zero alike.
+        gCo2ePerStop:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 10000000
+          description: The declared marginal greenhouse emission of ONE delivery stop on this wave, in grams of CO2 equivalent (ADR 0016). 0 until declared and for a declared zero alike.
     WaveStop:
       type: object
       required: [stopKey, trackingNumbers]

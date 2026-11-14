@@ -27,6 +27,11 @@ type declareCostRequest struct {
 	CostPerStopCents *int64 `json:"costPerStopCents"`
 }
 
+type declareEmissionRequest struct {
+	// A pointer tells a missing field (422) from the legal declaration 0.
+	GCo2ePerStop *int64 `json:"gCo2ePerStop"`
+}
+
 type stopInput struct {
 	StopNo          int      `json:"stopNo"`
 	TrackingNumbers []string `json:"trackingNumbers"`
@@ -64,6 +69,7 @@ type waveBody struct {
 	State            string    `json:"state"`
 	CancelReason     string    `json:"cancelReason,omitempty"`
 	CostPerStopCents int64     `json:"costPerStopCents"`
+	GCo2ePerStop     int64     `json:"gCo2ePerStop"`
 }
 
 type waveStopBody struct {
@@ -110,6 +116,7 @@ func toWaveBody(w views.Wave) waveBody {
 		WaveID: w.WaveID, StationNodeID: w.StationNodeID, ServiceDate: w.ServiceDate, InductCutoffAt: w.InductCutoffAt.UTC(),
 		WindowStart: w.WindowStart.UTC(), WindowEnd: w.WindowEnd.UTC(), StopCapacity: w.StopCapacity, AssignedStops: w.AssignedStops,
 		RemainingStops: w.RemainingStops, State: w.State, CancelReason: w.CancelReason, CostPerStopCents: w.CostPerStopCents,
+		GCo2ePerStop: w.GCo2ePerStop,
 	}
 }
 

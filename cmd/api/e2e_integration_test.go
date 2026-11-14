@@ -154,6 +154,10 @@ func TestADeliveryDayOverRealPostgresAndKafka(t *testing.T) {
 	if code, b := c.call("POST", "/waves/"+waveID+"/cost-declarations", `{"costPerStopCents":425}`); code != http.StatusCreated || b["costPerStopCents"] != float64(425) {
 		t.Fatalf("declare cost = %d %v", code, b)
 	}
+	// 3c. and its stop emission in grams of CO2 equivalent
+	if code, b := c.call("POST", "/waves/"+waveID+"/emission-declarations", `{"gCo2ePerStop":850}`); code != http.StatusCreated || b["gCo2ePerStop"] != float64(850) {
+		t.Fatalf("declare emission = %d %v", code, b)
+	}
 	for _, tn := range []string{"TRK-1", "TRK-2"} {
 		if code, b := c.call("POST", "/routes/"+routeID+"/attempts", fmt.Sprintf(`{"trackingNumber":%q,"outcome":"DELIVERED","at":"2026-10-24T13:00:00Z"}`, tn)); code != 201 {
 			t.Fatalf("attempt %s = %d %v", tn, code, b)
@@ -202,7 +206,7 @@ func TestADeliveryDayOverRealPostgresAndKafka(t *testing.T) {
 			t.Errorf("source = %s", env.Source)
 		}
 	}
-	for _, want := range []string{"DeliveryWaveScheduled", "DeliveryWaveCapacityChanged", "WaveCostDeclared", "PackageOutForDelivery", "DeliveryAttempted"} {
+	for _, want := range []string{"DeliveryWaveScheduled", "DeliveryWaveCapacityChanged", "WaveCostDeclared", "WaveEmissionDeclared", "PackageOutForDelivery", "DeliveryAttempted"} {
 		if types[want] == 0 {
 			t.Errorf("no %s event on the events topic: %v", want, types)
 		}
