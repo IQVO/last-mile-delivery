@@ -15,7 +15,6 @@ package wave
 import (
 	"errors"
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/claudioed/last-mile-delivery/internal/domain/shared"
@@ -98,24 +97,6 @@ type DeliveryWave struct {
 	version          int64
 }
 
-// Snapshot is the persisted form of a wave. Restore validates it.
-type Snapshot struct {
-	ID               ID
-	StationNodeID    string
-	ServiceDate      string
-	InductCutoffAt   time.Time
-	WindowStart      time.Time
-	WindowEnd        time.Time
-	StopCapacity     int
-	AssignedStops    int
-	Inductions       []Induction
-	State            State
-	CancelReason     string
-	CostPerStopCents int64
-	EmissionPerStopG int64
-	Version          int64
-}
-
 // NewWave is the input of Schedule.
 type NewWave struct {
 	ID             ID
@@ -176,19 +157,6 @@ func checkTimes(cutoff, start, end time.Time) error {
 	return nil
 }
 
-// Restore rebuilds a persisted wave, validating every invariant.
-func Restore(s Snapshot) (*DeliveryWave, error) {
-	if err := checkSnapshot(s); err != nil {
-		return nil, shared.Corrupt("wave %q: %v", s.ID, err)
-	}
-	return &DeliveryWave{
-		id: s.ID, station: s.StationNodeID, serviceDate: s.ServiceDate, cutoff: shared.UTC(s.InductCutoffAt),
-		windowStart: shared.UTC(s.WindowStart), windowEnd: shared.UTC(s.WindowEnd), capacity: s.StopCapacity,
-		assigned: s.AssignedStops, inductions: normalise(s.Inductions), state: s.State, cancelReason: s.CancelReason,
-		costPerStopCents: s.CostPerStopCents, emissionPerStopG: s.EmissionPerStopG, version: s.Version,
-	}, nil
-}
-
 func normalise(in []Induction) []Induction {
 	if len(in) == 0 {
 		return nil
@@ -244,48 +212,6 @@ func checkInductions(s Snapshot) error {
 	return nil
 }
 
-// Induct places a package of the given stop into the wave. at is the instant
-// the package became eligible (it must be before the cutoff), now the instant of
-// the change. A package joining a stop already in the wave takes no capacity and
-// raises no event; a new stop raises DeliveryWaveCapacityChanged.
-func (w *DeliveryWave) Induct(trackingNumber, stopKey string, at, now time.Time) ([]shared.Event, error) {
-	if !shared.ValidID(trackingNumber) || !shared.ValidStopKey(stopKey) || at.IsZero() {
-		return nil, shared.Invalid("trackingNumber, stopKey and the induction instant must be valid")
-	}
-	if w.state != StateOpen || !at.Before(w.cutoff) {
-		return nil, fmt.Errorf("%w: wave %s is %s, cutoff %s", ErrInductionClosed, w.id, w.state, w.cutoff.Format(time.RFC3339))
-	}
-	if w.holds(trackingNumber) {
-		return nil, fmt.Errorf("%w: %s in wave %s", ErrAlreadyInducted, trackingNumber, w.id)
-	}
-	newStop := !w.hasStop(stopKey)
-	if newStop && w.assigned >= w.capacity {
-		return nil, fmt.Errorf("%w: wave %s has %d of %d stops", ErrWaveFull, w.id, w.assigned, w.capacity)
-	}
-	w.inductions = append(w.inductions, Induction{TrackingNumber: trackingNumber, StopKey: stopKey, At: shared.UTC(now)})
-	w.version++
-	if !newStop {
-		return nil, nil
-	}
-	w.assigned++
-	return []shared.Event{w.capacityChanged(now)}, nil
-}
-
-func (w *DeliveryWave) capacityChanged(now time.Time) DeliveryWaveCapacityChanged {
-	return DeliveryWaveCapacityChanged{
-		Header: shared.Header{Version: w.version, At: shared.UTC(now)}, WaveID: w.id, StopCapacity: w.capacity,
-		AssignedStops: w.assigned, RemainingStops: w.capacity - w.assigned,
-	}
-}
-
-func (w *DeliveryWave) holds(trackingNumber string) bool {
-	return slices.ContainsFunc(w.inductions, func(in Induction) bool { return in.TrackingNumber == trackingNumber })
-}
-
-func (w *DeliveryWave) hasStop(stopKey string) bool {
-	return slices.ContainsFunc(w.inductions, func(in Induction) bool { return in.StopKey == stopKey })
-}
-
 // move applies one state transition from one state; every other state is an
 // illegal transition. It raises no event.
 func (w *DeliveryWave) move(from, to State, command string) error {
@@ -326,51 +252,6 @@ func (w *DeliveryWave) Cancel(reason string, now time.Time) ([]shared.Event, err
 	return []shared.Event{ev}, nil
 }
 
-// DeclareCost records the planner's declared marginal cost of ONE stop on the
-// wave, in integer cents (ADR 0011, roadmap F7), and raises WaveCostDeclared.
-// It is allowed while the wave is still running (OPEN, INDUCTION_CLOSED or
-// DISPATCHED) and refused once the wave is CANCELLED or COMPLETED; declaring
-// again overwrites the last value. Zero is a legal declaration: it means a
-// declared zero marginal cost, which is not the same as an undeclared wave.
-func (w *DeliveryWave) DeclareCost(costPerStopCents int64, now time.Time) ([]shared.Event, error) {
-	if costPerStopCents < 0 || costPerStopCents > MaxCostPerStopCents {
-		return nil, shared.Invalid("costPerStopCents must be between 0 and %d", MaxCostPerStopCents)
-	}
-	if w.state == StateCancelled || w.state == StateCompleted {
-		return nil, fmt.Errorf("%w: DeclareCost needs a running wave but wave %s is %s", shared.ErrIllegalTransition, w.id, w.state)
-	}
-	w.costPerStopCents = costPerStopCents
-	w.version++
-	ev := WaveCostDeclared{
-		Header: shared.Header{Version: w.version, At: shared.UTC(now)}, WaveID: w.id,
-		CostPerStopCents: costPerStopCents, DeclaredAt: shared.UTC(now),
-	}
-	return []shared.Event{ev}, nil
-}
-
-// DeclareEmission records the planner's declared marginal greenhouse emission
-// of ONE stop on the wave, in grams of CO2 equivalent (ADR 0016, roadmap C9),
-// and raises WaveEmissionDeclared. It obeys the same lifecycle rule as
-// DeclareCost (allowed while the wave still runs; refused once CANCELLED or
-// COMPLETED) and a later declaration overwrites the last value. Zero is a
-// legal declaration: it means a declared zero marginal emission, which is not
-// the same as an undeclared wave.
-func (w *DeliveryWave) DeclareEmission(gCo2ePerStop int64, now time.Time) ([]shared.Event, error) {
-	if gCo2ePerStop < 0 || gCo2ePerStop > MaxEmissionPerStopG {
-		return nil, shared.Invalid("gCo2ePerStop must be between 0 and %d", MaxEmissionPerStopG)
-	}
-	if w.state == StateCancelled || w.state == StateCompleted {
-		return nil, fmt.Errorf("%w: DeclareEmission needs a running wave but wave %s is %s", shared.ErrIllegalTransition, w.id, w.state)
-	}
-	w.emissionPerStopG = gCo2ePerStop
-	w.version++
-	ev := WaveEmissionDeclared{
-		Header: shared.Header{Version: w.version, At: shared.UTC(now)}, WaveID: w.id,
-		GCo2ePerStop: gCo2ePerStop, DeclaredAt: shared.UTC(now),
-	}
-	return []shared.Event{ev}, nil
-}
-
 // ID returns the wave id.
 func (w *DeliveryWave) ID() ID { return w.id }
 
@@ -379,54 +260,6 @@ func (w *DeliveryWave) StationNodeID() string { return w.station }
 
 // ServiceDate returns the station's local service date.
 func (w *DeliveryWave) ServiceDate() string { return w.serviceDate }
-
-// InductCutoffAt returns the induct cutoff.
-func (w *DeliveryWave) InductCutoffAt() time.Time { return w.cutoff }
-
-// WindowStart returns the start of the delivery window.
-func (w *DeliveryWave) WindowStart() time.Time { return w.windowStart }
-
-// WindowEnd returns the end of the delivery window.
-func (w *DeliveryWave) WindowEnd() time.Time { return w.windowEnd }
-
-// StopCapacity returns the stop capacity.
-func (w *DeliveryWave) StopCapacity() int { return w.capacity }
-
-// AssignedStops returns the stops taken so far.
-func (w *DeliveryWave) AssignedStops() int { return w.assigned }
-
-// RemainingStops returns the stops still free.
-func (w *DeliveryWave) RemainingStops() int { return w.capacity - w.assigned }
-
-// State returns the lifecycle state.
-func (w *DeliveryWave) State() State { return w.state }
-
-// CancelReason returns the cancel reason (empty unless CANCELLED).
-func (w *DeliveryWave) CancelReason() string { return w.cancelReason }
-
-// CostPerStopCents returns the declared marginal cost of one stop on the wave
-// (integer cents; 0 until the planner declares one).
-func (w *DeliveryWave) CostPerStopCents() int64 { return w.costPerStopCents }
-
-// EmissionPerStopG returns the declared marginal greenhouse emission of one
-// stop on the wave (grams of CO2 equivalent; 0 until the planner declares one).
-func (w *DeliveryWave) EmissionPerStopG() int64 { return w.emissionPerStopG }
-
-// Version returns the aggregate version.
-func (w *DeliveryWave) Version() int64 { return w.version }
-
-// Inductions returns a copy of the inductions in induction order.
-func (w *DeliveryWave) Inductions() []Induction { return slices.Clone(w.inductions) }
-
-// Induction returns the induction of a tracking number.
-func (w *DeliveryWave) Induction(trackingNumber string) (Induction, bool) {
-	for _, in := range w.inductions {
-		if in.TrackingNumber == trackingNumber {
-			return in, true
-		}
-	}
-	return Induction{}, false
-}
 
 // Snapshot returns the persisted form.
 func (w *DeliveryWave) Snapshot() Snapshot {
