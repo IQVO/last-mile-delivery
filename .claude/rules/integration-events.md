@@ -60,6 +60,7 @@ structured content mode. This is a hard rule, not a preference:
 | `com.retailnetwork.logistics.last-mile-delivery.wave.DeliveryWaveCancelled` | events | waveId |
 | `com.retailnetwork.logistics.last-mile-delivery.route.RoutePlanned` | analytics | routeId |
 | `com.retailnetwork.logistics.last-mile-delivery.route.PackageOutForDelivery` | events | routeId |
+| `com.retailnetwork.logistics.last-mile-delivery.route.PackagePickupOut` | events | routeId |
 | `com.retailnetwork.logistics.last-mile-delivery.route.DeliveryAttempted` | events | routeId |
 | `com.retailnetwork.logistics.last-mile-delivery.route.StopEtaWindowAssigned` | events | routeId |
 | `com.retailnetwork.logistics.last-mile-delivery.packageattempthistory.PackageInductionDeferred` | events | trackingNumber |

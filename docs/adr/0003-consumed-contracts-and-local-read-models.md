@@ -90,3 +90,8 @@ always-on relay writes them to Kafka (ADR 0004).
 aggregate (contracts-delta, wire conventions) and the aggregate is `PackageAttemptHistory`. `shipping-and-tracking`
 accepts the `packageattempthistory` type for `PackageReturnInitiated`. Nothing is adapted here: the producer type stays
 as catalogued in ADR 0004, and `delivery-promise` has to accept it (or the orchestrator has to rule on the entity name).
+
+## Addendum 2026-11-13: current state
+
+The mismatch above is closed. `delivery-promise` consumes `PackageInductionDeferred` under the type this context publishes, `...last-mile-delivery.packageattempthistory.PackageInductionDeferred` (its `internal/adapters/inbound/kafka/dispatch.go` and `apis/asyncapi.yaml` on `develop`; changed by its commit `e99c9a1`, "PackageInductionDeferred entity is packageattempthistory"). `shipping-and-tracking` accepts the `packageattempthistory` type for `PackageReturnInitiated` and tolerates a `route` entity segment (its `internal/adapters/inbound/kafka/handlers.go`).
+The other published events with a named reader outside this repository: `delivery-promise` and `order-sourcing` consume `DeliveryWaveCancelled`; `order-sourcing` consumes `WaveCostDeclared`; `shipping-and-tracking` consumes `StopEtaWindowAssigned` and `DeliveryPointFlagged`. The current list is in `docs/docs/ddd/domain-events.md`.

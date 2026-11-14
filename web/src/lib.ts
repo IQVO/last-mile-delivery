@@ -40,3 +40,8 @@ export function stopMeter(wave: { assignedStops: number; remainingStops: number 
 export function stopCost(wave: { costPerStopCents: number }): string {
   return `${wave.costPerStopCents} ¢/stop`;
 }
+
+/** "850 gCo2e/stop" for a wave's declared stop emission (grams of CO2 equivalent). */
+export function stopEmission(wave: { gCo2ePerStop: number }): string {
+  return `${wave.gCo2ePerStop} gCo2e/stop`;
+}

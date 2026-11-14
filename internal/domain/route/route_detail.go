@@ -19,7 +19,8 @@ const (
 )
 
 // Valid reports whether d is allowed for outcome o: for FAILED the set is {"",
-// NOT_HOME, ACCESS_PROBLEM, OTHER}; for DELIVERED it is {"", SAFE_PLACE_USED}.
+// NOT_HOME, ACCESS_PROBLEM, OTHER}; for DELIVERED it is {"", SAFE_PLACE_USED};
+// COLLECTED carries no detail (no category fits a collection, ADR 0017).
 func (d Detail) Valid(o Outcome) bool {
 	if d == "" {
 		return true

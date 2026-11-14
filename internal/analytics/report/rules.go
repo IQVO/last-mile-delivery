@@ -10,8 +10,10 @@ import (
 // vocabulary cannot be mutated by a caller and mutation testing reaches them.
 
 // AttemptOutcomes is the as-built outcome vocabulary of DeliveryAttempted
-// (apis/asyncapi.yaml): an attempt either delivered the package or failed.
-func AttemptOutcomes() []string { return []string{OutcomeDelivered, OutcomeFailed} }
+// (apis/asyncapi.yaml): an attempt either ended the package's journey
+// successfully (DELIVERED, or COLLECTED for a pickup package, ADR 0017) or
+// failed.
+func AttemptOutcomes() []string { return []string{OutcomeDelivered, OutcomeFailed, OutcomeCollected} }
 
 // IsAttemptOutcome reports whether outcome is in AttemptOutcomes.
 func IsAttemptOutcome(outcome string) bool { return slices.Contains(AttemptOutcomes(), outcome) }

@@ -46,6 +46,28 @@ func (PackageOutForDelivery) Entity() string { return entity }
 // SubjectID returns the routeId.
 func (e PackageOutForDelivery) SubjectID() string { return string(e.RouteID) }
 
+// PackagePickupOut is raised by Start, once per PICKUP tracking number
+// (ADR 0017): the package is on the van to collect from the stop, not to
+// deliver to it. It shares topic, subject and Kafka key with
+// PackageOutForDelivery, so the two streams stay ordered per route.
+type PackagePickupOut struct {
+	shared.Header
+	RouteID        ID
+	TrackingNumber string
+	StopKey        string
+	StationNodeID  string
+	At             time.Time
+}
+
+// EventName returns "PackagePickupOut".
+func (PackagePickupOut) EventName() string { return "PackagePickupOut" }
+
+// Entity returns "route".
+func (PackagePickupOut) Entity() string { return entity }
+
+// SubjectID returns the routeId.
+func (e PackagePickupOut) SubjectID() string { return string(e.RouteID) }
+
 // DeliveryAttempted is raised by RecordAttempt, once per package.
 type DeliveryAttempted struct {
 	shared.Header
@@ -91,6 +113,7 @@ func (e StopEtaWindowAssigned) SubjectID() string { return string(e.RouteID) }
 var (
 	_ shared.Event = RoutePlanned{}
 	_ shared.Event = PackageOutForDelivery{}
+	_ shared.Event = PackagePickupOut{}
 	_ shared.Event = DeliveryAttempted{}
 	_ shared.Event = StopEtaWindowAssigned{}
 )

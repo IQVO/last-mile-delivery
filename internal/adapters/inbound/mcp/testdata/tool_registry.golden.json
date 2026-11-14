@@ -190,7 +190,7 @@
       "openWorldHint": false,
       "readOnlyHint": true
     },
-    "description": "List the delivery waves of one station for one service date, ordered by inductCutoffAt: state (OPEN, INDUCTION_CLOSED, DISPATCHED, COMPLETED or CANCELLED), the induct cutoff and delivery window, the stop capacity with assignedStops and remainingStops, costPerStopCents (the planner's declared marginal cost of one stop, integer cents, 0 until declared), and cancelReason on a cancelled wave. A station and date with no wave is an empty list. Read-only; a malformed station or a serviceDate that is not YYYY-MM-DD fails with validation-failed.",
+    "description": "List the delivery waves of one station for one service date, ordered by inductCutoffAt: state (OPEN, INDUCTION_CLOSED, DISPATCHED, COMPLETED or CANCELLED), the induct cutoff and delivery window, the stop capacity with assignedStops and remainingStops, costPerStopCents (the planner's declared marginal cost of one stop, integer cents, 0 until declared), gCo2ePerStop (the planner's declared marginal greenhouse emission of one stop, grams of CO2 equivalent, 0 until declared), and cancelReason on a cancelled wave. A station and date with no wave is an empty list. Read-only; a malformed station or a serviceDate that is not YYYY-MM-DD fails with validation-failed.",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -224,6 +224,9 @@
                 "type": "string"
               },
               "costPerStopCents": {
+                "type": "integer"
+              },
+              "gCo2ePerStop": {
                 "type": "integer"
               },
               "inductCutoffAt": {
@@ -265,7 +268,8 @@
               "assignedStops",
               "remainingStops",
               "state",
-              "costPerStopCents"
+              "costPerStopCents",
+              "gCo2ePerStop"
             ],
             "type": "object"
           },

@@ -55,7 +55,7 @@ The business decisions it makes: a package joins the **earliest wave** it arrive
 - **Induct on arrival**: consume `LoadArrived`, place each package, defer it when no wave takes it, sweep waiting packages when a new wave is scheduled.
 - **Plan and run routes**: plan within the van capacity, start (one `PackageOutForDelivery` per package and one `StopEtaWindowAssigned` per stop), record attempts, complete automatically.
 - **Count failures**: three failed attempts publish `PackageReturnInitiated`.
-- **Publish facts**: ten CloudEvents types through a transactional outbox ([Domain events](/docs/ddd/domain-events)).
+- **Publish facts**: eleven CloudEvents types through a transactional outbox ([Domain events](/docs/ddd/domain-events)).
 - **Read surfaces for agents**: MCP (three tools) and A2A (two skills) over the same read use cases ([MCP tools](/docs/mcp/tools), [API reference](/docs/api-reference)).
 
 ## Where to go next

@@ -28,6 +28,7 @@ describe("WavesScreen", () => {
     expect(screen.getByText("station closed")).toBeInTheDocument();
     expect(screen.getByText("2 of 5 stops assigned")).toBeInTheDocument();
     expect(screen.getAllByText("425 ¢/stop")).toHaveLength(2);
+    expect(screen.getAllByText("850 gCo2e/stop")).toHaveLength(2);
     expect(api.calls[0].query.get("stationNodeId")).toBe("node-ds-01");
     expect(api.calls[0].query.get("serviceDate")).toBe("2026-10-24");
   });

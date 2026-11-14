@@ -75,7 +75,7 @@ flowchart LR
 | Two packages for one address | one stop: they share a `stopKey`, take one capacity unit and must travel on one stop of a route |
 | Label data not yet arrived at induction | the package is its own stop (`pkg:<trackingNumber>`) |
 | A partner is deactivated with planned routes | the planned routes are not re-checked (G34: only new routes need an active partner) |
-| Nobody consumes the cancel, deferred and return events | published for visibility and a future returns or notification context |
+| Who reads the cancel, deferred and return events | other contexts do: `DeliveryWaveCancelled` is consumed by `delivery-promise` and `order-sourcing`, `PackageInductionDeferred` by `delivery-promise`, `PackageReturnInitiated` by `shipping-and-tracking`; this context's own projector also reads the cancel and return events ([Domain events](/docs/ddd/domain-events)) |
 | A driver reports a delivered package twice | `already-delivered`, enforced in the aggregate and by a partial unique index |
 | An attempt arrives on a route that was never started | `route-not-started` (409) |
 

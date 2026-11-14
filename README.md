@@ -49,7 +49,7 @@ This service has its own documentation site: **<https://iqvo.github.io/last-mile
 | Ecosystem | [MCP tools](https://iqvo.github.io/last-mile-delivery/docs/mcp/tools) |
 | Decisions | [ADR index](https://iqvo.github.io/last-mile-delivery/docs/adr) |
 
-In-tree: [docs/adr/](docs/adr/index.md) (the nine ADRs and their index), [docs/docs/operations/before-first-release.md](docs/docs/operations/before-first-release.md) (the packaging checklist).
+In-tree: [docs/adr/](docs/adr/index.md) (the 15 ADRs and their index), [docs/docs/operations/before-first-release.md](docs/docs/operations/before-first-release.md) (the packaging checklist).
 
 ## Architecture
 
@@ -85,8 +85,8 @@ internal/
     outbound/repocontract/   the repository contract tests
   architecture/              the fitness tests below
 apis/                        openapi.yaml (REST) + asyncapi.yaml (events)
-docs/adr/                    9 ADRs + index
-features/                    5 godog feature files (36 scenarios)
+docs/adr/                    15 ADRs + index
+features/                    11 godog feature files (164 scenarios)
 charts/last-mile-delivery/   the Helm chart
 web/                         the operator micro-frontend remote
 ```
@@ -112,7 +112,7 @@ Specified in `apis/asyncapi.yaml`:
 
 | Topic | Direction | Messages |
 |---|---|---|
-| `retailnetwork.last-mile-delivery.events` | publishes (via the transactional outbox) | `DeliveryWaveScheduled`, `DeliveryWaveCapacityChanged`, `DeliveryWaveCancelled`, `PackageOutForDelivery`, `DeliveryAttempted`, `PackageInductionDeferred`, `PackageReturnInitiated` |
+| `retailnetwork.last-mile-delivery.events` | publishes (via the transactional outbox) | `DeliveryWaveScheduled`, `DeliveryWaveCapacityChanged`, `DeliveryWaveCancelled`, `WaveCostDeclared`, `PackageOutForDelivery`, `DeliveryAttempted`, `StopEtaWindowAssigned`, `PackageInductionDeferred`, `PackageReturnInitiated`, `DeliveryPointFlagged` |
 | `retailnetwork.last-mile-delivery.analytics` | publishes (analytics-only) | `RoutePlanned` |
 | `retailnetwork.linehaul-transportation.events` | consumes | `LoadArrived` |
 | `retailnetwork.node-topology.events` | consumes | `NodeRegistered`, `ServiceAreaAssigned` |
@@ -224,7 +224,7 @@ lefthook wires the same targets as hooks (`lefthook install` once per clone): pr
 ## Tests
 
 - **Unit**: `make test` — domain, use cases, handlers, adapters.
-- **BDD**: `make bdd` — godog scenarios in `features/` (5 feature files, 36 scenarios).
+- **BDD**: `make bdd` — godog scenarios in `features/` (11 feature files, 164 scenarios).
 - **Integration**: `make integration` — testcontainers Postgres + Kafka (incl. the `/readyz` 503 proof).
 - **Mutation**: `make mutation` (blocking subset) / `make mutation-full` — gremlins, config in `.gremlins.yaml`.
 - **Architecture fitness**: `make arch-test` — `internal/architecture/` (hexagonal rule, CloudEvents-only, catalogue, Kafka rules, outbox cap, read-only MCP/A2A).
@@ -234,7 +234,7 @@ CI (`.github/workflows/ci.yml`) runs `lint`, `guide-lint`, `complexity`, `test`,
 
 ## Architecture Decision Records
 
-[docs/adr/](docs/adr/index.md) — index plus 9 ADRs (0001–0009: bounded context, aggregates and invariants, consumed contracts and local read models, CloudEvents envelope and type catalogue, runtime/outbox/HTTP and readiness, MCP server adoption, console remote, fleet observability standard, A2A inbound adapter). `docs/docs/operations/before-first-release.md` is the packaging checklist (rows 5 to 9, the chart, are done; row 11, the registry secrets, is for the repo admin).
+[docs/adr/](docs/adr/index.md) — index plus 15 ADRs (0001–0015: bounded context, aggregates and invariants, consumed contracts and local read models, CloudEvents envelope and type catalogue, runtime/outbox/HTTP and readiness, MCP server adoption, console remote, fleet observability standard, A2A inbound adapter, fleet REST API guideline, wave stop cost declaration, analytics read side, stop ETA window, delivery point profile, carrier area exclusion). `docs/docs/operations/before-first-release.md` is the packaging checklist (rows 5 to 9, the chart, are done; row 11, the registry secrets, is for the repo admin).
 
 ## License
 

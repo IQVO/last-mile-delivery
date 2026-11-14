@@ -34,24 +34,29 @@ against `apis/asyncapi.yaml`. The consumed types are listed in ADR 0003.
 
 ### Published types
 
-Nine types go ONLY to the integration topic `retailnetwork.last-mile-delivery.events`
+Eleven types go ONLY to the integration topic `retailnetwork.last-mile-delivery.events`
 (`stream: events`); `RoutePlanned` is analytics-only and goes ONLY to
 `retailnetwork.last-mile-delivery.analytics` (`stream: analytics`).
 `DeliveryWaveCancelled` is an integration event (Gap Register G5, contracts-delta
 E5), no longer analytics-only. `PackageInductionDeferred` and
 `PackageReturnInitiated` are the Gap Register G16 additions (contracts-delta E15).
 `WaveCostDeclared` is the roadmap F7 provider-B addition (ADR 0011).
+`WaveEmissionDeclared` is the roadmap C9 provider addition (ADR 0016).
 `StopEtaWindowAssigned` is the roadmap E3 addition (ADR 0013).
 `DeliveryPointFlagged` is the roadmap C5 addition (ADR 0014); its entity is
 `deliverypointprofile` and its subject and key are the opaque `stopKey`.
+`PackagePickupOut` is the roadmap C8-LM addition (ADR 0017); its entity is
+`route` and it shares topic, subject and key with `PackageOutForDelivery`.
 
 ```text
 type: com.retailnetwork.logistics.last-mile-delivery.wave.DeliveryWaveScheduled stream: events
 type: com.retailnetwork.logistics.last-mile-delivery.wave.DeliveryWaveCapacityChanged stream: events
 type: com.retailnetwork.logistics.last-mile-delivery.wave.DeliveryWaveCancelled stream: events
 type: com.retailnetwork.logistics.last-mile-delivery.wave.WaveCostDeclared stream: events
+type: com.retailnetwork.logistics.last-mile-delivery.wave.WaveEmissionDeclared stream: events
 type: com.retailnetwork.logistics.last-mile-delivery.route.RoutePlanned stream: analytics
 type: com.retailnetwork.logistics.last-mile-delivery.route.PackageOutForDelivery stream: events
+type: com.retailnetwork.logistics.last-mile-delivery.route.PackagePickupOut stream: events
 type: com.retailnetwork.logistics.last-mile-delivery.route.DeliveryAttempted stream: events
 type: com.retailnetwork.logistics.last-mile-delivery.route.StopEtaWindowAssigned stream: events
 type: com.retailnetwork.logistics.last-mile-delivery.packageattempthistory.PackageInductionDeferred stream: events
@@ -65,8 +70,10 @@ type: com.retailnetwork.logistics.last-mile-delivery.deliverypointprofile.Delive
 | `DeliveryWaveCapacityChanged` | `waveId` | an induction adds a new stop to a wave | `{waveId, stopCapacity, assignedStops, remainingStops}` |
 | `DeliveryWaveCancelled` | `waveId` | CancelWave is saved | `{waveId, reason}` |
 | `WaveCostDeclared` | `waveId` | DeclareCost is saved (planner's stop-cost declaration, ADR 0011) | `{waveId, costPerStopCents, declaredAt}` |
+| `WaveEmissionDeclared` | `waveId` | DeclareEmission is saved (planner's stop-emission declaration, ADR 0016) | `{waveId, gCo2ePerStop, declaredAt}` |
 | `RoutePlanned` | `routeId` | PlanRoute is saved | `{routeId, waveId, dspId, stopCount}` |
 | `PackageOutForDelivery` | `routeId` | StartRoute is saved, one per tracking number | `{routeId, trackingNumber, stationNodeId, at}` |
+| `PackagePickupOut` | `routeId` | StartRoute is saved, one per PICKUP tracking number (ADR 0017, activation-gated) | `{routeId, trackingNumber, stopKey, stationNodeId, at}` |
 | `DeliveryAttempted` | `routeId` | RecordAttempt is saved, one per package | `{routeId, trackingNumber, outcome, outcomeDetail?, failureReason?, at}` |
 | `StopEtaWindowAssigned` | `routeId` | StartRoute is saved, one per stop, after every `PackageOutForDelivery` (ADR 0013) | `{routeId, stopNo, stopKey, trackingNumbers, etaStart, etaEnd}` |
 | `PackageInductionDeferred` | `trackingNumber` | no wave accepts a package that is at the station | `{trackingNumber, assignmentId?}` |
@@ -92,3 +99,7 @@ Payload rules:
   no shared Go code.
 - Adding a published type requires a line here in the same commit as its
   asyncapi message, or the architecture fitness test fails.
+
+## Addendum 2026-11-13: current state
+
+The count in "Published types" is stale. The catalogue above lists eleven types: ten go to `retailnetwork.last-mile-delivery.events` (`stream: events`) and `RoutePlanned` goes to `retailnetwork.last-mile-delivery.analytics` (`stream: analytics`). `apis/asyncapi.yaml` declares the same eleven messages, and `TestEventCatalogueMatchesContract` checks that every declared type is listed in this ADR.

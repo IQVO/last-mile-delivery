@@ -13,6 +13,7 @@ export function wave(over: Partial<DeliveryWave> = {}): DeliveryWave {
     remainingStops: 3,
     state: "OPEN",
     costPerStopCents: 425,
+    gCo2ePerStop: 850,
     ...over,
   };
 }

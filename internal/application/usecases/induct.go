@@ -51,7 +51,9 @@ func (w writer) carrierAreaRefused(ctx context.Context, trackingNumber string) (
 // place tries the eligible waves of the station in order (A6): the OPEN waves
 // whose cutoff is after at, earliest first. The first wave that accepts the
 // package is saved and its id returned with the raised events; no wave is the
-// empty id.
+// empty id. The station's own placement is always a DELIVERY induction: a
+// PICKUP kind is written only by an explicit caller of the aggregate's seam,
+// none exists yet (ADR 0017, activation-gated).
 func (w writer) place(ctx context.Context, station, trackingNumber, stopKey string, at time.Time) (wave.ID, []shared.Event, error) {
 	waves, err := w.Waves.List(ctx, repository.WaveFilter{StationNodeID: station, State: wave.StateOpen, InductCutoffAfter: at})
 	if err != nil {
@@ -59,7 +61,7 @@ func (w writer) place(ctx context.Context, station, trackingNumber, stopKey stri
 	}
 	now := w.now()
 	for _, wv := range waves {
-		events, err := wv.Induct(trackingNumber, stopKey, at, now)
+		events, err := wv.Induct(trackingNumber, stopKey, wave.KindDelivery, at, now)
 		if errors.Is(err, wave.ErrWaveFull) || errors.Is(err, wave.ErrInductionClosed) {
 			continue
 		}

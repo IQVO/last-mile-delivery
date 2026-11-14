@@ -26,13 +26,13 @@ info:
     delivery window, stop capacity), the routes of delivery service partners
     and every delivery attempt (ADR 0001, ADR 0002).
 
-    **Published.** Ten events. Nine go to the integration topic
+    **Published.** Eleven events. Ten go to the integration topic
     `retailnetwork.last-mile-delivery.events`; `RoutePlanned` is analytics only
     and goes ONLY to `retailnetwork.last-mile-delivery.analytics`. Every event
     leaves through a **transactional outbox**: the aggregates and their
     already-encoded events are written in ONE database transaction and an
     always-on relay drains them to Kafka (at-least-once; the CloudEvents `id` is
-    stored with the outbox row, so a retry republishes the same `id`). The ten
+    stored with the outbox row, so a retry republishes the same `id`). The eleven
     types are catalogued in ADR 0004.
 
     **Consumed.** Four events (ADR 0003): `LoadArrived` from
@@ -111,8 +111,12 @@ channels:
         $ref: "#/components/messages/DeliveryWaveCancelled"
       WaveCostDeclared:
         $ref: "#/components/messages/WaveCostDeclared"
+      WaveEmissionDeclared:
+        $ref: "#/components/messages/WaveEmissionDeclared"
       PackageOutForDelivery:
         $ref: "#/components/messages/PackageOutForDelivery"
+      PackagePickupOut:
+        $ref: "#/components/messages/PackagePickupOut"
       DeliveryAttempted:
         $ref: "#/components/messages/DeliveryAttempted"
       StopEtaWindowAssigned:
@@ -164,7 +168,7 @@ operations:
   publishLastMileEvents:
     action: send
     title: Publish last-mile-delivery integration events
-    summary: Publish the nine integration events through the transactional outbox.
+    summary: Publish the ten integration events through the transactional outbox.
     description: |
       The service sends the events of its four event-raising aggregates
       (DeliveryWave, Route, PackageAttemptHistory, DeliveryPointProfile) to
@@ -174,7 +178,8 @@ operations:
       StopEtaWindowAssigned and PackageReturnInitiated, delivery-promise reads
       PackageInductionDeferred.
       order-sourcing also reads WaveCostDeclared into its money-denominated
-      AssignmentCost (roadmap F7). shipping-and-tracking reads
+      AssignmentCost (roadmap F7), and WaveEmissionDeclared into its
+      estimatedCo2eGrams (roadmap C9, ADR 0016). shipping-and-tracking reads
       DeliveryPointFlagged, per tracking number, to warn the shopper (roadmap C5).
     tags:
       - name: last-mile-delivery
@@ -185,7 +190,9 @@ operations:
       - $ref: "#/channels/lastMileEvents/messages/DeliveryWaveCapacityChanged"
       - $ref: "#/channels/lastMileEvents/messages/DeliveryWaveCancelled"
       - $ref: "#/channels/lastMileEvents/messages/WaveCostDeclared"
+      - $ref: "#/channels/lastMileEvents/messages/WaveEmissionDeclared"
       - $ref: "#/channels/lastMileEvents/messages/PackageOutForDelivery"
+      - $ref: "#/channels/lastMileEvents/messages/PackagePickupOut"
       - $ref: "#/channels/lastMileEvents/messages/DeliveryAttempted"
       - $ref: "#/channels/lastMileEvents/messages/StopEtaWindowAssigned"
       - $ref: "#/channels/lastMileEvents/messages/PackageInductionDeferred"
@@ -417,6 +424,35 @@ components:
               costPerStopCents: 425
               declaredAt: "2026-10-24T05:30:00Z"
 
+    WaveEmissionDeclared:
+      name: WaveEmissionDeclared
+      title: Wave stop emission declared
+      summary: The planner declared the greenhouse emission of one delivery stop on the wave, in gCo2e.
+      description: "`type` = `com.retailnetwork.logistics.last-mile-delivery.wave.WaveEmissionDeclared`; subject and key = the waveId. Raised by DeclareEmission (POST /waves/{waveId}/emission-declarations), allowed while the wave still runs and refused once CANCELLED or COMPLETED; a later declaration overwrites the earlier one. gCo2ePerStop is the planner's declared marginal greenhouse emission of ONE stop (the stop's share of the route's driving), in grams of CO2 equivalent, 0 to 10000000; the stop count is the G11 stopKey grouping, so the emission is per stop, never per package. 0 is a legal declared zero; a wave with no declaration contributes 0 to a consumer's sum and leaves its estimate incomplete (the consumer decides). Consumed by order-sourcing for its estimatedCo2eGrams (roadmap C9, ADR 0016); ranking is untouched — carbon is recorded, not optimised, in this slice."
+      contentType: application/cloudevents+json
+      headers:
+        $ref: "#/components/schemas/KafkaHeaders"
+      tags:
+        - name: wave
+      payload:
+        $ref: "#/components/schemas/WaveEmissionDeclaredEvent"
+      examples:
+        - name: waveEmissionDeclared
+          summary: A planner declares 850 gCo2e per stop on a morning wave.
+          payload:
+            specversion: "1.0"
+            id: "b41f7c02-8e55-4c8d-af1b-9d2e6a5c3f88"
+            source: "/retailnetwork/last-mile-delivery"
+            type: "com.retailnetwork.logistics.last-mile-delivery.wave.WaveEmissionDeclared"
+            subject: "wave-3b9f"
+            time: "2026-10-24T05:45:00Z"
+            datacontenttype: "application/json"
+            dataschema: "urn:retailnetwork:last-mile-delivery:events:WaveEmissionDeclared:v1"
+            data:
+              waveId: "wave-3b9f"
+              gCo2ePerStop: 850
+              declaredAt: "2026-10-24T05:45:00Z"
+
     RoutePlanned:
       name: RoutePlanned
       title: Route planned
@@ -477,11 +513,42 @@ components:
               stationNodeId: "node-ds-01"
               at: "2026-10-24T12:02:00Z"
 
+    PackagePickupOut:
+      name: PackagePickupOut
+      title: Package pickup out
+      summary: A pickup package left the station on a started route.
+      description: "`type` = `com.retailnetwork.logistics.last-mile-delivery.route.PackagePickupOut`; subject = the routeId, key = the routeId (the same topic and key as PackageOutForDelivery, so the two streams stay ordered per route). Raised by StartRoute, one event per tracking number inducted into the wave as a PICKUP (ADR 0017, activation-gated: none exist until the return flow requests the pickup method); a DELIVERY package keeps raising PackageOutForDelivery instead. The analytics projector skips this type committed-past (no report needs it)."
+      contentType: application/cloudevents+json
+      headers:
+        $ref: "#/components/schemas/KafkaHeaders"
+      tags:
+        - name: route
+      payload:
+        $ref: "#/components/schemas/PackagePickupOutEvent"
+      examples:
+        - name: packagePickupOut
+          summary: One pickup package of a started route.
+          payload:
+            specversion: "1.0"
+            id: "b62f4e88-3c1d-5a2f-9b7g-4d6f8a0c2b99"
+            source: "/retailnetwork/last-mile-delivery"
+            type: "com.retailnetwork.logistics.last-mile-delivery.route.PackagePickupOut"
+            subject: "route-81c2"
+            time: "2026-10-24T12:02:00Z"
+            datacontenttype: "application/json"
+            dataschema: "urn:retailnetwork:last-mile-delivery:events:PackagePickupOut:v1"
+            data:
+              routeId: "route-81c2"
+              trackingNumber: "TRK-000126"
+              stopKey: "pkg:TRK-000126"
+              stationNodeId: "node-ds-01"
+              at: "2026-10-24T12:02:00Z"
+
     DeliveryAttempted:
       name: DeliveryAttempted
       title: Delivery attempted
       summary: One delivery attempt of one package was recorded.
-      description: "`type` = `com.retailnetwork.logistics.last-mile-delivery.route.DeliveryAttempted`; subject = the routeId, key = the routeId. Raised by RecordAttempt, per package (Gap Register G17: outcomes are per package, the stop outcome is derived). `outcome` is DELIVERED or FAILED; `failureReason` is present only when FAILED; `outcomeDetail` (NOT_HOME, ACCESS_PROBLEM or OTHER on FAILED, SAFE_PLACE_USED on DELIVERED) is present only when the driver client reported one (additive and optional, same v1 dataschema). A FAILED attempt re-inducts the package onto the next wave, or after the third failure raises PackageReturnInitiated."
+      description: "`type` = `com.retailnetwork.logistics.last-mile-delivery.route.DeliveryAttempted`; subject = the routeId, key = the routeId. Raised by RecordAttempt, per package (Gap Register G17: outcomes are per package, the stop outcome is derived). `outcome` is DELIVERED, FAILED or COLLECTED; COLLECTED is legal only for a package inducted as a PICKUP and carries neither failureReason nor outcomeDetail (ADR 0017, activation-gated); `failureReason` is present only when FAILED; `outcomeDetail` (NOT_HOME, ACCESS_PROBLEM or OTHER on FAILED, SAFE_PLACE_USED on DELIVERED) is present only when the driver client reported one (additive and optional, same v1 dataschema). A FAILED attempt re-inducts the package onto the next wave, or after the third failure raises PackageReturnInitiated."
       contentType: application/cloudevents+json
       headers:
         $ref: "#/components/schemas/KafkaHeaders"
@@ -760,7 +827,7 @@ components:
 
     Outcome:
       type: string
-      enum: [DELIVERED, FAILED]
+      enum: [DELIVERED, FAILED, COLLECTED]
 
     DeliveryWaveScheduledEvent:
       allOf:
@@ -818,6 +885,19 @@ components:
                 costPerStopCents: { type: integer, minimum: 0, maximum: 10000000, description: "The declared marginal cost of ONE delivery stop on the wave, integer cents (single-currency study); per stop (G11 stopKey grouping), never per package. 0 is a legal declared zero." }
                 declaredAt: { type: string, format: date-time }
 
+    WaveEmissionDeclaredEvent:
+      allOf:
+        - $ref: "#/components/schemas/CloudEventEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [waveId, gCo2ePerStop, declaredAt]
+              properties:
+                waveId: { type: string }
+                gCo2ePerStop: { type: integer, minimum: 0, maximum: 10000000, description: "The declared marginal greenhouse emission of ONE delivery stop on the wave, in grams of CO2 equivalent (gCo2e); per stop (G11 stopKey grouping), never per package. 0 is a legal declared zero." }
+                declaredAt: { type: string, format: date-time }
+
     RoutePlannedEvent:
       allOf:
         - $ref: "#/components/schemas/CloudEventEnvelope"
@@ -843,6 +923,21 @@ components:
               properties:
                 routeId: { type: string }
                 trackingNumber: { type: string }
+                stationNodeId: { type: string }
+                at: { type: string, format: date-time }
+
+    PackagePickupOutEvent:
+      allOf:
+        - $ref: "#/components/schemas/CloudEventEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [routeId, trackingNumber, stopKey, stationNodeId, at]
+              properties:
+                routeId: { type: string }
+                trackingNumber: { type: string }
+                stopKey: { type: string }
                 stationNodeId: { type: string }
                 at: { type: string, format: date-time }
 

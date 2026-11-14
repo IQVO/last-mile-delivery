@@ -9,7 +9,7 @@ sidebar_position: 16
 
 Every event this context publishes and consumes, as built. The authoritative machine contract is [`apis/asyncapi.yaml`](https://github.com/IQVO/last-mile-delivery/blob/develop/apis/asyncapi.yaml); the architecture test `TestEventCatalogueMatchesContract` pins the catalogue to the code, and the envelope is [ADR 0004](/docs/adr/0004-cloudevents-envelope-and-type-catalogue). The same list in contract form is on the [Event catalogue](/docs/api-reference/events).
 
-Source: `internal/adapters/outbound/kafka/encoder.go` (payloads, topics), `internal/adapters/kafka/cloudevents/cloudevents.go` (envelope), `internal/domain/{wave,route,history}/events.go` (types and subjects), `internal/adapters/inbound/kafka/consumers.go` (consumed).
+Source: `internal/adapters/outbound/kafka/encoder.go` (payloads, topics), `internal/adapters/kafka/cloudevents/cloudevents.go` (envelope), `internal/domain/{wave,route,history,deliverypoint}/events.go` (types and subjects), `internal/adapters/inbound/kafka/consumers.go` (consumed).
 
 ## Envelope
 
@@ -18,8 +18,8 @@ Source: `internal/adapters/outbound/kafka/encoder.go` (payloads, topics), `inter
 | `specversion` | `1.0` |
 | `id` | a UUID minted once per event and stored in the outbox row, so a relay retry carries the same `id` |
 | `source` | `/retailnetwork/last-mile-delivery` |
-| `type` | `com.retailnetwork.logistics.last-mile-delivery.<entity>.<EventName>`; `<entity>` is `wave`, `route` or `packageattempthistory` |
-| `subject` | the aggregate id: `waveId` for wave events, `routeId` for route events, the tracking number for the two package events |
+| `type` | `com.retailnetwork.logistics.last-mile-delivery.<entity>.<EventName>`; `<entity>` is `wave`, `route`, `packageattempthistory` or `deliverypointprofile` |
+| `subject` | the aggregate id: `waveId` for wave events, `routeId` for route events, the tracking number for the two package events, the opaque `stopKey` for `DeliveryPointFlagged` |
 | `time` | the instant the fact happened, UTC |
 | `datacontenttype` | `application/json` |
 | `dataschema` | `urn:retailnetwork:last-mile-delivery:<stream>:<EventName>:v1` with `<stream>` = `events` or `analytics` |
@@ -35,15 +35,17 @@ Every event is written to `outbox_events` in the same transaction as the aggrega
 | --- | --- | --- | --- | --- | --- |
 | `DeliveryWaveScheduled` | `com.retailnetwork.logistics.last-mile-delivery.wave.DeliveryWaveScheduled` | events | `waveId` | `ScheduleWave` | `delivery-promise`, `order-sourcing` |
 | `DeliveryWaveCapacityChanged` | `com.retailnetwork.logistics.last-mile-delivery.wave.DeliveryWaveCapacityChanged` | events | `waveId` | every induction that takes a **new stop** (`InductOnArrival`, `ScheduleWave` sweep, `RetryNextWave`, re-induction) | `delivery-promise`, `order-sourcing` |
-| `DeliveryWaveCancelled` | `com.retailnetwork.logistics.last-mile-delivery.wave.DeliveryWaveCancelled` | events | `waveId` | `CancelWave` | analytics (G5: an integration event) |
+| `DeliveryWaveCancelled` | `com.retailnetwork.logistics.last-mile-delivery.wave.DeliveryWaveCancelled` | events | `waveId` | `CancelWave` | `delivery-promise`, `order-sourcing`, analytics (G5: an integration event) |
+| `WaveCostDeclared` | `com.retailnetwork.logistics.last-mile-delivery.wave.WaveCostDeclared` | events | `waveId` | `DeclareCost` ([ADR 0011](/docs/adr/0011-wave-stop-cost-declaration)) | `order-sourcing`, analytics |
 | `RoutePlanned` | `com.retailnetwork.logistics.last-mile-delivery.route.RoutePlanned` | **analytics** | `routeId` | `PlanRoute` | analytics only |
 | `PackageOutForDelivery` | `com.retailnetwork.logistics.last-mile-delivery.route.PackageOutForDelivery` | events | `routeId` | `StartRoute` (one per tracking number) | `shipping-and-tracking` |
 | `DeliveryAttempted` | `com.retailnetwork.logistics.last-mile-delivery.route.DeliveryAttempted` | events | `routeId` | `RecordAttempt` | `shipping-and-tracking` |
 | `StopEtaWindowAssigned` | `com.retailnetwork.logistics.last-mile-delivery.route.StopEtaWindowAssigned` | events | `routeId` | `StartRoute` (one per stop, after every `PackageOutForDelivery`; [ADR 0013](/docs/adr/0013-stop-eta-window)) | `shipping-and-tracking` (relays it per tracking number), analytics |
-| `PackageInductionDeferred` | `com.retailnetwork.logistics.last-mile-delivery.packageattempthistory.PackageInductionDeferred` | events | tracking number | a package no wave takes (arrival, un-placement) | none in this repository |
-| `PackageReturnInitiated` | `com.retailnetwork.logistics.last-mile-delivery.packageattempthistory.PackageReturnInitiated` | events | tracking number | the third failed attempt of a package | none in this repository |
+| `PackageInductionDeferred` | `com.retailnetwork.logistics.last-mile-delivery.packageattempthistory.PackageInductionDeferred` | events | tracking number | a package no wave takes (arrival, un-placement) | `delivery-promise` |
+| `PackageReturnInitiated` | `com.retailnetwork.logistics.last-mile-delivery.packageattempthistory.PackageReturnInitiated` | events | tracking number | the third failed attempt of a package | `shipping-and-tracking`, analytics |
+| `DeliveryPointFlagged` | `com.retailnetwork.logistics.last-mile-delivery.deliverypointprofile.DeliveryPointFlagged` | events | the opaque `stopKey` | `RecordAttempt`, when a delivery point has two open counted failures and packages not told yet ([ADR 0014](/docs/adr/0014-delivery-point-profile)) | `shipping-and-tracking` |
 
-"Known consumers" come from the sibling contexts' documentation, not from this repository; no sibling is called synchronously.
+"Known consumers" are read from the sibling contexts' `apis/asyncapi.yaml` and Kafka consumer code on `develop`, not from this repository; "analytics" is this context's own projector ([ADR 0012](/docs/adr/0012-analytics-read-side)). No sibling is called synchronously.
 
 ### DeliveryWaveScheduled
 
@@ -72,6 +74,10 @@ A full snapshot, not a delta: the latest event by `time` wins and a duplicate do
 
 `waveId` (string) and `reason` (string, 1 to `MaxReason` characters, from the canceller).
 
+### WaveCostDeclared
+
+`waveId` (string), `costPerStopCents` (integer, 0 to 10000000: the planner's declared cost of one delivery stop, in cents; 0 is a declared zero) and `declaredAt` (date-time). A later declaration overwrites the earlier one ([ADR 0011](/docs/adr/0011-wave-stop-cost-declaration)).
+
 ### RoutePlanned
 
 `routeId`, `waveId`, `dspId` (strings) and `stopCount` (integer, at most the van capacity). Analytics topic only.
@@ -95,6 +101,10 @@ A full snapshot, not a delta: the latest event by `time` wins and a duplicate do
 ### PackageReturnInitiated
 
 `trackingNumber` (string). The package failed its third attempt and goes back to the sender.
+
+### DeliveryPointFlagged
+
+`stopKey` (string, opaque), `reason` (`NOT_HOME` or `ACCESS_PROBLEM`), `failures` (integer, 2 to 5: the strikes open at that moment), `trackingNumbers` (string[], 1 to 5: only the packages newly affected) and `flaggedAt` (date-time, the attempt instant that triggered the event). No address, name or free text ([ADR 0014](/docs/adr/0014-delivery-point-profile)).
 
 No published event carries an address, a name or any other PII ([ADR 0006](https://iqvo.github.io/warehouse-docs/network/adr/0006-pii-confinement)).
 

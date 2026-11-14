@@ -71,7 +71,7 @@ func buildServer(ad adapters, readiness *inboundhttp.Readiness) *inboundhttp.Ser
 	d := ad.deps
 	return &inboundhttp.Server{
 		ScheduleWave: usecases.NewScheduleWave(d), CloseInduction: usecases.NewCloseInduction(d), DispatchWave: usecases.NewDispatchWave(d),
-		CancelWave: usecases.NewCancelWave(d), DeclareWaveCost: usecases.NewDeclareWaveCost(d), ListWaves: usecases.NewListWaves(d), GetWaveStops: usecases.NewGetWaveStops(d),
+		CancelWave: usecases.NewCancelWave(d), DeclareWaveCost: usecases.NewDeclareWaveCost(d), DeclareWaveEmission: usecases.NewDeclareWaveEmission(d), ListWaves: usecases.NewListWaves(d), GetWaveStops: usecases.NewGetWaveStops(d),
 		PlanRoute: usecases.NewPlanRoute(d), StartRoute: usecases.NewStartRoute(d), RecordAttempt: usecases.NewRecordAttempt(d),
 		GetRoute: usecases.NewGetRoute(d), ContractPartner: usecases.NewContractPartner(d), DeactivatePartner: usecases.NewDeactivatePartner(d),
 		Idempotency: inboundhttp.RequireIdempotencyKey(ad.idempotency),

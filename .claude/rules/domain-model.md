@@ -57,6 +57,7 @@ Eight published events (`internal/domain/*/events.go`; wire shape in
 - `DeliveryWaveScheduled`, `DeliveryWaveCapacityChanged`, `DeliveryWaveCancelled`
   (wave, `internal/domain/wave/events.go`).
 - `RoutePlanned` (analytics topic ONLY), `PackageOutForDelivery`,
+  `PackagePickupOut` (PICKUP inductions, activation-gated, ADR 0017),
   `DeliveryAttempted` (route, `internal/domain/route/events.go`).
 - `PackageInductionDeferred`, `PackageReturnInitiated`
   (`internal/domain/history/events.go`).

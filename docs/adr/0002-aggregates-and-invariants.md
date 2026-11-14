@@ -182,6 +182,11 @@ stored version is `Version()-1`.
   (roadmap F7, provider B; ADR 0011): `DeclareCost` on a running wave raises
   `WaveCostDeclared`, 0 is a declared zero and an undeclared wave also reads 0 —
   telling the two apart is the consumer's problem, not the wave's.
+- **A31** The planner may declare the greenhouse emission of ONE stop on a
+  wave, in grams of CO2 equivalent (roadmap C9, provider; ADR 0016):
+  `DeclareEmission` on a running wave raises `WaveEmissionDeclared`, 0 is a
+  declared zero and an undeclared wave also reads 0 — telling the two apart is
+  the consumer's problem, not the wave's.
 
 ## Consequences
 

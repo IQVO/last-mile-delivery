@@ -33,7 +33,7 @@ const (
 // instructions is what an MCP client is told about this server at initialize.
 const instructions = "Last-mile delivery of the retail network (read-only): list the delivery waves of a station for a " +
 	"service date with list_waves (induct cutoff, delivery window, stop capacity, assigned and remaining stops, the " +
-	"planner's declared cost per stop in cents, state); " +
+	"planner's declared cost per stop in cents and greenhouse emission per stop in grams of CO2 equivalent, state); " +
 	"see the packages a wave holds grouped into stops with get_wave_stops (the opaque stopKey, the destination postal " +
 	"prefix when the label data had it, the tracking numbers); and read one route with get_route (its stops with their " +
 	"derived outcome and every recorded delivery attempt). Nothing here changes data: scheduling a wave, planning a " +

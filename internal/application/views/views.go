@@ -26,6 +26,7 @@ type Wave struct {
 	State            string
 	CancelReason     string
 	CostPerStopCents int64
+	GCo2ePerStop     int64
 }
 
 // WaveFrom builds the view of a wave.
@@ -35,6 +36,7 @@ func WaveFrom(w *wave.DeliveryWave) Wave {
 		WindowStart: w.WindowStart(), WindowEnd: w.WindowEnd(), StopCapacity: w.StopCapacity(), AssignedStops: w.AssignedStops(),
 		RemainingStops: w.RemainingStops(), State: string(w.State()), CancelReason: w.CancelReason(),
 		CostPerStopCents: w.CostPerStopCents(),
+		GCo2ePerStop:     w.EmissionPerStopG(),
 	}
 }
 

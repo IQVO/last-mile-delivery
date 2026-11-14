@@ -13,9 +13,9 @@ func validSnapshot() Snapshot {
 		ID: "wave-1", StationNodeID: "node-ds-01", ServiceDate: "2026-10-24", InductCutoffAt: cutoff, WindowStart: wStart,
 		WindowEnd: wEnd, StopCapacity: 2, AssignedStops: 2, State: StateOpen, Version: 4,
 		Inductions: []Induction{
-			{TrackingNumber: "TRK-1", StopKey: "k-a", At: t0},
-			{TrackingNumber: "TRK-2", StopKey: "k-a", At: t0},
-			{TrackingNumber: "TRK-3", StopKey: "k-b", At: t0},
+			{TrackingNumber: "TRK-1", StopKey: "k-a", Kind: KindDelivery, At: t0},
+			{TrackingNumber: "TRK-2", StopKey: "k-a", Kind: KindDelivery, At: t0},
+			{TrackingNumber: "TRK-3", StopKey: "k-b", Kind: KindDelivery, At: t0},
 		},
 	}
 }
@@ -24,7 +24,11 @@ func TestSnapshotRestoreRoundTrip(t *testing.T) {
 	w := mustSchedule(t, nil)
 	for i, tn := range []string{"TRK-1", "TRK-2", "TRK-3"} {
 		key := []string{"k-a", "k-a", "k-b"}[i]
-		_, err := w.Induct(tn, key, t0, t0)
+		kind := KindDelivery
+		if i == 2 {
+			kind = KindPickup
+		}
+		_, err := w.Induct(tn, key, kind, t0, t0)
 		wantNoErr(t, err)
 	}
 	_, err := w.Cancel("closed", t0)
@@ -93,6 +97,16 @@ func TestSnapshotRoundTripKeepsDeclaredCost(t *testing.T) {
 	}
 }
 
+func TestSnapshotRoundTripKeepsDeclaredEmission(t *testing.T) {
+	snap := validSnapshot()
+	snap.EmissionPerStopG = 850
+	got, err := Restore(snap)
+	wantNoErr(t, err)
+	if got.EmissionPerStopG() != 850 || !reflect.DeepEqual(got.Snapshot(), snap) {
+		t.Fatalf("round trip changed the declared emission:\n got %+v\nwant %+v", got.Snapshot(), snap)
+	}
+}
+
 func TestRestoreCostBoundaries(t *testing.T) {
 	legacy := validSnapshot() // a row stored before the column exists restores 0
 	if _, err := Restore(legacy); err != nil {
@@ -108,6 +122,25 @@ func TestRestoreCostBoundaries(t *testing.T) {
 		bad.CostPerStopCents = cost
 		if _, err := Restore(bad); err == nil {
 			t.Fatalf("Restore(%d) must fail", cost)
+		}
+	}
+}
+
+func TestRestoreEmissionBoundaries(t *testing.T) {
+	legacy := validSnapshot() // a row stored before the column exists restores 0
+	if _, err := Restore(legacy); err != nil {
+		t.Fatalf("Restore(legacy snapshot): %v", err)
+	}
+	top := validSnapshot()
+	top.EmissionPerStopG = MaxEmissionPerStopG
+	if _, err := Restore(top); err != nil {
+		t.Fatalf("Restore(max emission): %v", err)
+	}
+	for _, g := range []int64{-1, MaxEmissionPerStopG + 1} {
+		bad := validSnapshot()
+		bad.EmissionPerStopG = g
+		if _, err := Restore(bad); err == nil {
+			t.Fatalf("Restore(%d) must fail", g)
 		}
 	}
 }
@@ -131,6 +164,8 @@ func TestRestoreRejectsCorruptRows(t *testing.T) {
 		{"cancelled without a reason", func(s *Snapshot) { s.State = StateCancelled }},
 		{"negative stop cost", func(s *Snapshot) { s.CostPerStopCents = -1 }},
 		{"stop cost above the ceiling", func(s *Snapshot) { s.CostPerStopCents = MaxCostPerStopCents + 1 }},
+		{"negative stop emission", func(s *Snapshot) { s.EmissionPerStopG = -1 }},
+		{"stop emission above the ceiling", func(s *Snapshot) { s.EmissionPerStopG = MaxEmissionPerStopG + 1 }},
 		{"assigned below the stops", func(s *Snapshot) { s.AssignedStops = 1 }},
 		{"assigned above the stops", func(s *Snapshot) { s.AssignedStops, s.StopCapacity = 3, 3 }},
 		{"assigned above the capacity", func(s *Snapshot) { s.StopCapacity = 1 }},

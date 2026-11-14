@@ -56,6 +56,12 @@ const sidebar: SidebarsConfig = {
           label: "Declare the stop cost of a wave (DeclareCost)",
           className: "api-method post",
         },
+        {
+          type: "doc",
+          id: "api-reference/rest/declare-wave-emission",
+          label: "Declare the stop emission of a wave (DeclareEmission)",
+          className: "api-method post",
+        },
       ],
     },
     {

@@ -187,6 +187,33 @@ func (uc *DeclareWaveCost) Execute(ctx context.Context, cmd DeclareWaveCostComma
 	})
 }
 
+// DeclareWaveEmissionCommand is the input of DeclareWaveEmission.
+type DeclareWaveEmissionCommand struct {
+	WaveID       wave.ID
+	GCo2ePerStop int64
+}
+
+// DeclareWaveEmission records the planner's declared marginal greenhouse
+// emission of one stop on the wave (ADR 0016, roadmap C9) and publishes
+// WaveEmissionDeclared.
+type DeclareWaveEmission struct{ writer }
+
+// NewDeclareWaveEmission builds the use case.
+func NewDeclareWaveEmission(d Deps) *DeclareWaveEmission { return &DeclareWaveEmission{writer{d}} }
+
+// Execute declares the emission on a wave that still runs and returns the wave.
+func (uc *DeclareWaveEmission) Execute(ctx context.Context, cmd DeclareWaveEmissionCommand) (views.Wave, error) {
+	return transact(ctx, uc.UoW, func(ctx context.Context) (views.Wave, error) {
+		wv, err := uc.mutateWave(ctx, cmd.WaveID, func(w *wave.DeliveryWave) ([]shared.Event, error) {
+			return w.DeclareEmission(cmd.GCo2ePerStop, uc.now())
+		})
+		if err != nil {
+			return views.Wave{}, err
+		}
+		return views.WaveFrom(wv), nil
+	})
+}
+
 // CancelWaveCommand is the input of CancelWave.
 type CancelWaveCommand struct {
 	WaveID wave.ID

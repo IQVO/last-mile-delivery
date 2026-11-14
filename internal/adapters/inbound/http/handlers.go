@@ -91,6 +91,26 @@ func (s *Server) handleDeclareWaveCost(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, toWaveBody(v))
 }
 
+func (s *Server) handleDeclareWaveEmission(w http.ResponseWriter, r *http.Request) {
+	var req declareEmissionRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, r, err)
+		return
+	}
+	if req.GCo2ePerStop == nil {
+		writeError(w, r, validationError("gCo2ePerStop is required (0 declares a zero marginal emission)"))
+		return
+	}
+	v, err := s.DeclareWaveEmission.Execute(r.Context(), usecases.DeclareWaveEmissionCommand{
+		WaveID: wave.ID(chi.URLParam(r, "waveId")), GCo2ePerStop: *req.GCo2ePerStop,
+	})
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, toWaveBody(v))
+}
+
 func (s *Server) handlePlanRoute(w http.ResponseWriter, r *http.Request) {
 	var req planRouteRequest
 	if err := decodeJSON(r, &req); err != nil {
@@ -134,8 +154,8 @@ func (s *Server) handleRecordAttempt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	outcome := route.Outcome(req.Outcome)
-	if outcome != route.OutcomeDelivered && outcome != route.OutcomeFailed {
-		writeError(w, r, validationError("outcome must be DELIVERED or FAILED"))
+	if !outcome.Valid() {
+		writeError(w, r, validationError("outcome must be DELIVERED, FAILED or COLLECTED"))
 		return
 	}
 	v, err := s.RecordAttempt.Execute(r.Context(), usecases.RecordAttemptCommand{

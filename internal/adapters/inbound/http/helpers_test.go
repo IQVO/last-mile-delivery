@@ -40,7 +40,7 @@ func newApp(t *testing.T) *app {
 	a := &app{t: t, store: store, deps: deps, idem: idem}
 	a.srv = handler.NewRouter(&handler.Server{
 		ScheduleWave: usecases.NewScheduleWave(deps), CloseInduction: usecases.NewCloseInduction(deps), DispatchWave: usecases.NewDispatchWave(deps),
-		CancelWave: usecases.NewCancelWave(deps), DeclareWaveCost: usecases.NewDeclareWaveCost(deps), ListWaves: usecases.NewListWaves(deps), GetWaveStops: usecases.NewGetWaveStops(deps),
+		CancelWave: usecases.NewCancelWave(deps), DeclareWaveCost: usecases.NewDeclareWaveCost(deps), DeclareWaveEmission: usecases.NewDeclareWaveEmission(deps), ListWaves: usecases.NewListWaves(deps), GetWaveStops: usecases.NewGetWaveStops(deps),
 		PlanRoute: usecases.NewPlanRoute(deps), StartRoute: usecases.NewStartRoute(deps), RecordAttempt: usecases.NewRecordAttempt(deps),
 		GetRoute: usecases.NewGetRoute(deps), ContractPartner: usecases.NewContractPartner(deps), DeactivatePartner: usecases.NewDeactivatePartner(deps),
 		Idempotency: handler.RequireIdempotencyKey(idem),

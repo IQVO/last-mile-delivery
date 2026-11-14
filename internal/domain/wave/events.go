@@ -82,9 +82,30 @@ func (WaveCostDeclared) Entity() string { return entity }
 // SubjectID returns the waveId.
 func (e WaveCostDeclared) SubjectID() string { return string(e.WaveID) }
 
+// WaveEmissionDeclared is raised by DeclareEmission: the planner's declared
+// marginal greenhouse emission of ONE stop on the wave, in grams of CO2
+// equivalent (ADR 0016, roadmap C9; consumed by order-sourcing for its
+// estimatedCo2eGrams).
+type WaveEmissionDeclared struct {
+	shared.Header
+	WaveID       ID
+	GCo2ePerStop int64
+	DeclaredAt   time.Time
+}
+
+// EventName returns "WaveEmissionDeclared".
+func (WaveEmissionDeclared) EventName() string { return "WaveEmissionDeclared" }
+
+// Entity returns "wave".
+func (WaveEmissionDeclared) Entity() string { return entity }
+
+// SubjectID returns the waveId.
+func (e WaveEmissionDeclared) SubjectID() string { return string(e.WaveID) }
+
 var (
 	_ shared.Event = DeliveryWaveScheduled{}
 	_ shared.Event = DeliveryWaveCapacityChanged{}
 	_ shared.Event = DeliveryWaveCancelled{}
 	_ shared.Event = WaveCostDeclared{}
+	_ shared.Event = WaveEmissionDeclared{}
 )

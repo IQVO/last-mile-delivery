@@ -51,9 +51,10 @@ Runs each delivery station: publishes delivery waves (induct cutoff, delivery wi
 
 | Message | Type | To | Collaboration |
 | --- | --- | --- | --- |
-| `DeliveryWaveScheduled`, `DeliveryWaveCapacityChanged` | event | `delivery-promise`, `order-sourcing` | OHS + PL / Conformist |
-| `PackageOutForDelivery`, `StopEtaWindowAssigned`, `DeliveryAttempted` | event | `shipping-and-tracking` | OHS + PL / Conformist |
-| `DeliveryWaveCancelled`, `PackageInductionDeferred`, `PackageReturnInitiated` | event | no named consumer | OHS + PL |
+| `DeliveryWaveScheduled`, `DeliveryWaveCapacityChanged`, `DeliveryWaveCancelled` | event | `delivery-promise`, `order-sourcing` | OHS + PL / Conformist |
+| `WaveCostDeclared` | event | `order-sourcing` | OHS + PL / Conformist |
+| `PackageInductionDeferred` | event | `delivery-promise` | OHS + PL / Conformist |
+| `PackageOutForDelivery`, `StopEtaWindowAssigned`, `DeliveryAttempted`, `PackageReturnInitiated`, `DeliveryPointFlagged` | event | `shipping-and-tracking` | OHS + PL / Conformist |
 | `RoutePlanned` | event (analytics topic only) | analytics | OHS + PL |
 
 No synchronous call to any context.
@@ -89,8 +90,8 @@ A1 to A29 in [ADR 0002](/docs/adr/0002-aggregates-and-invariants) (for example A
 
 | Question | State in the code |
 | --- | --- |
-| What does the promise do when a wave is cancelled? | `DeliveryWaveCancelled` is published (G5); no consumer is named in this repository |
-| Who consumes `PackageInductionDeferred` and `PackageReturnInitiated`? | none named; they exist for visibility and for a future returns context |
+| What does the promise do when a wave is cancelled? | `DeliveryWaveCancelled` is published (G5); `delivery-promise` consumes it and flags every confirmed promise whose witness wave it was as at risk (its `apis/asyncapi.yaml`, message `DeliveryWaveCancelled`); `order-sourcing` also consumes it |
+| Who consumes `PackageInductionDeferred` and `PackageReturnInitiated`? | `delivery-promise` consumes `PackageInductionDeferred` as a risk to the group's promise; `shipping-and-tracking` consumes `PackageReturnInitiated` and moves the package from `AT_STATION` to `RETURNED` |
 | Is a route re-validated when its partner is later deactivated? | no: only planning checks the partner |
 | Route sequencing and optimisation | not modelled: the planner supplies the stops |
 | Row cleanup of `idempotency_keys` and published `outbox_events` | no purge job exists |

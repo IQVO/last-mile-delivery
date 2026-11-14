@@ -59,6 +59,12 @@ type waveCostDeclaredData struct {
 	DeclaredAt       string `json:"declaredAt"`
 }
 
+type waveEmissionDeclaredData struct {
+	WaveID       string `json:"waveId"`
+	GCo2ePerStop int64  `json:"gCo2ePerStop"`
+	DeclaredAt   string `json:"declaredAt"`
+}
+
 type routePlannedData struct {
 	RouteID   string `json:"routeId"`
 	WaveID    string `json:"waveId"`
@@ -69,6 +75,14 @@ type routePlannedData struct {
 type outForDeliveryData struct {
 	RouteID        string `json:"routeId"`
 	TrackingNumber string `json:"trackingNumber"`
+	StationNodeID  string `json:"stationNodeId"`
+	At             string `json:"at"`
+}
+
+type pickupOutData struct {
+	RouteID        string `json:"routeId"`
+	TrackingNumber string `json:"trackingNumber"`
+	StopKey        string `json:"stopKey"`
 	StationNodeID  string `json:"stationNodeId"`
 	At             string `json:"at"`
 }
@@ -177,10 +191,14 @@ func payloadFor(ev shared.Event) (any, string, error) {
 		return waveCancelledData{WaveID: string(e.WaveID), Reason: e.Reason}, events, nil
 	case wave.WaveCostDeclared:
 		return waveCostDeclaredData{WaveID: string(e.WaveID), CostPerStopCents: e.CostPerStopCents, DeclaredAt: ts(e.DeclaredAt)}, events, nil
+	case wave.WaveEmissionDeclared:
+		return waveEmissionDeclaredData{WaveID: string(e.WaveID), GCo2ePerStop: e.GCo2ePerStop, DeclaredAt: ts(e.DeclaredAt)}, events, nil
 	case route.RoutePlanned:
 		return routePlannedData{RouteID: string(e.RouteID), WaveID: string(e.WaveID), DSPID: string(e.DSPID), StopCount: e.StopCount}, cloudevents.StreamAnalytics, nil
 	case route.PackageOutForDelivery:
 		return outForDeliveryData{RouteID: string(e.RouteID), TrackingNumber: e.TrackingNumber, StationNodeID: e.StationNodeID, At: ts(e.At)}, events, nil
+	case route.PackagePickupOut:
+		return pickupOutData{RouteID: string(e.RouteID), TrackingNumber: e.TrackingNumber, StopKey: e.StopKey, StationNodeID: e.StationNodeID, At: ts(e.At)}, events, nil
 	case route.DeliveryAttempted:
 		return attemptedData{
 			RouteID: string(e.RouteID), TrackingNumber: e.TrackingNumber, Outcome: string(e.Outcome), OutcomeDetail: string(e.Detail), FailureReason: e.FailureReason, At: ts(e.At),

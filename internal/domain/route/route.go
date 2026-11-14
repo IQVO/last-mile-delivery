@@ -69,14 +69,19 @@ func (s State) Valid() bool {
 // Outcome is the result of a delivery attempt.
 type Outcome string
 
-// The two attempt outcomes.
+// The three attempt outcomes.
 const (
 	OutcomeDelivered Outcome = "DELIVERED"
 	OutcomeFailed    Outcome = "FAILED"
+	// OutcomeCollected: something was collected from the stop (a return
+	// package whose induction is PICKUP; ADR 0017).
+	OutcomeCollected Outcome = "COLLECTED"
 )
 
-// Valid reports whether o is DELIVERED or FAILED.
-func (o Outcome) Valid() bool { return o == OutcomeDelivered || o == OutcomeFailed }
+// Valid reports whether o is DELIVERED, FAILED or COLLECTED.
+func (o Outcome) Valid() bool {
+	return o == OutcomeDelivered || o == OutcomeFailed || o == OutcomeCollected
+}
 
 // MaxFailureReason is the longest accepted failure reason in characters.
 const MaxFailureReason = 200
@@ -159,10 +164,11 @@ func cloneStops(in []Stop) []Stop {
 }
 
 // RecordAttempt records one delivery attempt of one package and raises
-// DeliveryAttempted. at is the instant the driver reports, now the instant of
-// the change.
-func (r *Route) RecordAttempt(trackingNumber string, outcome Outcome, detail Detail, failureReason string, at, now time.Time) ([]shared.Event, error) {
-	if err := checkAttempt(trackingNumber, outcome, detail, failureReason, at); err != nil {
+// DeliveryAttempted. kind is the package's induction kind (ADR 0017):
+// COLLECTED is legal only for a PICKUP package; FAILED is legal for both.
+// at is the instant the driver reports, now the instant of the change.
+func (r *Route) RecordAttempt(trackingNumber string, kind wave.Kind, outcome Outcome, detail Detail, failureReason string, at, now time.Time) ([]shared.Event, error) {
+	if err := checkAttempt(trackingNumber, kind, outcome, detail, failureReason, at); err != nil {
 		return nil, shared.Invalid("%v", err)
 	}
 	if r.state != StateOutForDelivery {
@@ -187,26 +193,37 @@ func (r *Route) RecordAttempt(trackingNumber string, outcome Outcome, detail Det
 	return []shared.Event{ev}, nil
 }
 
-func checkAttempt(trackingNumber string, outcome Outcome, detail Detail, reason string, at time.Time) error {
+func checkAttempt(trackingNumber string, kind wave.Kind, outcome Outcome, detail Detail, reason string, at time.Time) error {
 	if !shared.ValidID(trackingNumber) {
 		return fmt.Errorf("trackingNumber %q is not a valid id", trackingNumber)
 	}
 	if !outcome.Valid() {
-		return fmt.Errorf("outcome %q is not DELIVERED or FAILED", outcome)
+		return fmt.Errorf("outcome %q is not DELIVERED, FAILED or COLLECTED", outcome)
 	}
 	if at.IsZero() {
 		return errors.New("the attempt instant is required")
 	}
+	if outcome == OutcomeCollected && kind != wave.KindPickup {
+		return fmt.Errorf("outcome COLLECTED needs a PICKUP induction of %s", trackingNumber)
+	}
 	if !detail.Valid(outcome) {
 		return fmt.Errorf("outcomeDetail %q is not allowed for a %s attempt", detail, outcome)
 	}
-	if outcome == OutcomeDelivered && reason != "" {
-		return errors.New("failureReason is only for a FAILED attempt")
+	if outcome != OutcomeFailed && reason != "" {
+		return fmt.Errorf("failureReason is only for a FAILED attempt")
 	}
 	if outcome == OutcomeFailed && !shared.ValidTextN(reason, MaxFailureReason) {
 		return fmt.Errorf("a FAILED attempt needs a failureReason of 1 to %d characters, trimmed", MaxFailureReason)
 	}
 	return nil
+}
+
+// checkPersistedAttempt re-validates a stored attempt: every rule of
+// checkAttempt except the induction-kind rule, which only the wave knows at
+// write time — a stored COLLECTED was kind-checked when it was recorded
+// (ADR 0017).
+func checkPersistedAttempt(trackingNumber string, outcome Outcome, detail Detail, reason string, at time.Time) error {
+	return checkAttempt(trackingNumber, wave.KindPickup, outcome, detail, reason, at)
 }
 
 // Complete moves OUT_FOR_DELIVERY to COMPLETED once every package has an

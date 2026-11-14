@@ -23,14 +23,14 @@ flowchart LR
     NT -->|"OHS+PL / CF<br/>NodeRegistered,<br/>ServiceAreaAssigned"| LM
     LH -->|"C/S, LM is Customer<br/>LoadArrived"| LM
     ST -->|"OHS+PL / CF<br/>LabelIssued"| LM
-    LM -->|"OHS+PL / CF<br/>DeliveryWaveScheduled,<br/>DeliveryWaveCapacityChanged"| DP
-    LM -->|"OHS+PL / CF<br/>DeliveryWaveScheduled,<br/>DeliveryWaveCapacityChanged"| OS
-    LM -->|"OHS+PL / CF<br/>PackageOutForDelivery,<br/>DeliveryAttempted"| ST
+    LM -->|"OHS+PL / CF<br/>DeliveryWaveScheduled,<br/>DeliveryWaveCapacityChanged,<br/>DeliveryWaveCancelled,<br/>PackageInductionDeferred"| DP
+    LM -->|"OHS+PL / CF<br/>DeliveryWaveScheduled,<br/>DeliveryWaveCapacityChanged,<br/>DeliveryWaveCancelled,<br/>WaveCostDeclared"| OS
+    LM -->|"OHS+PL / CF<br/>PackageOutForDelivery,<br/>StopEtaWindowAssigned,<br/>DeliveryAttempted,<br/>PackageReturnInitiated,<br/>DeliveryPointFlagged"| ST
     SP -->|"UI on OHS, REST<br/>waves, routes, partners"| LM
     DSP -->|"UI on OHS, REST<br/>route start, attempts"| LM
 ```
 
-Source: `internal/adapters/inbound/kafka/consumers.go`, `internal/adapters/outbound/kafka/encoder.go`, `internal/adapters/inbound/http/server.go`, `apis/asyncapi.yaml`. Legend: arrows point from upstream to downstream. OHS = Open Host Service, PL = Published Language, CF = Conformist, C/S = Customer/Supplier. Omitted: the events nobody is named as consuming (`DeliveryWaveCancelled`, `PackageInductionDeferred`, `PackageReturnInitiated`, `RoutePlanned` on the analytics topic), and Postgres and Kafka as infrastructure.
+Source: `internal/adapters/inbound/kafka/consumers.go`, `internal/adapters/outbound/kafka/encoder.go`, `internal/adapters/inbound/http/server.go`, `apis/asyncapi.yaml`. Legend: arrows point from upstream to downstream. OHS = Open Host Service, PL = Published Language, CF = Conformist, C/S = Customer/Supplier. Omitted: `RoutePlanned` on the analytics topic (read only by this context's own projector), and Postgres and Kafka as infrastructure.
 
 ## Relationships
 
@@ -39,9 +39,9 @@ Source: `internal/adapters/inbound/kafka/consumers.go`, `internal/adapters/outbo
 | `node-topology` | Supporting | upstream (we are downstream) | OHS + PL / Conformist | Kafka `retailnetwork.node-topology.events` | `NodeRegistered`, `ServiceAreaAssigned` |
 | `linehaul-transportation` | Supporting | upstream | Customer/Supplier, we are the Customer | Kafka `retailnetwork.linehaul-transportation.events` | `LoadArrived` |
 | `shipping-and-tracking` | Generic | upstream for labels | OHS + PL / Conformist | Kafka `retailnetwork.shipping-and-tracking.events` | `LabelIssued` |
-| `delivery-promise` | Core | downstream (we are upstream) | OHS + PL / Conformist | Kafka `retailnetwork.last-mile-delivery.events` | `DeliveryWaveScheduled`, `DeliveryWaveCapacityChanged` |
-| `order-sourcing` | Core | downstream | OHS + PL / Conformist | same | same |
-| `shipping-and-tracking` | Generic | downstream for facts | OHS + PL / Conformist | same | `PackageOutForDelivery`, `DeliveryAttempted` |
+| `delivery-promise` | Core | downstream (we are upstream) | OHS + PL / Conformist | Kafka `retailnetwork.last-mile-delivery.events` | `DeliveryWaveScheduled`, `DeliveryWaveCapacityChanged`, `DeliveryWaveCancelled`, `PackageInductionDeferred` |
+| `order-sourcing` | Core | downstream | OHS + PL / Conformist | same | `DeliveryWaveScheduled`, `DeliveryWaveCapacityChanged`, `DeliveryWaveCancelled`, `WaveCostDeclared` |
+| `shipping-and-tracking` | Generic | downstream for facts | OHS + PL / Conformist | same | `PackageOutForDelivery`, `StopEtaWindowAssigned`, `DeliveryAttempted`, `PackageReturnInitiated`, `DeliveryPointFlagged` |
 | Station planner | person | calls us | UI on Open Host | REST | `ScheduleWave`, `CloseInduction`, `DispatchWave`, `CancelWave`, `PlanRoute`, `ContractPartner`, `DeactivatePartner`, list and read |
 | DSP driver app | external organisation | calls us | UI on Open Host | REST | `StartRoute`, `RecordAttempt` |
 

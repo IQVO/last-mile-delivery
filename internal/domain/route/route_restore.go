@@ -61,7 +61,7 @@ func checkSnapshotAttempts(s Snapshot) error {
 			return fmt.Errorf("attempt of %q is not a first attempt of a package on the route", a.TrackingNumber)
 		}
 		seen[a.TrackingNumber] = true
-		if err := checkAttempt(a.TrackingNumber, a.Outcome, a.Detail, a.FailureReason, a.At); err != nil {
+		if err := checkPersistedAttempt(a.TrackingNumber, a.Outcome, a.Detail, a.FailureReason, a.At); err != nil {
 			return err
 		}
 	}
