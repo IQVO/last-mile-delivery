@@ -36,28 +36,28 @@ func stationCase(t *testing.T, f Fixture) {
 func serviceAreaCase(t *testing.T, f Fixture) {
 	_, err := f.ServiceAreas.Get(ctxb(), "01310")
 	wantErr(t, err, ports.ErrNotFound)
-	save := func(station string, version int64) bool {
-		applied, err := f.ServiceAreas.Save(ctxb(), views.ServiceArea{PostalPrefix: "01310", StationNodeID: station, RegionID: "region-se", AssignmentVersion: version})
+	save := func(station string, version int64, mode string) bool {
+		applied, err := f.ServiceAreas.Save(ctxb(), views.ServiceArea{PostalPrefix: "01310", StationNodeID: station, RegionID: "region-se", AssignmentVersion: version, DeliveryMode: mode})
 		noErr(t, err)
 		return applied
 	}
-	if !save(station1, 2) {
+	if !save(station1, 2, "") {
 		t.Fatal("the first assignment must be applied")
 	}
-	if save(station2, 1) || save(station2, 2) {
+	if save(station2, 1, views.CarrierHandoff) || save(station2, 2, views.CarrierHandoff) {
 		t.Fatal("a lower or equal version must not be applied")
 	}
 	got, err := f.ServiceAreas.Get(ctxb(), "01310")
 	noErr(t, err)
-	if got.StationNodeID != station1 || got.AssignmentVersion != 2 {
+	if got.StationNodeID != station1 || got.AssignmentVersion != 2 || got.DeliveryMode != views.NetworkRoute {
 		t.Fatalf("area = %+v", got)
 	}
-	if !save(station2, 3) {
+	if !save(station2, 3, views.CarrierHandoff) {
 		t.Fatal("a higher version must be applied")
 	}
 	got, err = f.ServiceAreas.Get(ctxb(), "01310")
 	noErr(t, err)
-	if got.StationNodeID != station2 || got.AssignmentVersion != 3 {
+	if got.StationNodeID != station2 || got.AssignmentVersion != 3 || got.DeliveryMode != views.CarrierHandoff {
 		t.Fatalf("area = %+v", got)
 	}
 }

@@ -41,6 +41,7 @@ type serviceAreaAssignedData struct {
 	DeliveryStationNodeID string `json:"deliveryStationNodeId"`
 	RegionID              string `json:"regionId"`
 	AssignmentVersion     int64  `json:"assignmentVersion"`
+	DeliveryMode          string `json:"deliveryMode"`
 }
 
 type labelIssuedData struct {
@@ -85,7 +86,7 @@ func TopologyHandlers(nodes *usecases.ApplyNodeRegistered, areas *usecases.Apply
 			}
 			return areas.Execute(ctx, usecases.ServiceAreaAssignedCommand{
 				EventID: e.ID(), EventType: e.Type(), PostalPrefix: d.PostalPrefix, StationNodeID: d.DeliveryStationNodeID,
-				RegionID: d.RegionID, AssignmentVersion: d.AssignmentVersion,
+				RegionID: d.RegionID, AssignmentVersion: d.AssignmentVersion, DeliveryMode: d.DeliveryMode,
 			})
 		},
 	}

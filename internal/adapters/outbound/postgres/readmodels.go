@@ -40,19 +40,19 @@ func NewServiceAreaRepository(pool *pgxpool.Pool) *ServiceAreaRepository {
 // Get returns the assignment or ports.ErrNotFound.
 func (r *ServiceAreaRepository) Get(ctx context.Context, prefix string) (views.ServiceArea, error) {
 	var a views.ServiceArea
-	err := queryFor(ctx, r.pool).QueryRow(ctx, `SELECT postal_prefix, station_node_id, COALESCE(region_id, ''), assignment_version
-		FROM rm_station_service_areas WHERE postal_prefix = $1`, prefix).Scan(&a.PostalPrefix, &a.StationNodeID, &a.RegionID, &a.AssignmentVersion)
+	err := queryFor(ctx, r.pool).QueryRow(ctx, `SELECT postal_prefix, station_node_id, COALESCE(region_id, ''), assignment_version, delivery_mode
+		FROM rm_station_service_areas WHERE postal_prefix = $1`, prefix).Scan(&a.PostalPrefix, &a.StationNodeID, &a.RegionID, &a.AssignmentVersion, &a.DeliveryMode)
 	return a, missOr(err)
 }
 
 // Save stores the assignment only when its version is higher than the stored one.
 func (r *ServiceAreaRepository) Save(ctx context.Context, a views.ServiceArea) (bool, error) {
-	tag, err := queryFor(ctx, r.pool).Exec(ctx, `INSERT INTO rm_station_service_areas (postal_prefix, station_node_id, region_id, assignment_version)
-		VALUES ($1, $2, $3, $4)
+	tag, err := queryFor(ctx, r.pool).Exec(ctx, `INSERT INTO rm_station_service_areas (postal_prefix, station_node_id, region_id, assignment_version, delivery_mode)
+		VALUES ($1, $2, $3, $4, $5)
 		ON CONFLICT (postal_prefix) DO UPDATE SET station_node_id = EXCLUDED.station_node_id, region_id = EXCLUDED.region_id,
-			assignment_version = EXCLUDED.assignment_version
+			assignment_version = EXCLUDED.assignment_version, delivery_mode = EXCLUDED.delivery_mode
 		WHERE rm_station_service_areas.assignment_version < EXCLUDED.assignment_version`,
-		a.PostalPrefix, a.StationNodeID, nullable(a.RegionID), a.AssignmentVersion)
+		a.PostalPrefix, a.StationNodeID, nullable(a.RegionID), a.AssignmentVersion, views.NormalizeDeliveryMode(a.DeliveryMode))
 	return tag.RowsAffected() == 1, err
 }
 

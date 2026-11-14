@@ -44,6 +44,9 @@ type Deps struct {
 	// EtaMetrics records the ETA windows StartRoute assigned or skipped; nil
 	// records nothing.
 	EtaMetrics ports.EtaMetrics
+	// AreaMetrics counts the packages the carrier-area exclusion refused
+	// (ADR 0015); nil records nothing.
+	AreaMetrics ports.AreaMetrics
 }
 
 // metrics returns the configured AttemptMetrics or a no-op.

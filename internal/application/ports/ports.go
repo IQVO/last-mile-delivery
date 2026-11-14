@@ -196,3 +196,12 @@ type EtaMetrics interface {
 	// stable slug ("window_elapsed").
 	EtaSkipped(ctx context.Context, reason string)
 }
+
+// AreaMetrics counts what the carrier-area exclusion (ADR 0015) refused. The
+// implementation lives in internal/adapters/outbound/telemetry; a nil
+// Deps.AreaMetrics records nothing.
+type AreaMetrics interface {
+	// CarrierAreaSkipped counts a package whose induction was refused because
+	// its destination prefix is assigned to a CARRIER_HANDOFF area.
+	CarrierAreaSkipped(ctx context.Context)
+}

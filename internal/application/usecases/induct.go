@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/claudioed/last-mile-delivery/internal/application/repository"
+	"github.com/claudioed/last-mile-delivery/internal/application/views"
 	"github.com/claudioed/last-mile-delivery/internal/domain/history"
 	"github.com/claudioed/last-mile-delivery/internal/domain/shared"
 	"github.com/claudioed/last-mile-delivery/internal/domain/wave"
@@ -26,6 +27,25 @@ func (w writer) stopInfo(ctx context.Context, trackingNumber string) (stopKey, a
 		return "pkg:" + trackingNumber, "", nil
 	}
 	return ps.StopKey, ps.AssignmentID, nil
+}
+
+// carrierAreaRefused reports whether the package's destination prefix is
+// assigned to a CARRIER_HANDOFF area (ADR 0015): a carrier carries that final
+// leg from a handoff node, so the package never enters this context. A package
+// without label data, or whose prefix has no stored assignment, is not
+// refused: refusal needs a known CARRIER_HANDOFF declaration.
+func (w writer) carrierAreaRefused(ctx context.Context, trackingNumber string) (bool, error) {
+	ps, err := w.PackageStops.Get(ctx, trackingNumber)
+	ok, err := found(err)
+	if err != nil || !ok || ps.DestinationPostalPrefix == "" {
+		return false, err
+	}
+	area, err := w.ServiceAreas.Get(ctx, ps.DestinationPostalPrefix)
+	ok, err = found(err)
+	if err != nil || !ok {
+		return false, err
+	}
+	return area.DeliveryMode == views.CarrierHandoff, nil
 }
 
 // place tries the eligible waves of the station in order (A6): the OPEN waves
@@ -76,6 +96,14 @@ func (w writer) arrive(ctx context.Context, station, trackingNumber string, at t
 }
 
 func (w writer) arriveNew(ctx context.Context, station, trackingNumber string, at time.Time) ([]shared.Event, error) {
+	refused, err := w.carrierAreaRefused(ctx, trackingNumber)
+	if err != nil {
+		return nil, err
+	}
+	if refused {
+		w.areaMetrics().CarrierAreaSkipped(ctx)
+		return nil, nil
+	}
 	stopKey, assignmentID, err := w.stopInfo(ctx, trackingNumber)
 	if err != nil {
 		return nil, err
@@ -95,8 +123,18 @@ func (w writer) arriveNew(ctx context.Context, station, trackingNumber string, a
 }
 
 // retryWaiting inducts a waiting package when a wave takes it now; nothing is
-// raised when none does (the package was already announced as deferred).
+// raised when none does (the package was already announced as deferred). A
+// package whose area flipped to CARRIER_HANDOFF while it waited is refused
+// like a new arrival and stays AT_STATION (ADR 0015).
 func (w writer) retryWaiting(ctx context.Context, h *history.History, at time.Time) ([]shared.Event, error) {
+	refused, err := w.carrierAreaRefused(ctx, h.TrackingNumber())
+	if err != nil {
+		return nil, err
+	}
+	if refused {
+		w.areaMetrics().CarrierAreaSkipped(ctx)
+		return nil, nil
+	}
 	stopKey, _, err := w.stopInfo(ctx, h.TrackingNumber())
 	if err != nil {
 		return nil, err

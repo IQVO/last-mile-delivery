@@ -31,7 +31,7 @@ All consumers use `segmentio/kafka-go` with a consumer group from an environment
 | Upstream | Topic | Event type | Fields used | Effect |
 | --- | --- | --- | --- | --- |
 | `node-topology` | `retailnetwork.node-topology.events` | `com.retailnetwork.logistics.node-topology.node.NodeRegistered` | `nodeId`, `nodeType`, `regionId`, `timezone` | `DELIVERY_STATION` nodes into `rm_stations` |
-| `node-topology` | same | `com.retailnetwork.logistics.node-topology.servicearea.ServiceAreaAssigned` | `postalPrefix`, `deliveryStationNodeId`, `regionId`, `assignmentVersion` | into `rm_station_service_areas` if the version is newer |
+| `node-topology` | same | `com.retailnetwork.logistics.node-topology.servicearea.ServiceAreaAssigned` | `postalPrefix`, `deliveryStationNodeId`, `regionId`, `assignmentVersion`, `deliveryMode` | into `rm_station_service_areas` if the version is newer (a `CARRIER_HANDOFF` mode makes induction refuse the prefix, ADR 0015) |
 | `linehaul-transportation` | `retailnetwork.linehaul-transportation.events` | `com.retailnetwork.logistics.linehaul-transportation.load.LoadArrived` | `loadId`, `departureId`, `destinationNodeId`, `nodeType`, `trackingNumbers`, `arrivedAt` | `rm_inbound_packages` and induction into waves (`InductOnArrival`) |
 | `shipping-and-tracking` | `retailnetwork.shipping-and-tracking.events` | `com.retailnetwork.logistics.shipping-and-tracking.label.LabelIssued` | `trackingNumber`, `assignmentId`, `stopKey`, `destinationPostalPrefix` | into `rm_package_stops` (stop grouping) |
 
