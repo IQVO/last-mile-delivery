@@ -25,6 +25,8 @@ export interface DeliveryWave {
   cancelReason?: string;
   /** The declared marginal cost of one stop, integer cents (0 until declared). */
   costPerStopCents: number;
+  /** The declared marginal greenhouse emission of one stop, grams of CO2 equivalent (0 until declared). */
+  gCo2ePerStop: number;
 }
 
 /** One stop of a wave: the packages sharing a stopKey (GET /waves/{waveId}/stops). */

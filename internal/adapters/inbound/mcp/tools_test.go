@@ -19,6 +19,7 @@ func TestListWaves(t *testing.T) {
 		"inductCutoffAt": "2026-10-24T08:00:00Z", "windowStart": "2026-10-24T12:00:00Z", "windowEnd": "2026-10-24T20:00:00Z",
 		"stopCapacity": 5.0, "assignedStops": 2.0, "remainingStops": 3.0, "state": "DISPATCHED",
 		"costPerStopCents": 0.0,
+		"gCo2ePerStop":     0.0,
 	} {
 		if w[k] != v {
 			t.Errorf("%s = %v, want %v", k, w[k], v)
