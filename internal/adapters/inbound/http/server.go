@@ -19,19 +19,20 @@ import (
 
 // Server holds the use cases the handlers call.
 type Server struct {
-	ScheduleWave      *usecases.ScheduleWave
-	CloseInduction    *usecases.CloseInduction
-	DispatchWave      *usecases.DispatchWave
-	CancelWave        *usecases.CancelWave
-	DeclareWaveCost   *usecases.DeclareWaveCost
-	ListWaves         *usecases.ListWaves
-	GetWaveStops      *usecases.GetWaveStops
-	PlanRoute         *usecases.PlanRoute
-	StartRoute        *usecases.StartRoute
-	RecordAttempt     *usecases.RecordAttempt
-	GetRoute          *usecases.GetRoute
-	ContractPartner   *usecases.ContractPartner
-	DeactivatePartner *usecases.DeactivatePartner
+	ScheduleWave        *usecases.ScheduleWave
+	CloseInduction      *usecases.CloseInduction
+	DispatchWave        *usecases.DispatchWave
+	CancelWave          *usecases.CancelWave
+	DeclareWaveCost     *usecases.DeclareWaveCost
+	DeclareWaveEmission *usecases.DeclareWaveEmission
+	ListWaves           *usecases.ListWaves
+	GetWaveStops        *usecases.GetWaveStops
+	PlanRoute           *usecases.PlanRoute
+	StartRoute          *usecases.StartRoute
+	RecordAttempt       *usecases.RecordAttempt
+	GetRoute            *usecases.GetRoute
+	ContractPartner     *usecases.ContractPartner
+	DeactivatePartner   *usecases.DeactivatePartner
 
 	// Idempotency wraps every POST; nil disables it (tests).
 	Idempotency func(http.Handler) http.Handler
@@ -86,6 +87,7 @@ func NewRouter(s *Server, logger *slog.Logger, serviceName string) http.Handler 
 		r.Post("/waves/{waveId}/dispatches", s.handleDispatchWave)
 		r.Post("/waves/{waveId}/cancellations", s.handleCancelWave)
 		r.Post("/waves/{waveId}/cost-declarations", s.handleDeclareWaveCost)
+		r.Post("/waves/{waveId}/emission-declarations", s.handleDeclareWaveEmission)
 		r.Post("/routes", s.handlePlanRoute)
 		r.Post("/routes/{routeId}/starts", s.handleStartRoute)
 		r.Post("/routes/{routeId}/attempts", s.handleRecordAttempt)

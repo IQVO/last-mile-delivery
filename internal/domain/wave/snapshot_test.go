@@ -93,6 +93,16 @@ func TestSnapshotRoundTripKeepsDeclaredCost(t *testing.T) {
 	}
 }
 
+func TestSnapshotRoundTripKeepsDeclaredEmission(t *testing.T) {
+	snap := validSnapshot()
+	snap.EmissionPerStopG = 850
+	got, err := Restore(snap)
+	wantNoErr(t, err)
+	if got.EmissionPerStopG() != 850 || !reflect.DeepEqual(got.Snapshot(), snap) {
+		t.Fatalf("round trip changed the declared emission:\n got %+v\nwant %+v", got.Snapshot(), snap)
+	}
+}
+
 func TestRestoreCostBoundaries(t *testing.T) {
 	legacy := validSnapshot() // a row stored before the column exists restores 0
 	if _, err := Restore(legacy); err != nil {
@@ -108,6 +118,25 @@ func TestRestoreCostBoundaries(t *testing.T) {
 		bad.CostPerStopCents = cost
 		if _, err := Restore(bad); err == nil {
 			t.Fatalf("Restore(%d) must fail", cost)
+		}
+	}
+}
+
+func TestRestoreEmissionBoundaries(t *testing.T) {
+	legacy := validSnapshot() // a row stored before the column exists restores 0
+	if _, err := Restore(legacy); err != nil {
+		t.Fatalf("Restore(legacy snapshot): %v", err)
+	}
+	top := validSnapshot()
+	top.EmissionPerStopG = MaxEmissionPerStopG
+	if _, err := Restore(top); err != nil {
+		t.Fatalf("Restore(max emission): %v", err)
+	}
+	for _, g := range []int64{-1, MaxEmissionPerStopG + 1} {
+		bad := validSnapshot()
+		bad.EmissionPerStopG = g
+		if _, err := Restore(bad); err == nil {
+			t.Fatalf("Restore(%d) must fail", g)
 		}
 	}
 }
@@ -131,6 +160,8 @@ func TestRestoreRejectsCorruptRows(t *testing.T) {
 		{"cancelled without a reason", func(s *Snapshot) { s.State = StateCancelled }},
 		{"negative stop cost", func(s *Snapshot) { s.CostPerStopCents = -1 }},
 		{"stop cost above the ceiling", func(s *Snapshot) { s.CostPerStopCents = MaxCostPerStopCents + 1 }},
+		{"negative stop emission", func(s *Snapshot) { s.EmissionPerStopG = -1 }},
+		{"stop emission above the ceiling", func(s *Snapshot) { s.EmissionPerStopG = MaxEmissionPerStopG + 1 }},
 		{"assigned below the stops", func(s *Snapshot) { s.AssignedStops = 1 }},
 		{"assigned above the stops", func(s *Snapshot) { s.AssignedStops, s.StopCapacity = 3, 3 }},
 		{"assigned above the capacity", func(s *Snapshot) { s.StopCapacity = 1 }},

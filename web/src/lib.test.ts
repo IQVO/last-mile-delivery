@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { idProblem, serviceDateProblem, stopCost, stopMeter, utcLabel } from "./lib";
+import { idProblem, serviceDateProblem, stopCost, stopEmission, stopMeter, utcLabel } from "./lib";
 
 describe("utcLabel", () => {
   it("formats an instant to the second in UTC", () => {
@@ -47,5 +47,12 @@ describe("stopCost", () => {
   it("renders the declared cents per stop without a currency", () => {
     expect(stopCost({ costPerStopCents: 425 })).toBe("425 ¢/stop");
     expect(stopCost({ costPerStopCents: 0 })).toBe("0 ¢/stop");
+  });
+});
+
+describe("stopEmission", () => {
+  it("renders the declared grams of CO2 equivalent per stop", () => {
+    expect(stopEmission({ gCo2ePerStop: 850 })).toBe("850 gCo2e/stop");
+    expect(stopEmission({ gCo2ePerStop: 0 })).toBe("0 gCo2e/stop");
   });
 });

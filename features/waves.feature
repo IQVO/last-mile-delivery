@@ -70,6 +70,25 @@ Feature: Delivery waves and induction
     When the planner declares a stop cost of 425 cents for wave "wave-1"
     Then the request is refused with "illegal transition"
 
+  Scenario: The planner declares the greenhouse emission of one stop
+    Given a wave "wave-1" with its cutoff in 2 hours and capacity 5
+    When the planner declares a stop emission of 850 gCo2e for wave "wave-1"
+    Then the event "WaveEmissionDeclared" was published for wave "wave-1"
+    And wave "wave-1" declares 850 gCo2e per stop
+
+  Scenario: A declared zero is a legal emission, not "no declaration"
+    Given a wave "wave-1" with its cutoff in 2 hours and capacity 5
+    And the planner declares a stop emission of 850 gCo2e for wave "wave-1"
+    When the planner declares a stop emission of 0 gCo2e for wave "wave-1"
+    Then the event "WaveEmissionDeclared" was published for wave "wave-1"
+    And wave "wave-1" declares 0 gCo2e per stop
+
+  Scenario: A cancelled wave refuses a stop-emission declaration
+    Given a wave "wave-1" with its cutoff in 2 hours and capacity 5
+    And the planner cancels wave "wave-1" because "station closed"
+    When the planner declares a stop emission of 850 gCo2e for wave "wave-1"
+    Then the request is refused with "illegal transition"
+
   Scenario: A redelivered LoadArrived event inducts nothing twice
     Given a wave "wave-1" with its cutoff in 2 hours and capacity 5
     When the load event "ev-1" with the package "TRK-1" is delivered twice
