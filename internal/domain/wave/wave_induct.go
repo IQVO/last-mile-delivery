@@ -11,13 +11,18 @@ import (
 // The induction seam: a package takes one stop of the wave's capacity, the
 // wave's uniqueness rules, and the capacity fact the analytics side reads.
 
-// Induct places a package of the given stop into the wave. at is the instant
+// Induct places a package of the given stop into the wave. kind is why the
+// package takes the stop, DELIVERY or PICKUP (ADR 0017; a PICKUP induction
+// occupies stop capacity like any other). at is the instant
 // the package became eligible (it must be before the cutoff), now the instant of
 // the change. A package joining a stop already in the wave takes no capacity and
 // raises no event; a new stop raises DeliveryWaveCapacityChanged.
-func (w *DeliveryWave) Induct(trackingNumber, stopKey string, at, now time.Time) ([]shared.Event, error) {
+func (w *DeliveryWave) Induct(trackingNumber, stopKey string, kind Kind, at, now time.Time) ([]shared.Event, error) {
 	if !shared.ValidID(trackingNumber) || !shared.ValidStopKey(stopKey) || at.IsZero() {
 		return nil, shared.Invalid("trackingNumber, stopKey and the induction instant must be valid")
+	}
+	if !kind.Valid() {
+		return nil, shared.Invalid("induction kind %q is not DELIVERED or PICKUP", kind)
 	}
 	if w.state != StateOpen || !at.Before(w.cutoff) {
 		return nil, fmt.Errorf("%w: wave %s is %s, cutoff %s", ErrInductionClosed, w.id, w.state, w.cutoff.Format(time.RFC3339))
@@ -29,7 +34,7 @@ func (w *DeliveryWave) Induct(trackingNumber, stopKey string, at, now time.Time)
 	if newStop && w.assigned >= w.capacity {
 		return nil, fmt.Errorf("%w: wave %s has %d of %d stops", ErrWaveFull, w.id, w.assigned, w.capacity)
 	}
-	w.inductions = append(w.inductions, Induction{TrackingNumber: trackingNumber, StopKey: stopKey, At: shared.UTC(now)})
+	w.inductions = append(w.inductions, Induction{TrackingNumber: trackingNumber, StopKey: stopKey, Kind: kind, At: shared.UTC(now)})
 	w.version++
 	if !newStop {
 		return nil, nil

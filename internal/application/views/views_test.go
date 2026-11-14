@@ -24,7 +24,7 @@ func TestWaveFromCopiesEveryField(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := w.Induct("TRK-1", "k-a", t0, t0); err != nil {
+	if _, err := w.Induct("TRK-1", "k-a", wave.KindDelivery, t0, t0); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := w.Cancel("closed", t0); err != nil {

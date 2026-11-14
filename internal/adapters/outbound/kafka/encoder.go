@@ -79,6 +79,14 @@ type outForDeliveryData struct {
 	At             string `json:"at"`
 }
 
+type pickupOutData struct {
+	RouteID        string `json:"routeId"`
+	TrackingNumber string `json:"trackingNumber"`
+	StopKey        string `json:"stopKey"`
+	StationNodeID  string `json:"stationNodeId"`
+	At             string `json:"at"`
+}
+
 type attemptedData struct {
 	RouteID        string `json:"routeId"`
 	TrackingNumber string `json:"trackingNumber"`
@@ -189,6 +197,8 @@ func payloadFor(ev shared.Event) (any, string, error) {
 		return routePlannedData{RouteID: string(e.RouteID), WaveID: string(e.WaveID), DSPID: string(e.DSPID), StopCount: e.StopCount}, cloudevents.StreamAnalytics, nil
 	case route.PackageOutForDelivery:
 		return outForDeliveryData{RouteID: string(e.RouteID), TrackingNumber: e.TrackingNumber, StationNodeID: e.StationNodeID, At: ts(e.At)}, events, nil
+	case route.PackagePickupOut:
+		return pickupOutData{RouteID: string(e.RouteID), TrackingNumber: e.TrackingNumber, StopKey: e.StopKey, StationNodeID: e.StationNodeID, At: ts(e.At)}, events, nil
 	case route.DeliveryAttempted:
 		return attemptedData{
 			RouteID: string(e.RouteID), TrackingNumber: e.TrackingNumber, Outcome: string(e.Outcome), OutcomeDetail: string(e.Detail), FailureReason: e.FailureReason, At: ts(e.At),

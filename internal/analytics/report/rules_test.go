@@ -11,7 +11,7 @@ import (
 )
 
 func TestAttemptOutcomesAreTheAsBuiltVocabulary(t *testing.T) {
-	want := []string{"DELIVERED", "FAILED"}
+	want := []string{"DELIVERED", "FAILED", "COLLECTED"}
 	if got := report.AttemptOutcomes(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("AttemptOutcomes = %v, want %v", got, want)
 	}

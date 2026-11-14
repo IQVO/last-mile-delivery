@@ -76,7 +76,32 @@ const MaxEmissionPerStopG = 10000000
 type Induction struct {
 	TrackingNumber string
 	StopKey        string
+	Kind           Kind
 	At             time.Time
+}
+
+// Kind is why a package takes a stop of the wave: it is delivered to the
+// stop, or something is collected from it (ADR 0017).
+type Kind string
+
+// The two induction kinds.
+const (
+	// KindDelivery: the package is delivered to the stop (the default).
+	KindDelivery Kind = "DELIVERY"
+	// KindPickup: something is collected from the stop (a return package).
+	KindPickup Kind = "PICKUP"
+)
+
+// Valid reports whether k is one of the two kinds.
+func (k Kind) Valid() bool { return k == KindDelivery || k == KindPickup }
+
+// orDelivery defaults an omitted kind (a legacy or tolerant decode) to
+// DELIVERY, the value every wave holds until a pickup is requested (ADR 0017).
+func (k Kind) orDelivery() Kind {
+	if k == "" {
+		return KindDelivery
+	}
+	return k
 }
 
 // DeliveryWave is the aggregate root.
@@ -163,7 +188,7 @@ func normalise(in []Induction) []Induction {
 	}
 	out := make([]Induction, len(in))
 	for i, x := range in {
-		out[i] = Induction{TrackingNumber: x.TrackingNumber, StopKey: x.StopKey, At: shared.UTC(x.At)}
+		out[i] = Induction{TrackingNumber: x.TrackingNumber, StopKey: x.StopKey, Kind: x.Kind.orDelivery(), At: shared.UTC(x.At)}
 	}
 	return out
 }
@@ -199,6 +224,9 @@ func checkInductions(s Snapshot) error {
 	for _, in := range s.Inductions {
 		if !shared.ValidID(in.TrackingNumber) || !shared.ValidStopKey(in.StopKey) || in.At.IsZero() {
 			return errors.New("an induction needs a valid trackingNumber, stopKey and instant")
+		}
+		if in.Kind != "" && !in.Kind.Valid() {
+			return fmt.Errorf("induction kind %q of %s is not DELIVERED or PICKUP", in.Kind, in.TrackingNumber)
 		}
 		if seen[in.TrackingNumber] {
 			return fmt.Errorf("trackingNumber %q is inducted twice", in.TrackingNumber)

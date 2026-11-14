@@ -459,9 +459,12 @@ paths:
       operationId: recordAttempt
       summary: Record a delivery attempt (RecordAttempt)
       description: >-
-        Records DELIVERED or FAILED for one package on an OUT_FOR_DELIVERY
-        route and publishes DeliveryAttempted. Errors: ErrRouteNotStarted (409
-        route-not-started), ErrAlreadyDelivered (409 already-delivered). A
+        Records DELIVERED, FAILED or COLLECTED for one package on an
+        OUT_FOR_DELIVERY route and publishes DeliveryAttempted. COLLECTED is
+        valid only for a package inducted into the wave as a PICKUP (ADR 0017,
+        activation-gated; every induction is DELIVERY until then). Errors:
+        ErrRouteNotStarted (409 route-not-started), ErrAlreadyDelivered (409
+        already-delivered). A
         FAILED attempt counts in the package's attempt history and re-inducts
         the package onto the next wave (policy RetryNextWave); the third
         failure publishes PackageReturnInitiated instead. The attempt that
@@ -608,7 +611,9 @@ paths:
         Per UTC day and per delivery station (the station of the attempt's
         route, UNKNOWN while its PackageOutForDelivery is not projected):
         attempts, deliveredAttempts and failedAttempts are the
-        DeliveryAttempted of the day by outcome (DELIVERED, FAILED);
+        DeliveryAttempted of the day by outcome; a success is DELIVERED or
+        COLLECTED (both count in deliveredAttempts, ADR 0017), a failure
+        FAILED;
         packagesAttempted are the packages whose FIRST attempt fell on the day,
         packagesWithFirstAttemptSuccess those of them delivered at it;
         firstAttemptSuccessRate = packagesWithFirstAttemptSuccess /
@@ -1232,7 +1237,7 @@ components:
       enum: [PLANNED, OUT_FOR_DELIVERY, COMPLETED]
     Outcome:
       type: string
-      enum: [DELIVERED, FAILED]
+      enum: [DELIVERED, FAILED, COLLECTED]
     StopInput:
       type: object
       additionalProperties: false
@@ -1264,7 +1269,7 @@ components:
           description: >-
             Derived from the per-package attempts (Gap Register G17): omitted
             until every package of the stop has an attempt, then DELIVERED when
-            all were delivered, else FAILED.
+            none failed (delivered or collected, ADR 0017), else FAILED.
     PlanRouteRequest:
       type: object
       additionalProperties: false
@@ -1318,7 +1323,7 @@ components:
           type: string
           minLength: 1
           maxLength: 200
-          description: Required when outcome is FAILED and forbidden when DELIVERED; free text (trimmed, no control characters), the model defines no vocabulary.
+          description: Required when outcome is FAILED and forbidden when DELIVERED or COLLECTED; free text (trimmed, no control characters), the model defines no vocabulary.
         outcomeDetail:
           $ref: '#/components/schemas/OutcomeDetail'
         at:

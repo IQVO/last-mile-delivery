@@ -44,7 +44,7 @@ func StartedRoute(t testing.TB, id route.ID, waveID wave.ID) (*route.Route, *wav
 	t.Helper()
 	w := NewWave(t, waveID, station1, "2026-10-24", 2)
 	for _, in := range [][2]string{{trk1, stopKeyA}, {trk2, stopKeyA}, {trk3, stopKeyB}} {
-		_, err := w.Induct(in[0], in[1], Now, Now)
+		_, err := w.Induct(in[0], in[1], wave.KindDelivery, Now, Now)
 		noErr(t, err)
 	}
 	noErr(t, w.CloseInduction())

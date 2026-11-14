@@ -30,3 +30,4 @@ The *Status* column is copied from each ADR's own `## Status` section.
 | [0014](./0014-delivery-point-profile.md) | delivery-point profile (outcome detail, DeliveryPointProfile, DeliveryPointFlagged; roadmap C5) | Accepted (2026-11-11) |
 | [0015](./0015-carrier-area-exclusion.md) | carrier-area exclusion (delivery mode on the area read model, CARRIER_HANDOFF areas never induct; roadmap C4) | Accepted (2026-11-13) |
 | [0016](./0016-wave-stop-emission-declaration.md) | wave stop-emission declaration (gCo2e, planner-declared, per-stop; roadmap C9 provider) | Accepted (2026-11-14) |
+| [0017](./0017-return-pickup-inductions.md) | return-pickup inductions (Induction.Kind, the COLLECTED outcome, PackagePickupOut; roadmap C8-LM, activation-gated) | Accepted (2026-11-14) |

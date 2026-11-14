@@ -141,7 +141,21 @@ func (uc *RecordAttempt) execute(ctx context.Context, cmd RecordAttemptCommand) 
 		if err != nil {
 			return views.Attempt{}, err
 		}
-		events, err := r.RecordAttempt(cmd.TrackingNumber, cmd.Outcome, cmd.Detail, cmd.FailureReason, cmd.At, uc.now())
+		wv, err := uc.Waves.Get(ctx, r.WaveID())
+		if err != nil {
+			return views.Attempt{}, err
+		}
+		// The induction kind decides whether COLLECTED is legal (ADR 0017).
+		// A package that is neither inducted nor on the route is refused by
+		// the aggregate itself (ErrPackageNotOnRoute); a package on the route
+		// but not inducted is corrupt (Plan guarantees the induction).
+		kind := wave.KindDelivery
+		if in, ok := wv.Induction(cmd.TrackingNumber); ok {
+			kind = in.Kind
+		} else if r.HasPackage(cmd.TrackingNumber) {
+			return views.Attempt{}, shared.Corrupt("package %s of route %s is not inducted in wave %s", cmd.TrackingNumber, r.ID(), wv.ID())
+		}
+		events, err := r.RecordAttempt(cmd.TrackingNumber, kind, cmd.Outcome, cmd.Detail, cmd.FailureReason, cmd.At, uc.now())
 		if err != nil {
 			return views.Attempt{}, err
 		}
@@ -170,13 +184,15 @@ func (uc *RecordAttempt) execute(ctx context.Context, cmd RecordAttemptCommand) 
 }
 
 // updateHistory applies the attempt to the package's history and, on a failure
-// that does not end in a return, looks for the next wave.
+// that does not end in a return, looks for the next wave. A COLLECTED attempt
+// is a terminal success like DELIVERED: the history keeps its four statuses
+// (ADR 0017).
 func (w writer) updateHistory(ctx context.Context, r *route.Route, cmd RecordAttemptCommand) ([]shared.Event, error) {
 	h, err := w.Histories.Get(ctx, cmd.TrackingNumber)
 	if err != nil {
 		return nil, err
 	}
-	if cmd.Outcome == route.OutcomeDelivered {
+	if cmd.Outcome == route.OutcomeDelivered || cmd.Outcome == route.OutcomeCollected {
 		if err := h.RecordDelivered(); err != nil {
 			return nil, err
 		}
