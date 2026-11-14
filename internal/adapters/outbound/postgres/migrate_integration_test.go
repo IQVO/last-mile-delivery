@@ -156,8 +156,9 @@ func TestMigrationsCreateTheC9WaveEmission(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _, _ = m.Close() }()
-	if err := m.Steps(-1); err != nil {
-		t.Fatalf("0007 down: %v", err)
+	// two steps back cross 0008 (the induction kind) before 0007.
+	if err := m.Steps(-2); err != nil {
+		t.Fatalf("0008+0007 down: %v", err)
 	}
 	if err := pool.QueryRow(context.Background(), column).Scan(&n); err != nil || n != 0 {
 		t.Fatalf("0007 down must drop the column: n=%d err=%v", n, err)
