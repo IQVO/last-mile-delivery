@@ -64,6 +64,12 @@ func TestTheWholeDeliveryDayThroughHTTP(t *testing.T) {
 	if again.slug(t) != "already-delivered" {
 		t.Fatalf("second delivery: %s", again.Body)
 	}
+	// COLLECTED exists only for a PICKUP induction (ADR 0017): on this wave's
+	// DELIVERY package it is a validation refusal, and nothing changes.
+	refused := expect(t, "collected on a delivery induction", a.post("/routes/route-1/attempts", `{"trackingNumber":"TRK-2","outcome":"COLLECTED","at":"2026-10-24T13:05:00Z"}`), 422, nil)
+	if refused.slug(t) != "validation-failed" {
+		t.Fatalf("collected: %s", refused.Body)
+	}
 	expect(t, "attempt 2", attempt("TRK-2", "2026-10-24T13:10:00Z"), 201, nil)
 
 	done := expect(t, "route", a.get("/routes/route-1"), 200, map[string]any{"state": "COMPLETED"})

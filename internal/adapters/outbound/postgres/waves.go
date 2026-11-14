@@ -46,7 +46,7 @@ func (r *WaveRepository) Get(ctx context.Context, id wave.ID) (*wave.DeliveryWav
 
 func loadInductions(ctx context.Context, q querier, ids []string) (map[string][]wave.Induction, error) {
 	rows, err := q.Query(ctx, `
-		SELECT wave_id, tracking_number, stop_key, inducted_at FROM wave_inductions
+		SELECT wave_id, tracking_number, stop_key, kind, inducted_at FROM wave_inductions
 		WHERE wave_id = ANY($1) ORDER BY wave_id, position`, ids)
 	if err != nil {
 		return nil, fmt.Errorf("load inductions: %w", err)
@@ -56,7 +56,7 @@ func loadInductions(ctx context.Context, q querier, ids []string) (map[string][]
 	for rows.Next() {
 		var id string
 		var in wave.Induction
-		if err := rows.Scan(&id, &in.TrackingNumber, &in.StopKey, &in.At); err != nil {
+		if err := rows.Scan(&id, &in.TrackingNumber, &in.StopKey, &in.Kind, &in.At); err != nil {
 			return nil, fmt.Errorf("scan induction: %w", err)
 		}
 		out[id] = append(out[id], in)
@@ -135,8 +135,8 @@ func (r *WaveRepository) Save(ctx context.Context, w *wave.DeliveryWave) error {
 		}
 		for i := stored; i < len(s.Inductions); i++ {
 			in := s.Inductions[i]
-			if _, err := q.Exec(ctx, `INSERT INTO wave_inductions (wave_id, tracking_number, stop_key, inducted_at, position)
-				VALUES ($1, $2, $3, $4, $5)`, string(s.ID), in.TrackingNumber, in.StopKey, in.At, i); err != nil {
+			if _, err := q.Exec(ctx, `INSERT INTO wave_inductions (wave_id, tracking_number, stop_key, kind, inducted_at, position)
+				VALUES ($1, $2, $3, $4, $5, $6)`, string(s.ID), in.TrackingNumber, in.StopKey, string(in.Kind), in.At, i); err != nil {
 				return fmt.Errorf("insert induction: %w", err)
 			}
 		}

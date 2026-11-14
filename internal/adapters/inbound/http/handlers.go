@@ -154,8 +154,8 @@ func (s *Server) handleRecordAttempt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	outcome := route.Outcome(req.Outcome)
-	if outcome != route.OutcomeDelivered && outcome != route.OutcomeFailed {
-		writeError(w, r, validationError("outcome must be DELIVERED or FAILED"))
+	if !outcome.Valid() {
+		writeError(w, r, validationError("outcome must be DELIVERED, FAILED or COLLECTED"))
 		return
 	}
 	v, err := s.RecordAttempt.Execute(r.Context(), usecases.RecordAttemptCommand{
