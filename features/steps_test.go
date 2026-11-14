@@ -27,6 +27,7 @@ func initializeScenario(sc *godog.ScenarioContext) {
 	registerAssertionSteps(sc, w)
 	registerDispatchSteps(sc, w)
 	registerHTTPSteps(sc, hw)
+	registerRuleSteps(sc, w, hw)
 }
 
 func registerWaveSteps(sc *godog.ScenarioContext, w *world) {
