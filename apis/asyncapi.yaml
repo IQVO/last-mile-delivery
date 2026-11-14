@@ -26,13 +26,13 @@ info:
     delivery window, stop capacity), the routes of delivery service partners
     and every delivery attempt (ADR 0001, ADR 0002).
 
-    **Published.** Ten events. Nine go to the integration topic
+    **Published.** Eleven events. Ten go to the integration topic
     `retailnetwork.last-mile-delivery.events`; `RoutePlanned` is analytics only
     and goes ONLY to `retailnetwork.last-mile-delivery.analytics`. Every event
     leaves through a **transactional outbox**: the aggregates and their
     already-encoded events are written in ONE database transaction and an
     always-on relay drains them to Kafka (at-least-once; the CloudEvents `id` is
-    stored with the outbox row, so a retry republishes the same `id`). The ten
+    stored with the outbox row, so a retry republishes the same `id`). The eleven
     types are catalogued in ADR 0004.
 
     **Consumed.** Four events (ADR 0003): `LoadArrived` from
@@ -164,7 +164,7 @@ operations:
   publishLastMileEvents:
     action: send
     title: Publish last-mile-delivery integration events
-    summary: Publish the nine integration events through the transactional outbox.
+    summary: Publish the ten integration events through the transactional outbox.
     description: |
       The service sends the events of its four event-raising aggregates
       (DeliveryWave, Route, PackageAttemptHistory, DeliveryPointProfile) to

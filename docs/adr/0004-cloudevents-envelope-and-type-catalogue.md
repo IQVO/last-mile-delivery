@@ -92,3 +92,7 @@ Payload rules:
   no shared Go code.
 - Adding a published type requires a line here in the same commit as its
   asyncapi message, or the architecture fitness test fails.
+
+## Addendum 2026-11-13: current state
+
+The count in "Published types" is stale. The catalogue above lists eleven types: ten go to `retailnetwork.last-mile-delivery.events` (`stream: events`) and `RoutePlanned` goes to `retailnetwork.last-mile-delivery.analytics` (`stream: analytics`). `apis/asyncapi.yaml` declares the same eleven messages, and `TestEventCatalogueMatchesContract` checks that every declared type is listed in this ADR.
