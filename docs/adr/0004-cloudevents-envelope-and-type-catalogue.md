@@ -45,6 +45,8 @@ E5), no longer analytics-only. `PackageInductionDeferred` and
 `StopEtaWindowAssigned` is the roadmap E3 addition (ADR 0013).
 `DeliveryPointFlagged` is the roadmap C5 addition (ADR 0014); its entity is
 `deliverypointprofile` and its subject and key are the opaque `stopKey`.
+`PackagePickupOut` is the roadmap C8-LM addition (ADR 0017); its entity is
+`route` and it shares topic, subject and key with `PackageOutForDelivery`.
 
 ```text
 type: com.retailnetwork.logistics.last-mile-delivery.wave.DeliveryWaveScheduled stream: events
@@ -54,6 +56,7 @@ type: com.retailnetwork.logistics.last-mile-delivery.wave.WaveCostDeclared strea
 type: com.retailnetwork.logistics.last-mile-delivery.wave.WaveEmissionDeclared stream: events
 type: com.retailnetwork.logistics.last-mile-delivery.route.RoutePlanned stream: analytics
 type: com.retailnetwork.logistics.last-mile-delivery.route.PackageOutForDelivery stream: events
+type: com.retailnetwork.logistics.last-mile-delivery.route.PackagePickupOut stream: events
 type: com.retailnetwork.logistics.last-mile-delivery.route.DeliveryAttempted stream: events
 type: com.retailnetwork.logistics.last-mile-delivery.route.StopEtaWindowAssigned stream: events
 type: com.retailnetwork.logistics.last-mile-delivery.packageattempthistory.PackageInductionDeferred stream: events
@@ -70,6 +73,7 @@ type: com.retailnetwork.logistics.last-mile-delivery.deliverypointprofile.Delive
 | `WaveEmissionDeclared` | `waveId` | DeclareEmission is saved (planner's stop-emission declaration, ADR 0016) | `{waveId, gCo2ePerStop, declaredAt}` |
 | `RoutePlanned` | `routeId` | PlanRoute is saved | `{routeId, waveId, dspId, stopCount}` |
 | `PackageOutForDelivery` | `routeId` | StartRoute is saved, one per tracking number | `{routeId, trackingNumber, stationNodeId, at}` |
+| `PackagePickupOut` | `routeId` | StartRoute is saved, one per PICKUP tracking number (ADR 0017, activation-gated) | `{routeId, trackingNumber, stopKey, stationNodeId, at}` |
 | `DeliveryAttempted` | `routeId` | RecordAttempt is saved, one per package | `{routeId, trackingNumber, outcome, outcomeDetail?, failureReason?, at}` |
 | `StopEtaWindowAssigned` | `routeId` | StartRoute is saved, one per stop, after every `PackageOutForDelivery` (ADR 0013) | `{routeId, stopNo, stopKey, trackingNumbers, etaStart, etaEnd}` |
 | `PackageInductionDeferred` | `trackingNumber` | no wave accepts a package that is at the station | `{trackingNumber, assignmentId?}` |

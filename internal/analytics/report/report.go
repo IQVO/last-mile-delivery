@@ -36,6 +36,9 @@ const (
 const (
 	OutcomeDelivered = "DELIVERED"
 	OutcomeFailed    = "FAILED"
+	// OutcomeCollected ended a pickup package's journey (ADR 0017); the KPIs
+	// read it as a success like DELIVERED.
+	OutcomeCollected = "COLLECTED"
 )
 
 // Event is one decoded analytics fact ready to project. It is the union of the

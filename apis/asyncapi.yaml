@@ -115,6 +115,8 @@ channels:
         $ref: "#/components/messages/WaveEmissionDeclared"
       PackageOutForDelivery:
         $ref: "#/components/messages/PackageOutForDelivery"
+      PackagePickupOut:
+        $ref: "#/components/messages/PackagePickupOut"
       DeliveryAttempted:
         $ref: "#/components/messages/DeliveryAttempted"
       StopEtaWindowAssigned:
@@ -190,6 +192,7 @@ operations:
       - $ref: "#/channels/lastMileEvents/messages/WaveCostDeclared"
       - $ref: "#/channels/lastMileEvents/messages/WaveEmissionDeclared"
       - $ref: "#/channels/lastMileEvents/messages/PackageOutForDelivery"
+      - $ref: "#/channels/lastMileEvents/messages/PackagePickupOut"
       - $ref: "#/channels/lastMileEvents/messages/DeliveryAttempted"
       - $ref: "#/channels/lastMileEvents/messages/StopEtaWindowAssigned"
       - $ref: "#/channels/lastMileEvents/messages/PackageInductionDeferred"
@@ -510,11 +513,42 @@ components:
               stationNodeId: "node-ds-01"
               at: "2026-10-24T12:02:00Z"
 
+    PackagePickupOut:
+      name: PackagePickupOut
+      title: Package pickup out
+      summary: A pickup package left the station on a started route.
+      description: "`type` = `com.retailnetwork.logistics.last-mile-delivery.route.PackagePickupOut`; subject = the routeId, key = the routeId (the same topic and key as PackageOutForDelivery, so the two streams stay ordered per route). Raised by StartRoute, one event per tracking number inducted into the wave as a PICKUP (ADR 0017, activation-gated: none exist until the return flow requests the pickup method); a DELIVERY package keeps raising PackageOutForDelivery instead. The analytics projector skips this type committed-past (no report needs it)."
+      contentType: application/cloudevents+json
+      headers:
+        $ref: "#/components/schemas/KafkaHeaders"
+      tags:
+        - name: route
+      payload:
+        $ref: "#/components/schemas/PackagePickupOutEvent"
+      examples:
+        - name: packagePickupOut
+          summary: One pickup package of a started route.
+          payload:
+            specversion: "1.0"
+            id: "b62f4e88-3c1d-5a2f-9b7g-4d6f8a0c2b99"
+            source: "/retailnetwork/last-mile-delivery"
+            type: "com.retailnetwork.logistics.last-mile-delivery.route.PackagePickupOut"
+            subject: "route-81c2"
+            time: "2026-10-24T12:02:00Z"
+            datacontenttype: "application/json"
+            dataschema: "urn:retailnetwork:last-mile-delivery:events:PackagePickupOut:v1"
+            data:
+              routeId: "route-81c2"
+              trackingNumber: "TRK-000126"
+              stopKey: "pkg:TRK-000126"
+              stationNodeId: "node-ds-01"
+              at: "2026-10-24T12:02:00Z"
+
     DeliveryAttempted:
       name: DeliveryAttempted
       title: Delivery attempted
       summary: One delivery attempt of one package was recorded.
-      description: "`type` = `com.retailnetwork.logistics.last-mile-delivery.route.DeliveryAttempted`; subject = the routeId, key = the routeId. Raised by RecordAttempt, per package (Gap Register G17: outcomes are per package, the stop outcome is derived). `outcome` is DELIVERED or FAILED; `failureReason` is present only when FAILED; `outcomeDetail` (NOT_HOME, ACCESS_PROBLEM or OTHER on FAILED, SAFE_PLACE_USED on DELIVERED) is present only when the driver client reported one (additive and optional, same v1 dataschema). A FAILED attempt re-inducts the package onto the next wave, or after the third failure raises PackageReturnInitiated."
+      description: "`type` = `com.retailnetwork.logistics.last-mile-delivery.route.DeliveryAttempted`; subject = the routeId, key = the routeId. Raised by RecordAttempt, per package (Gap Register G17: outcomes are per package, the stop outcome is derived). `outcome` is DELIVERED, FAILED or COLLECTED; COLLECTED is legal only for a package inducted as a PICKUP and carries neither failureReason nor outcomeDetail (ADR 0017, activation-gated); `failureReason` is present only when FAILED; `outcomeDetail` (NOT_HOME, ACCESS_PROBLEM or OTHER on FAILED, SAFE_PLACE_USED on DELIVERED) is present only when the driver client reported one (additive and optional, same v1 dataschema). A FAILED attempt re-inducts the package onto the next wave, or after the third failure raises PackageReturnInitiated."
       contentType: application/cloudevents+json
       headers:
         $ref: "#/components/schemas/KafkaHeaders"
@@ -793,7 +827,7 @@ components:
 
     Outcome:
       type: string
-      enum: [DELIVERED, FAILED]
+      enum: [DELIVERED, FAILED, COLLECTED]
 
     DeliveryWaveScheduledEvent:
       allOf:
@@ -889,6 +923,21 @@ components:
               properties:
                 routeId: { type: string }
                 trackingNumber: { type: string }
+                stationNodeId: { type: string }
+                at: { type: string, format: date-time }
+
+    PackagePickupOutEvent:
+      allOf:
+        - $ref: "#/components/schemas/CloudEventEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [routeId, trackingNumber, stopKey, stationNodeId, at]
+              properties:
+                routeId: { type: string }
+                trackingNumber: { type: string }
+                stopKey: { type: string }
                 stationNodeId: { type: string }
                 at: { type: string, format: date-time }
 

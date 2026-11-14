@@ -72,9 +72,11 @@ func (r *Reader) RouteEfficiency(ctx context.Context, rg report.Range) ([]report
 // (by instant, then event id) and its attempt count; then three facets per day
 // and station, summed: the attempts of the day by outcome, the packages whose
 // first attempt fell on the day, and the returns initiated that day at the
-// station of the package's latest attempt.
+// station of the package's latest attempt. A success is DELIVERED or COLLECTED
+// (ADR 0017); both count in deliveredAttempts and a collected first attempt is
+// a first-attempt success.
 //
-//	$1 from, $2 to, $3 unknown station, $4 DELIVERED, $5 FAILED
+//	$1 from, $2 to, $3 unknown station, $4 DELIVERED, $5 FAILED, $6 COLLECTED
 const attemptSQL = `
 	WITH attempts AS (
 		SELECT a.event_id, a.tracking_number, a.outcome, a.attempted_at, COALESCE(p.station_node_id, $3) AS station
@@ -90,11 +92,11 @@ const attemptSQL = `
 		SELECT tracking_number, count(*) AS n FROM delivery_attempts GROUP BY tracking_number
 	), facets AS (
 		SELECT (attempted_at AT TIME ZONE 'UTC')::date AS day, station,
-		       (outcome = $4)::int AS delivered, (outcome = $5)::int AS failed,
+		       (outcome IN ($4, $6))::int AS delivered, (outcome = $5)::int AS failed,
 		       0 AS packages, 0 AS first_ok, 0::bigint AS package_attempts, 0 AS returns
 		FROM attempts WHERE attempted_at >= $1 AND attempted_at < $2
 		UNION ALL
-		SELECT (f.attempted_at AT TIME ZONE 'UTC')::date, f.station, 0, 0, 1, (f.outcome = $4)::int, t.n, 0
+		SELECT (f.attempted_at AT TIME ZONE 'UTC')::date, f.station, 0, 0, 1, (f.outcome IN ($4, $6))::int, t.n, 0
 		FROM firsts f JOIN totals t ON t.tracking_number = f.tracking_number
 		WHERE f.attempted_at >= $1 AND f.attempted_at < $2
 		UNION ALL
@@ -116,7 +118,7 @@ func (r *Reader) AttemptOutcomes(ctx context.Context, rg report.Range) ([]report
 			&d.PackagesFirstAttemptSuccess, &d.AttemptsOfPackagesAttempted, &d.ReturnsInitiated)
 		d.Day = d.Day.UTC()
 		return d, err
-	}, rg.From, rg.To, report.UnknownStation(), report.OutcomeDelivered, report.OutcomeFailed)
+	}, rg.From, rg.To, report.UnknownStation(), report.OutcomeDelivered, report.OutcomeFailed, report.OutcomeCollected)
 }
 
 // waveSQL: the waves whose service date is in the range, per service date and
