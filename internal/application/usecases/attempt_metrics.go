@@ -29,13 +29,14 @@ var rejectionReasons = []struct {
 // caller can act on (a database error, a bug).
 const internalErrorReason = "internal-error"
 
-// recordOutcome counts one attempt report: delivered or failed when err is nil,
-// else rejected with the reason of err.
+// recordOutcome counts one attempt report: delivered or collected as a
+// success, failed when err is nil and the outcome is FAILED, else rejected
+// with the reason of err.
 func (uc *RecordAttempt) recordOutcome(ctx context.Context, outcome route.Outcome, err error) {
 	switch {
 	case err != nil:
 		uc.metrics().AttemptRejected(ctx, rejectionReason(err))
-	case outcome == route.OutcomeDelivered:
+	case outcome == route.OutcomeDelivered || outcome == route.OutcomeCollected:
 		uc.metrics().AttemptDelivered(ctx)
 	default:
 		uc.metrics().AttemptFailed(ctx)

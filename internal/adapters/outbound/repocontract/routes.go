@@ -31,10 +31,10 @@ func routeRoundTrip(t *testing.T, f Fixture) {
 	if !reflect.DeepEqual(got.Snapshot(), r.Snapshot()) {
 		t.Fatalf("snapshot = %+v, want %+v", got.Snapshot(), r.Snapshot())
 	}
-	_, err = got.RecordAttempt(trk1, route.OutcomeFailed, route.DetailNotHome, "absent", Now.Add(time.Hour), Now)
+	_, err = got.RecordAttempt(trk1, wave.KindDelivery, route.OutcomeFailed, route.DetailNotHome, "absent", Now.Add(time.Hour), Now)
 	noErr(t, err)
 	noErr(t, f.Routes.Save(ctxb(), got))
-	_, err = got.RecordAttempt(trk2, route.OutcomeDelivered, route.DetailSafePlaceUsed, "", Now.Add(time.Hour), Now)
+	_, err = got.RecordAttempt(trk2, wave.KindDelivery, route.OutcomeDelivered, route.DetailSafePlaceUsed, "", Now.Add(time.Hour), Now)
 	noErr(t, err)
 	noErr(t, f.Routes.Save(ctxb(), got))
 	again, err := f.Routes.Get(ctxb(), "route-1")
@@ -59,14 +59,14 @@ func routeConcurrency(t *testing.T, f Fixture) {
 	noErr(t, err)
 	loser, err := f.Routes.Get(ctxb(), "route-1")
 	noErr(t, err)
-	_, err = winner.RecordAttempt(trk1, route.OutcomeDelivered, "", "", Now, Now)
+	_, err = winner.RecordAttempt(trk1, wave.KindDelivery, route.OutcomeDelivered, "", "", Now, Now)
 	noErr(t, err)
-	_, err = loser.RecordAttempt(trk2, route.OutcomeDelivered, "", "", Now, Now)
+	_, err = loser.RecordAttempt(trk2, wave.KindDelivery, route.OutcomeDelivered, "", "", Now, Now)
 	noErr(t, err)
 	noErr(t, f.Routes.Save(ctxb(), winner))
 	wantErr(t, f.Routes.Save(ctxb(), loser), ports.ErrConcurrentUpdate)
 	orphan, _ := StartedRoute(t, "route-9", "wave-9")
-	_, err = orphan.RecordAttempt(trk1, route.OutcomeDelivered, "", "", Now, Now)
+	_, err = orphan.RecordAttempt(trk1, wave.KindDelivery, route.OutcomeDelivered, "", "", Now, Now)
 	noErr(t, err)
 	wantErr(t, f.Routes.Save(ctxb(), orphan), ports.ErrConcurrentUpdate)
 }
@@ -95,7 +95,7 @@ func routeWaveQueries(t *testing.T, f Fixture) {
 	loaded, err := f.Routes.Get(ctxb(), "route-1")
 	noErr(t, err)
 	for _, tn := range loaded.Packages() {
-		_, err = loaded.RecordAttempt(tn, route.OutcomeDelivered, "", "", Now, Now)
+		_, err = loaded.RecordAttempt(tn, wave.KindDelivery, route.OutcomeDelivered, "", "", Now, Now)
 		noErr(t, err)
 		noErr(t, f.Routes.Save(ctxb(), loaded))
 	}
@@ -148,7 +148,7 @@ func savedStartedRoute(t *testing.T, f Fixture, id route.ID, waveID wave.ID) *ro
 	t.Helper()
 	w := NewWave(t, waveID, station1, "2026-10-24", 2)
 	for _, in := range [][2]string{{trk1, stopKeyA}, {trk2, stopKeyA}, {trk3, stopKeyB}} {
-		_, err := w.Induct(in[0], in[1], Now, Now)
+		_, err := w.Induct(in[0], in[1], wave.KindDelivery, Now, Now)
 		noErr(t, err)
 	}
 	noErr(t, w.CloseInduction())

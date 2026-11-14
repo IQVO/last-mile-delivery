@@ -21,10 +21,12 @@ var waveCases = []named{
 func waveRoundTrip(t *testing.T, f Fixture) {
 	w := NewWave(t, wave1, station1, "2026-10-24", 2)
 	noErr(t, f.Waves.Save(ctxb(), w))
-	_, err := w.Induct(trk1, stopKeyA, Now, Now)
+	// The first induction is a PICKUP: both kinds must survive the round trip
+	// (Snapshot builder, scan and INSERT all carry the kind; ADR 0017).
+	_, err := w.Induct(trk1, stopKeyA, wave.KindPickup, Now, Now)
 	noErr(t, err)
 	noErr(t, f.Waves.Save(ctxb(), w))
-	_, err = w.Induct(trk2, stopKeyA, Now, Now.Add(time.Minute))
+	_, err = w.Induct(trk2, stopKeyA, wave.KindDelivery, Now, Now.Add(time.Minute))
 	noErr(t, err)
 	noErr(t, f.Waves.Save(ctxb(), w))
 	// A declared stop cost survives the round trip (Snapshot builder, scan and
@@ -71,7 +73,7 @@ func waveUpdates(t *testing.T, f Fixture) {
 	for i, tn := range []string{trk1, trk2, trk3} {
 		got, err := f.Waves.Get(ctxb(), wave1)
 		noErr(t, err)
-		_, err = got.Induct(tn, []string{stopKeyA, stopKeyA, stopKeyB}[i], Now, Now)
+		_, err = got.Induct(tn, []string{stopKeyA, stopKeyA, stopKeyB}[i], wave.KindDelivery, Now, Now)
 		noErr(t, err)
 		noErr(t, f.Waves.Save(ctxb(), got))
 	}

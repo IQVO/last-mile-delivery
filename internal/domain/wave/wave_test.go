@@ -135,7 +135,7 @@ func TestScheduleValidation(t *testing.T) {
 
 func TestInduct(t *testing.T) {
 	w := mustSchedule(t, nil)
-	events, err := w.Induct("TRK-1", "k-a", t0, t0.Add(time.Minute))
+	events, err := w.Induct("TRK-1", "k-a", KindDelivery, t0, t0.Add(time.Minute))
 	wantNoErr(t, err)
 	assertState(t, w, StateOpen, 2)
 	want := DeliveryWaveCapacityChanged{
@@ -147,19 +147,19 @@ func TestInduct(t *testing.T) {
 	assertEventShape(t, events[0], "DeliveryWaveCapacityChanged", "wave-1", 2)
 
 	// A package of a stop already in the wave takes no capacity and raises nothing.
-	events, err = w.Induct("TRK-2", "k-a", t0, t0)
+	events, err = w.Induct("TRK-2", "k-a", KindDelivery, t0, t0)
 	wantNoErr(t, err)
 	if events != nil || w.AssignedStops() != 1 || w.Version() != 3 {
 		t.Fatalf("same stop: events=%v assigned=%d version=%d", events, w.AssignedStops(), w.Version())
 	}
 	// The wave fills at exactly its capacity.
-	events, err = w.Induct("TRK-3", "k-b", t0, t0)
+	events, err = w.Induct("TRK-3", "k-b", KindDelivery, t0, t0)
 	wantNoErr(t, err)
 	if len(events) != 1 || w.AssignedStops() != 2 || w.RemainingStops() != 0 {
 		t.Fatalf("filling stop: events=%v assigned=%d", events, w.AssignedStops())
 	}
 	// A package of an existing stop still fits in a full wave.
-	_, err = w.Induct("TRK-4", "k-b", t0, t0)
+	_, err = w.Induct("TRK-4", "k-b", KindDelivery, t0, t0)
 	wantNoErr(t, err)
 	if len(w.Inductions()) != 4 {
 		t.Fatalf("inductions = %d, want 4", len(w.Inductions()))
@@ -176,7 +176,7 @@ func TestInduct(t *testing.T) {
 func TestInductRefusals(t *testing.T) {
 	full := func(t *testing.T) *DeliveryWave {
 		w := mustSchedule(t, func(n *NewWave) { n.StopCapacity = 1 })
-		_, err := w.Induct("TRK-1", "k-a", t0, t0)
+		_, err := w.Induct("TRK-1", "k-a", KindDelivery, t0, t0)
 		wantNoErr(t, err)
 		return w
 	}
@@ -204,7 +204,7 @@ func TestInductRefusals(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			w := c.build(t)
 			before := w.Snapshot()
-			events, err := w.Induct(c.tn, c.key, c.at, t0)
+			events, err := w.Induct(c.tn, c.key, KindDelivery, c.at, t0)
 			wantIs(t, err, c.want)
 			if events != nil || !reflect.DeepEqual(w.Snapshot(), before) {
 				t.Fatal("a refused induction changed the wave")
@@ -213,7 +213,7 @@ func TestInductRefusals(t *testing.T) {
 	}
 	t.Run("one instant before the cutoff is accepted", func(t *testing.T) {
 		w := mustSchedule(t, nil)
-		_, err := w.Induct("TRK-1", "k-a", cutoff.Add(-time.Nanosecond), t0)
+		_, err := w.Induct("TRK-1", "k-a", KindDelivery, cutoff.Add(-time.Nanosecond), t0)
 		wantNoErr(t, err)
 	})
 }
@@ -292,7 +292,7 @@ func TestTransitionsLegalAndIllegal(t *testing.T) {
 
 func TestCancel(t *testing.T) {
 	w := mustSchedule(t, nil)
-	_, err := w.Induct("TRK-1", "k-a", t0, t0)
+	_, err := w.Induct("TRK-1", "k-a", KindDelivery, t0, t0)
 	wantNoErr(t, err)
 	events, err := w.Cancel("station closed", t0.Add(time.Hour))
 	wantNoErr(t, err)

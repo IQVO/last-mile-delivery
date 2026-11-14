@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/claudioed/last-mile-delivery/internal/domain/wave"
+
 	"github.com/claudioed/last-mile-delivery/internal/domain/shared"
 )
 
@@ -35,7 +37,7 @@ func TestDetailValidMatrix(t *testing.T) {
 
 func TestRecordAttemptCarriesTheDetail(t *testing.T) {
 	r := started(t)
-	events, err := r.RecordAttempt("TRK-1", OutcomeFailed, DetailAccessProblem, "gate locked", t2, t2)
+	events, err := r.RecordAttempt("TRK-1", wave.KindDelivery, OutcomeFailed, DetailAccessProblem, "gate locked", t2, t2)
 	wantNoErr(t, err)
 	if got := events[0].(DeliveryAttempted); got.Detail != DetailAccessProblem || got.FailureReason != "gate locked" {
 		t.Fatalf("event = %+v", got)
@@ -44,7 +46,7 @@ func TestRecordAttemptCarriesTheDetail(t *testing.T) {
 	if a.Detail != DetailAccessProblem {
 		t.Fatalf("attempt = %+v", a)
 	}
-	events, err = r.RecordAttempt("TRK-2", OutcomeDelivered, DetailSafePlaceUsed, "", t2, t2)
+	events, err = r.RecordAttempt("TRK-2", wave.KindDelivery, OutcomeDelivered, DetailSafePlaceUsed, "", t2, t2)
 	wantNoErr(t, err)
 	if got := events[0].(DeliveryAttempted); got.Detail != DetailSafePlaceUsed {
 		t.Fatalf("event = %+v", got)
@@ -68,7 +70,7 @@ func TestRecordAttemptRefusesAMismatchedDetail(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			r := started(t)
 			before := r.Snapshot()
-			events, err := r.RecordAttempt("TRK-1", c.outcome, c.detail, c.reason, t2, t2)
+			events, err := r.RecordAttempt("TRK-1", wave.KindDelivery, c.outcome, c.detail, c.reason, t2, t2)
 			wantIs(t, err, shared.ErrValidation)
 			if events != nil || !reflect.DeepEqual(r.Snapshot(), before) {
 				t.Fatal("a refused attempt changed the route")
@@ -79,9 +81,9 @@ func TestRecordAttemptRefusesAMismatchedDetail(t *testing.T) {
 
 func TestSnapshotRoundTripKeepsTheDetail(t *testing.T) {
 	r := started(t)
-	_, err := r.RecordAttempt("TRK-1", OutcomeFailed, DetailNotHome, "absent", t2, t2)
+	_, err := r.RecordAttempt("TRK-1", wave.KindDelivery, OutcomeFailed, DetailNotHome, "absent", t2, t2)
 	wantNoErr(t, err)
-	_, err = r.RecordAttempt("TRK-2", OutcomeDelivered, DetailSafePlaceUsed, "", t2, t2)
+	_, err = r.RecordAttempt("TRK-2", wave.KindDelivery, OutcomeDelivered, DetailSafePlaceUsed, "", t2, t2)
 	wantNoErr(t, err)
 	got, err := Restore(r.Snapshot())
 	wantNoErr(t, err)
