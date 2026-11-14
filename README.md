@@ -112,7 +112,7 @@ Specified in `apis/asyncapi.yaml`:
 
 | Topic | Direction | Messages |
 |---|---|---|
-| `retailnetwork.last-mile-delivery.events` | publishes (via the transactional outbox) | `DeliveryWaveScheduled`, `DeliveryWaveCapacityChanged`, `DeliveryWaveCancelled`, `PackageOutForDelivery`, `DeliveryAttempted`, `PackageInductionDeferred`, `PackageReturnInitiated` |
+| `retailnetwork.last-mile-delivery.events` | publishes (via the transactional outbox) | `DeliveryWaveScheduled`, `DeliveryWaveCapacityChanged`, `DeliveryWaveCancelled`, `WaveCostDeclared`, `PackageOutForDelivery`, `DeliveryAttempted`, `StopEtaWindowAssigned`, `PackageInductionDeferred`, `PackageReturnInitiated`, `DeliveryPointFlagged` |
 | `retailnetwork.last-mile-delivery.analytics` | publishes (analytics-only) | `RoutePlanned` |
 | `retailnetwork.linehaul-transportation.events` | consumes | `LoadArrived` |
 | `retailnetwork.node-topology.events` | consumes | `NodeRegistered`, `ServiceAreaAssigned` |

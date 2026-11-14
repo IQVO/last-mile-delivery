@@ -129,3 +129,8 @@ periodic job, so decay is evaluated lazily at the next observation.
   has no handler for.
 - `docs/adr/0004` lists the new type in its catalogue; the projector acknowledges it
   and needs no fact from it.
+
+## Addendum 2026-11-13: current state
+
+Item 7 of the Decision (read-only exposure) is not in the code. There is no `GET /delivery-points/{stopKey}` (`getDeliveryPoint`) in `apis/openapi.yaml` or `internal/adapters/inbound/http`, `WaveStop` has no `deliveryPoint` object (`apis/openapi.yaml`, schema `WaveStop`: `stopKey`, `destinationPostalPrefix`, `trackingNumbers`), and `internal/adapters/inbound/mcp` returns no such object from `get_wave_stops`. PR #57, which added this ADR, changed `apis/openapi.yaml` only for `outcomeDetail`.
+The profile itself is built: `internal/domain/deliverypoint` (aggregate, `Observe`, `DeliveryPointFlagged`), `internal/application/usecases/delivery_points.go` (the `RecordAttempt` step) and `internal/adapters/outbound/postgres/delivery_points.go`. `ports.DeliveryPointRepository.GetMany` exists with Postgres and in-memory implementations, but no use case calls it.
