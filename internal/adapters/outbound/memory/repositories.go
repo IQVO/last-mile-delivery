@@ -269,6 +269,7 @@ func (r *ServiceAreaRepository) Get(ctx context.Context, prefix string) (views.S
 // Save stores the assignment when its version is higher than the stored one.
 func (r *ServiceAreaRepository) Save(ctx context.Context, a views.ServiceArea) (bool, error) {
 	defer r.s.enter(ctx)()
+	a.DeliveryMode = views.NormalizeDeliveryMode(a.DeliveryMode)
 	if old, ok := r.s.st.areas[a.PostalPrefix]; ok && old.AssignmentVersion >= a.AssignmentVersion {
 		return false, nil
 	}

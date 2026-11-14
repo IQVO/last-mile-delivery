@@ -686,7 +686,7 @@ components:
       name: ServiceAreaAssigned
       title: Service area assigned (consumed)
       summary: node-topology ServiceAreaAssigned, as this service reads it.
-      description: "`type` = `com.retailnetwork.logistics.node-topology.servicearea.ServiceAreaAssigned`. Fields relied on: `postalPrefix`, `deliveryStationNodeId`, `regionId`, `assignmentVersion` (the highest version per prefix wins)."
+      description: "`type` = `com.retailnetwork.logistics.node-topology.servicearea.ServiceAreaAssigned`. Fields relied on: `postalPrefix`, `deliveryStationNodeId`, `regionId`, `assignmentVersion` (the highest version per prefix wins) and `deliveryMode` (omitted means NETWORK_ROUTE; a CARRIER_HANDOFF area never inducts, ADR 0015)."
       contentType: application/cloudevents+json
       tags:
         - name: last-mile-delivery
@@ -959,6 +959,11 @@ components:
                 deliveryStationNodeId: { type: string }
                 regionId: { type: string }
                 assignmentVersion: { type: integer, minimum: 1 }
+                deliveryMode:
+                  type: string
+                  enum: [NETWORK_ROUTE, CARRIER_HANDOFF]
+                  default: NETWORK_ROUTE
+                  description: The area's final-leg mode (ADR 0015); omitted means NETWORK_ROUTE, and a CARRIER_HANDOFF area's packages never induct here.
 
     LabelIssuedEvent:
       allOf:

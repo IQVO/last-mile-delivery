@@ -120,6 +120,7 @@ type ServiceAreaAssignedCommand struct {
 	StationNodeID     string
 	RegionID          string
 	AssignmentVersion int64
+	DeliveryMode      string
 }
 
 // ApplyServiceAreaAssigned feeds the StationView from ServiceAreaAssigned.
@@ -139,6 +140,7 @@ func (uc *ApplyServiceAreaAssigned) Execute(ctx context.Context, cmd ServiceArea
 		}
 		_, err = uc.ServiceAreas.Save(ctx, views.ServiceArea{
 			PostalPrefix: cmd.PostalPrefix, StationNodeID: cmd.StationNodeID, RegionID: cmd.RegionID, AssignmentVersion: cmd.AssignmentVersion,
+			DeliveryMode: views.NormalizeDeliveryMode(cmd.DeliveryMode),
 		})
 		return struct{}{}, err
 	})

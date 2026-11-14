@@ -46,6 +46,7 @@ sequenceDiagram
     ST->>LM: evt: label.LabelIssued (stopKey, postal prefix)
     LH->>LM: evt: load.LoadArrived (trackingNumbers)
     Note over LM: InductOnArrival, earliest eligible wave, stops counted by stopKey
+    Note over LM: a CARRIER_HANDOFF prefix is refused here: no wave, no history (ADR 0015)
     LM->>DP: evt: wave.DeliveryWaveCapacityChanged
     LM->>OS: evt: wave.DeliveryWaveCapacityChanged
     Note over LM: no wave takes the package, it waits AT_STATION
