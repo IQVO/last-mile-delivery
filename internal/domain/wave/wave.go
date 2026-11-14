@@ -69,6 +69,10 @@ const MaxReason = 200
 // (100 000.00 in money units; ADR 0011, roadmap F7).
 const MaxCostPerStopCents = 10000000
 
+// MaxEmissionPerStopG is the ceiling of a declared stop emission in grams of
+// CO2 equivalent (10 t; ADR 0016, roadmap C9).
+const MaxEmissionPerStopG = 10000000
+
 // Induction records one package inducted into a wave.
 type Induction struct {
 	TrackingNumber string
@@ -90,6 +94,7 @@ type DeliveryWave struct {
 	state            State
 	cancelReason     string
 	costPerStopCents int64
+	emissionPerStopG int64
 	version          int64
 }
 
@@ -107,6 +112,7 @@ type Snapshot struct {
 	State            State
 	CancelReason     string
 	CostPerStopCents int64
+	EmissionPerStopG int64
 	Version          int64
 }
 
@@ -179,7 +185,7 @@ func Restore(s Snapshot) (*DeliveryWave, error) {
 		id: s.ID, station: s.StationNodeID, serviceDate: s.ServiceDate, cutoff: shared.UTC(s.InductCutoffAt),
 		windowStart: shared.UTC(s.WindowStart), windowEnd: shared.UTC(s.WindowEnd), capacity: s.StopCapacity,
 		assigned: s.AssignedStops, inductions: normalise(s.Inductions), state: s.State, cancelReason: s.CancelReason,
-		costPerStopCents: s.CostPerStopCents, version: s.Version,
+		costPerStopCents: s.CostPerStopCents, emissionPerStopG: s.EmissionPerStopG, version: s.Version,
 	}, nil
 }
 
@@ -212,6 +218,9 @@ func checkSnapshot(s Snapshot) error {
 	}
 	if s.CostPerStopCents < 0 || s.CostPerStopCents > MaxCostPerStopCents {
 		return fmt.Errorf("costPerStopCents must be between 0 and %d", MaxCostPerStopCents)
+	}
+	if s.EmissionPerStopG < 0 || s.EmissionPerStopG > MaxEmissionPerStopG {
+		return fmt.Errorf("emissionPerStopG must be between 0 and %d", MaxEmissionPerStopG)
 	}
 	return checkInductions(s)
 }
@@ -339,6 +348,29 @@ func (w *DeliveryWave) DeclareCost(costPerStopCents int64, now time.Time) ([]sha
 	return []shared.Event{ev}, nil
 }
 
+// DeclareEmission records the planner's declared marginal greenhouse emission
+// of ONE stop on the wave, in grams of CO2 equivalent (ADR 0016, roadmap C9),
+// and raises WaveEmissionDeclared. It obeys the same lifecycle rule as
+// DeclareCost (allowed while the wave still runs; refused once CANCELLED or
+// COMPLETED) and a later declaration overwrites the last value. Zero is a
+// legal declaration: it means a declared zero marginal emission, which is not
+// the same as an undeclared wave.
+func (w *DeliveryWave) DeclareEmission(gCo2ePerStop int64, now time.Time) ([]shared.Event, error) {
+	if gCo2ePerStop < 0 || gCo2ePerStop > MaxEmissionPerStopG {
+		return nil, shared.Invalid("gCo2ePerStop must be between 0 and %d", MaxEmissionPerStopG)
+	}
+	if w.state == StateCancelled || w.state == StateCompleted {
+		return nil, fmt.Errorf("%w: DeclareEmission needs a running wave but wave %s is %s", shared.ErrIllegalTransition, w.id, w.state)
+	}
+	w.emissionPerStopG = gCo2ePerStop
+	w.version++
+	ev := WaveEmissionDeclared{
+		Header: shared.Header{Version: w.version, At: shared.UTC(now)}, WaveID: w.id,
+		GCo2ePerStop: gCo2ePerStop, DeclaredAt: shared.UTC(now),
+	}
+	return []shared.Event{ev}, nil
+}
+
 // ID returns the wave id.
 func (w *DeliveryWave) ID() ID { return w.id }
 
@@ -376,6 +408,10 @@ func (w *DeliveryWave) CancelReason() string { return w.cancelReason }
 // (integer cents; 0 until the planner declares one).
 func (w *DeliveryWave) CostPerStopCents() int64 { return w.costPerStopCents }
 
+// EmissionPerStopG returns the declared marginal greenhouse emission of one
+// stop on the wave (grams of CO2 equivalent; 0 until the planner declares one).
+func (w *DeliveryWave) EmissionPerStopG() int64 { return w.emissionPerStopG }
+
 // Version returns the aggregate version.
 func (w *DeliveryWave) Version() int64 { return w.version }
 
@@ -398,6 +434,6 @@ func (w *DeliveryWave) Snapshot() Snapshot {
 		ID: w.id, StationNodeID: w.station, ServiceDate: w.serviceDate, InductCutoffAt: w.cutoff,
 		WindowStart: w.windowStart, WindowEnd: w.windowEnd, StopCapacity: w.capacity, AssignedStops: w.assigned,
 		Inductions: w.Inductions(), State: w.state, CancelReason: w.cancelReason,
-		CostPerStopCents: w.costPerStopCents, Version: w.version,
+		CostPerStopCents: w.costPerStopCents, EmissionPerStopG: w.emissionPerStopG, Version: w.version,
 	}
 }

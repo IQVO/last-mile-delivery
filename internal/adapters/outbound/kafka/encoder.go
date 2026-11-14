@@ -59,6 +59,12 @@ type waveCostDeclaredData struct {
 	DeclaredAt       string `json:"declaredAt"`
 }
 
+type waveEmissionDeclaredData struct {
+	WaveID       string `json:"waveId"`
+	GCo2ePerStop int64  `json:"gCo2ePerStop"`
+	DeclaredAt   string `json:"declaredAt"`
+}
+
 type routePlannedData struct {
 	RouteID   string `json:"routeId"`
 	WaveID    string `json:"waveId"`
@@ -177,6 +183,8 @@ func payloadFor(ev shared.Event) (any, string, error) {
 		return waveCancelledData{WaveID: string(e.WaveID), Reason: e.Reason}, events, nil
 	case wave.WaveCostDeclared:
 		return waveCostDeclaredData{WaveID: string(e.WaveID), CostPerStopCents: e.CostPerStopCents, DeclaredAt: ts(e.DeclaredAt)}, events, nil
+	case wave.WaveEmissionDeclared:
+		return waveEmissionDeclaredData{WaveID: string(e.WaveID), GCo2ePerStop: e.GCo2ePerStop, DeclaredAt: ts(e.DeclaredAt)}, events, nil
 	case route.RoutePlanned:
 		return routePlannedData{RouteID: string(e.RouteID), WaveID: string(e.WaveID), DSPID: string(e.DSPID), StopCount: e.StopCount}, cloudevents.StreamAnalytics, nil
 	case route.PackageOutForDelivery:

@@ -81,10 +81,10 @@ func TestMigrationsCreateTheC5Objects(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _, _ = m.Close() }()
-	// 0006 (the area delivery mode) is the ceiling now: stepping back twice
-	// crosses it and 0005 together.
-	if err := m.Steps(-2); err != nil || exists(table) || !exists(column) {
-		t.Fatalf("0006+0005 down: err=%v, the table must go and the column stay", err)
+	// 0007 (the wave stop emission) is the ceiling now: stepping back three
+	// times crosses it, 0006 and 0005 together.
+	if err := m.Steps(-3); err != nil || exists(table) || !exists(column) {
+		t.Fatalf("0007+0006+0005 down: err=%v, the table must go and the column stay", err)
 	}
 	if err := m.Steps(-1); err != nil || exists(column) {
 		t.Fatalf("0004 down: err=%v, the column must go", err)
@@ -117,11 +117,49 @@ func TestMigrationsCreateTheC4AreaMode(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _, _ = m.Close() }()
-	if err := m.Steps(-1); err != nil {
-		t.Fatalf("0006 down: %v", err)
+	// two steps back cross 0007 (the wave stop emission) and 0006 together.
+	if err := m.Steps(-2); err != nil {
+		t.Fatalf("0007+0006 down: %v", err)
 	}
 	if err := pool.QueryRow(context.Background(), column).Scan(&n); err != nil || n != 0 {
 		t.Fatalf("0006 down must drop the column: n=%d err=%v", n, err)
+	}
+	if err := m.Up(); err != nil {
+		t.Fatalf("up again: %v", err)
+	}
+	if err := pool.QueryRow(context.Background(), column).Scan(&n); err != nil || n != 1 {
+		t.Fatalf("up again must restore the column: n=%d err=%v", n, err)
+	}
+}
+
+// TestMigrationsCreateTheC9WaveEmission proves migration 0007
+// (delivery_waves.emission_per_stop_g) is applied and reversed (ADR 0016).
+func TestMigrationsCreateTheC9WaveEmission(t *testing.T) {
+	url := pgtest.URL(t)
+	pool, err := adapter.NewPool(context.Background(), url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	const column = `SELECT count(*) FROM information_schema.columns WHERE table_name = 'delivery_waves' AND column_name = 'emission_per_stop_g'`
+	var n int
+	if err := pool.QueryRow(context.Background(), column).Scan(&n); err != nil || n != 1 {
+		t.Fatalf("migration 0007 must be applied: n=%d err=%v", n, err)
+	}
+	src, err := iofs.New(adapter.MigrationsFS(), "migrations")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := migrate.NewWithSourceInstance("iofs", src, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _, _ = m.Close() }()
+	if err := m.Steps(-1); err != nil {
+		t.Fatalf("0007 down: %v", err)
+	}
+	if err := pool.QueryRow(context.Background(), column).Scan(&n); err != nil || n != 0 {
+		t.Fatalf("0007 down must drop the column: n=%d err=%v", n, err)
 	}
 	if err := m.Up(); err != nil {
 		t.Fatalf("up again: %v", err)

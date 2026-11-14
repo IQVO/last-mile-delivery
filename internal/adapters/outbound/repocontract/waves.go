@@ -32,6 +32,10 @@ func waveRoundTrip(t *testing.T, f Fixture) {
 	_, err = w.DeclareCost(42500, Now.Add(2*time.Minute))
 	noErr(t, err)
 	noErr(t, f.Waves.Save(ctxb(), w))
+	// A declared stop emission survives it too (ADR 0016).
+	_, err = w.DeclareEmission(85000, Now.Add(3*time.Minute))
+	noErr(t, err)
+	noErr(t, f.Waves.Save(ctxb(), w))
 	got, err := f.Waves.Get(ctxb(), wave1)
 	noErr(t, err)
 	if !reflect.DeepEqual(got.Snapshot(), w.Snapshot()) {

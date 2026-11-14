@@ -373,6 +373,64 @@ func TestDeclareCostValidation(t *testing.T) {
 	wantNoErr(t, func() error { _, err := w.DeclareCost(MaxCostPerStopCents, t0); return err }())
 }
 
+func TestDeclareEmission(t *testing.T) {
+	w := mustSchedule(t, nil) // version 1, OPEN
+	at := t0.Add(time.Hour)
+	events, err := w.DeclareEmission(850, at)
+	wantNoErr(t, err)
+	want := WaveEmissionDeclared{Header: shared.Header{Version: 2, At: at}, WaveID: "wave-1", GCo2ePerStop: 850, DeclaredAt: at}
+	if len(events) != 1 || !reflect.DeepEqual(events[0], want) || w.EmissionPerStopG() != 850 {
+		t.Fatalf("events=%#v emission=%d", events, w.EmissionPerStopG())
+	}
+	assertEventShape(t, events[0], "WaveEmissionDeclared", "wave-1", 2)
+	// zero is a legal declaration of zero marginal emission, not "undeclared"
+	events, err = w.DeclareEmission(0, at.Add(time.Minute))
+	wantNoErr(t, err)
+	if len(events) != 1 || w.EmissionPerStopG() != 0 {
+		t.Fatalf("zero declaration: events=%#v emission=%d", events, w.EmissionPerStopG())
+	}
+	// declaring again overwrites the last value
+	_, err = w.DeclareEmission(MaxEmissionPerStopG, at.Add(2*time.Minute))
+	wantNoErr(t, err)
+	if w.EmissionPerStopG() != MaxEmissionPerStopG || w.Version() != 4 {
+		t.Fatalf("re-declare: emission=%d version=%d", w.EmissionPerStopG(), w.Version())
+	}
+}
+
+func TestDeclareEmissionFromEveryState(t *testing.T) {
+	for _, s := range []State{StateOpen, StateInductionClosed, StateDispatched} {
+		w := inState(t, s)
+		before := w.Version()
+		_, err := w.DeclareEmission(500, t0)
+		wantNoErr(t, err)
+		assertState(t, w, s, before+1)
+	}
+	for _, s := range []State{StateCompleted, StateCancelled} {
+		w := inState(t, s)
+		before := w.Version()
+		_, err := w.DeclareEmission(500, t0)
+		wantIs(t, err, shared.ErrIllegalTransition)
+		assertState(t, w, s, before)
+		if w.EmissionPerStopG() != 0 {
+			t.Fatal("a refused declaration must not store an emission")
+		}
+	}
+}
+
+func TestDeclareEmissionValidation(t *testing.T) {
+	for _, g := range []int64{-1, MaxEmissionPerStopG + 1} {
+		w := mustSchedule(t, nil)
+		_, err := w.DeclareEmission(g, t0)
+		wantIs(t, err, shared.ErrValidation)
+		assertState(t, w, StateOpen, 1)
+		if w.EmissionPerStopG() != 0 {
+			t.Fatal("an invalid declaration must not store an emission")
+		}
+	}
+	w := mustSchedule(t, nil)
+	wantNoErr(t, func() error { _, err := w.DeclareEmission(MaxEmissionPerStopG, t0); return err }())
+}
+
 func TestStateValid(t *testing.T) {
 	for _, s := range []State{StateOpen, StateInductionClosed, StateDispatched, StateCompleted, StateCancelled} {
 		if !s.Valid() {

@@ -111,6 +111,8 @@ channels:
         $ref: "#/components/messages/DeliveryWaveCancelled"
       WaveCostDeclared:
         $ref: "#/components/messages/WaveCostDeclared"
+      WaveEmissionDeclared:
+        $ref: "#/components/messages/WaveEmissionDeclared"
       PackageOutForDelivery:
         $ref: "#/components/messages/PackageOutForDelivery"
       DeliveryAttempted:
@@ -174,7 +176,8 @@ operations:
       StopEtaWindowAssigned and PackageReturnInitiated, delivery-promise reads
       PackageInductionDeferred.
       order-sourcing also reads WaveCostDeclared into its money-denominated
-      AssignmentCost (roadmap F7). shipping-and-tracking reads
+      AssignmentCost (roadmap F7), and WaveEmissionDeclared into its
+      estimatedCo2eGrams (roadmap C9, ADR 0016). shipping-and-tracking reads
       DeliveryPointFlagged, per tracking number, to warn the shopper (roadmap C5).
     tags:
       - name: last-mile-delivery
@@ -185,6 +188,7 @@ operations:
       - $ref: "#/channels/lastMileEvents/messages/DeliveryWaveCapacityChanged"
       - $ref: "#/channels/lastMileEvents/messages/DeliveryWaveCancelled"
       - $ref: "#/channels/lastMileEvents/messages/WaveCostDeclared"
+      - $ref: "#/channels/lastMileEvents/messages/WaveEmissionDeclared"
       - $ref: "#/channels/lastMileEvents/messages/PackageOutForDelivery"
       - $ref: "#/channels/lastMileEvents/messages/DeliveryAttempted"
       - $ref: "#/channels/lastMileEvents/messages/StopEtaWindowAssigned"
@@ -416,6 +420,35 @@ components:
               waveId: "wave-3b9f"
               costPerStopCents: 425
               declaredAt: "2026-10-24T05:30:00Z"
+
+    WaveEmissionDeclared:
+      name: WaveEmissionDeclared
+      title: Wave stop emission declared
+      summary: The planner declared the greenhouse emission of one delivery stop on the wave, in gCo2e.
+      description: "`type` = `com.retailnetwork.logistics.last-mile-delivery.wave.WaveEmissionDeclared`; subject and key = the waveId. Raised by DeclareEmission (POST /waves/{waveId}/emission-declarations), allowed while the wave still runs and refused once CANCELLED or COMPLETED; a later declaration overwrites the earlier one. gCo2ePerStop is the planner's declared marginal greenhouse emission of ONE stop (the stop's share of the route's driving), in grams of CO2 equivalent, 0 to 10000000; the stop count is the G11 stopKey grouping, so the emission is per stop, never per package. 0 is a legal declared zero; a wave with no declaration contributes 0 to a consumer's sum and leaves its estimate incomplete (the consumer decides). Consumed by order-sourcing for its estimatedCo2eGrams (roadmap C9, ADR 0016); ranking is untouched — carbon is recorded, not optimised, in this slice."
+      contentType: application/cloudevents+json
+      headers:
+        $ref: "#/components/schemas/KafkaHeaders"
+      tags:
+        - name: wave
+      payload:
+        $ref: "#/components/schemas/WaveEmissionDeclaredEvent"
+      examples:
+        - name: waveEmissionDeclared
+          summary: A planner declares 850 gCo2e per stop on a morning wave.
+          payload:
+            specversion: "1.0"
+            id: "b41f7c02-8e55-4c8d-af1b-9d2e6a5c3f88"
+            source: "/retailnetwork/last-mile-delivery"
+            type: "com.retailnetwork.logistics.last-mile-delivery.wave.WaveEmissionDeclared"
+            subject: "wave-3b9f"
+            time: "2026-10-24T05:45:00Z"
+            datacontenttype: "application/json"
+            dataschema: "urn:retailnetwork:last-mile-delivery:events:WaveEmissionDeclared:v1"
+            data:
+              waveId: "wave-3b9f"
+              gCo2ePerStop: 850
+              declaredAt: "2026-10-24T05:45:00Z"
 
     RoutePlanned:
       name: RoutePlanned
@@ -816,6 +849,19 @@ components:
               properties:
                 waveId: { type: string }
                 costPerStopCents: { type: integer, minimum: 0, maximum: 10000000, description: "The declared marginal cost of ONE delivery stop on the wave, integer cents (single-currency study); per stop (G11 stopKey grouping), never per package. 0 is a legal declared zero." }
+                declaredAt: { type: string, format: date-time }
+
+    WaveEmissionDeclaredEvent:
+      allOf:
+        - $ref: "#/components/schemas/CloudEventEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [waveId, gCo2ePerStop, declaredAt]
+              properties:
+                waveId: { type: string }
+                gCo2ePerStop: { type: integer, minimum: 0, maximum: 10000000, description: "The declared marginal greenhouse emission of ONE delivery stop on the wave, in grams of CO2 equivalent (gCo2e); per stop (G11 stopKey grouping), never per package. 0 is a legal declared zero." }
                 declaredAt: { type: string, format: date-time }
 
     RoutePlannedEvent:
