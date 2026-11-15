@@ -75,6 +75,8 @@ func TestRestoreBoundaries(t *testing.T) {
 		{"assigned equal to capacity", func(s *Snapshot) {}},
 		{"capacity at the postgres ceiling", func(s *Snapshot) { s.StopCapacity = MaxStopCapacity }},
 		{"cutoff one nanosecond before the window", func(s *Snapshot) { s.InductCutoffAt = wStart.Add(-time.Nanosecond) }},
+		{"a legacy induction row without a kind", func(s *Snapshot) { s.Inductions[0].Kind = "" }},
+		{"a pickup induction", func(s *Snapshot) { s.Inductions[0].Kind = KindPickup }},
 	}
 	for _, c := range accept {
 		t.Run("accepts "+c.name, func(t *testing.T) {
@@ -173,6 +175,8 @@ func TestRestoreRejectsCorruptRows(t *testing.T) {
 		{"bad tracking number", func(s *Snapshot) { s.Inductions[0].TrackingNumber = "" }},
 		{"bad stop key", func(s *Snapshot) { s.Inductions[0].StopKey = "" }},
 		{"zero induction instant", func(s *Snapshot) { s.Inductions[0].At = time.Time{} }},
+		{"unknown induction kind", func(s *Snapshot) { s.Inductions[0].Kind = Kind("RETURN") }},
+		{"lower-case induction kind", func(s *Snapshot) { s.Inductions[0].Kind = Kind("pickup") }},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
