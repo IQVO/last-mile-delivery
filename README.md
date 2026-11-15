@@ -86,7 +86,7 @@ internal/
   architecture/              the fitness tests below
 apis/                        openapi.yaml (REST) + asyncapi.yaml (events)
 docs/adr/                    15 ADRs + index
-features/                    11 godog feature files (164 scenarios)
+features/                    11 godog feature files (167 scenarios, 214 executed)
 charts/last-mile-delivery/   the Helm chart
 web/                         the operator micro-frontend remote
 ```
@@ -224,7 +224,7 @@ lefthook wires the same targets as hooks (`lefthook install` once per clone): pr
 ## Tests
 
 - **Unit**: `make test` — domain, use cases, handlers, adapters.
-- **BDD**: `make bdd` — godog scenarios in `features/` (11 feature files, 164 scenarios).
+- **BDD**: `make bdd` — godog scenarios in `features/` (11 feature files, 167 scenarios, 214 executed).
 - **Integration**: `make integration` — testcontainers Postgres + Kafka (incl. the `/readyz` 503 proof).
 - **Mutation**: `make mutation` (blocking subset) / `make mutation-full` — gremlins, config in `.gremlins.yaml`.
 - **Architecture fitness**: `make arch-test` — `internal/architecture/` (hexagonal rule, CloudEvents-only, catalogue, Kafka rules, outbox cap, read-only MCP/A2A).
