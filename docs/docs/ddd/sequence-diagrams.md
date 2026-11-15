@@ -66,7 +66,7 @@ sequenceDiagram
     else new event
         UC->>UC: station? nodeType on the event, else rm_stations
         loop every tracking number
-            UC->>DB: upsert rm_inbound_packages
+            UC->>DB: record rm_inbound_packages (first write per load and tracking number kept)
             UC->>DB: read rm_package_stops for the stop key
             UC->>DB: list OPEN waves whose cutoff is after arrival, earliest first
             UC->>UC: Induct into the first wave that is not full or closed
