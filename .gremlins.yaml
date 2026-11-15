@@ -27,8 +27,16 @@ unleash:
     # differs. See HARNESS.md's mutation-testing section for the
     # tagless-switch-under-reports pitfall before assuming a low number
     # means missing tests.
-    # Measured 2026-10-23, every package of internal/domain (wave 33, route 53,
-    # partner 13, history 25, shared 33 mutants): efficacy 100%, mutant coverage
-    # 100%, 0 lived. The thresholds sit strictly below that measurement.
-    efficacy: "95"
-    mutant-coverage: "95"
+    # Measured 2026-11-15 with `make mutation-full` and the CI-equivalent
+    # `make mutation`: deliverypoint 41 killed, 1 lived, 5 not covered (47); route 80 killed,
+    # 2 not covered (82); wave 59/59; partner 13/13; history 25/25; shared 33/33;
+    # analytics/report 43/43.
+    # Lowest package: deliverypoint, efficacy 97.62%, mutant coverage 89.36% (one
+    # equivalent survivor and five NOT COVERED mutants, all listed in MUTATION.md);
+    # every other package is 100% / 100% except route (mutant coverage 97.56%).
+    # The thresholds sit strictly below the lowest package.
+    # The values are plain integers ON PURPOSE: gremlins v0.6.0 reads them with a
+    # float64/int type assertion, so a quoted string ("97") is silently read as 0
+    # and the gate never fails.
+    efficacy: 97
+    mutant-coverage: 89
