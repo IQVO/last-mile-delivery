@@ -187,6 +187,16 @@ stored version is `Version()-1`.
   `DeclareEmission` on a running wave raises `WaveEmissionDeclared`, 0 is a
   declared zero and an undeclared wave also reads 0 — telling the two apart is
   the consumer's problem, not the wave's.
+- **A32** (addendum to A21, 2026-11-15) A21's idempotency sentence is superseded by
+  [ADR 0010](./0010-adopt-the-fleet-rest-api-guideline.md) and no longer describes
+  what is shipped. The key is **global**, not scoped by route: `idempotency_keys` has
+  the key alone as its primary key (migration `0002`) and the fingerprint is method +
+  path + SHA-256 of the body. A key reused with a different method, path or body is
+  **409** `idempotency-key-reused`, not `422 validation-failed`. A 2xx **and a 4xx**
+  answer are stored and replayed for 24 h with `Idempotency-Replayed: true`; a 5xx, an
+  error or a panic is never stored, so the retry re-executes. The TTL is unchanged.
+  (`apis/openapi.yaml`, `internal/adapters/inbound/http/idempotency.go` and the
+  `idempotency-key-reused` scenarios in `features/` already say so.)
 
 ## Consequences
 
