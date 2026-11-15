@@ -517,6 +517,7 @@ components:
       name: PackagePickupOut
       title: Package pickup out
       summary: A pickup package left the station on a started route.
+      x-no-consumer-reason: "No consumer yet, by design - the pickup induction is dormant until customer-requests requests the PICKUP method; the dormant seam ships annotated so the orphan gate stays honest."
       description: "`type` = `com.retailnetwork.logistics.last-mile-delivery.route.PackagePickupOut`; subject = the routeId, key = the routeId (the same topic and key as PackageOutForDelivery, so the two streams stay ordered per route). Raised by StartRoute, one event per tracking number inducted into the wave as a PICKUP (ADR 0017, activation-gated: none exist until the return flow requests the pickup method); a DELIVERY package keeps raising PackageOutForDelivery instead. The analytics projector skips this type committed-past (no report needs it)."
       contentType: application/cloudevents+json
       headers:
