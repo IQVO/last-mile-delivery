@@ -104,7 +104,7 @@ A full snapshot, not a delta: the latest event by `time` wins and a duplicate do
 
 ### DeliveryPointFlagged
 
-`stopKey` (string, opaque), `reason` (`NOT_HOME` or `ACCESS_PROBLEM`), `failures` (integer, 2 to 5: the strikes open at that moment), `trackingNumbers` (string[], 1 to 5: only the packages newly affected) and `flaggedAt` (date-time, the attempt instant that triggered the event). No address, name or free text ([ADR 0014](/docs/adr/0014-delivery-point-profile)).
+`stopKey` (string, opaque), `reason` (`NOT_HOME` or `ACCESS_PROBLEM`), `failures` (integer, 2 to 5: the strikes open at that moment), `trackingNumbers` (string[], 1 to 5: only the packages newly affected; every package of a failed visit at the point is named, and more than five new packages are split over several events, [ADR 0018](/docs/adr/0018-delivery-point-flag-names-every-package-of-a-visit)) and `flaggedAt` (date-time, the attempt instant that triggered the event). No address, name or free text ([ADR 0014](/docs/adr/0014-delivery-point-profile)).
 
 No published event carries an address, a name or any other PII ([ADR 0006](https://iqvo.github.io/warehouse-docs/network/adr/0006-pii-confinement)).
 

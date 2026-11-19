@@ -3,6 +3,7 @@ package features_test
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/cucumber/godog"
@@ -148,6 +149,21 @@ func registerRuleRouteSteps(sc *godog.ScenarioContext, w *world) {
 			}
 		}
 		return w.planStarted(first, []string{other})
+	})
+	// One started route per group, in order (route-1, route-2, ...): a group of
+	// several packages is one visit that carries them all to the stop.
+	sc.Step(`^the stop "([^"]*)" has one started route for each of the package groups (.+)$`, func(key, list string) error {
+		var groups [][]string
+		for _, g := range quoted(list) {
+			tns := strings.Fields(g)
+			for _, tn := range tns {
+				if err := w.label(tn, key); err != nil {
+					return err
+				}
+			}
+			groups = append(groups, tns)
+		}
+		return w.planStarted(groups...)
 	})
 }
 

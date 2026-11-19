@@ -3,6 +3,7 @@ package deliverypoint
 import (
 	"errors"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -14,8 +15,8 @@ func flaggedSnapshot() Snapshot {
 	return Snapshot{
 		StopKey: key, Attempts: 5, Delivered: 2, SafePlaceUsed: 1, FailedNotHome: 1, FailedAccess: 1, FailedOther: 1,
 		Strikes: []Strike{
-			{RouteID: "route-1", TrackingNumber: "TRK-1", Category: CategoryNotHome, At: day0, Notified: true},
-			{RouteID: "route-2", TrackingNumber: "TRK-2", Category: CategoryAccessProblem, At: days(1), Notified: true},
+			{RouteID: "route-1", TrackingNumbers: []string{"TRK-1"}, Category: CategoryNotHome, At: day0, Told: []string{"TRK-1"}},
+			{RouteID: "route-2", TrackingNumbers: []string{"TRK-2", "TRK-3"}, Category: CategoryAccessProblem, At: days(1), Told: []string{"TRK-2"}},
 		},
 		FlaggedAt: days(1), LastAttemptAt: days(3), Version: 5,
 	}
@@ -39,16 +40,28 @@ func TestEveryFieldRoundTripsAndNothingAliases(t *testing.T) {
 	if got := p.Snapshot(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("snapshot = %+v, want %+v", got, want)
 	}
-	snap := p.Snapshot()
-	snap.Strikes[0].TrackingNumber = "TRK-X"
-	if p.Snapshot().Strikes[0].TrackingNumber != "TRK-1" {
-		t.Fatal("Snapshot aliases the profile")
-	}
 	if p.Attempts() != 5 || p.Delivered() != 2 || p.SafePlaceUsed() != 1 || p.FailedNotHome() != 1 || p.FailedAccess() != 1 || p.FailedOther() != 1 {
 		t.Fatal("accessors wrong")
 	}
 	if !p.Flagged() || p.FlagReason() != CategoryAccessProblem || p.OpenStrikes() != 2 || !p.LastAttemptAt().Equal(days(3)) || p.Version() != 5 {
 		t.Fatal("derived accessors wrong")
+	}
+}
+
+func TestSnapshotAndRestoreShareNothingWithTheProfile(t *testing.T) {
+	p, err := Restore(flaggedSnapshot())
+	wantNoErr(t, err)
+	snap := p.Snapshot()
+	snap.Strikes[0].TrackingNumbers[0], snap.Strikes[0].Told[0] = "TRK-X", "TRK-X"
+	if again := p.Snapshot().Strikes[0]; again.TrackingNumbers[0] != "TRK-1" || again.Told[0] != "TRK-1" {
+		t.Fatal("Snapshot aliases the profile")
+	}
+	in := flaggedSnapshot()
+	q, err := Restore(in)
+	wantNoErr(t, err)
+	in.Strikes[1].TrackingNumbers[0], in.Strikes[1].Told[0] = "TRK-Y", "TRK-Y"
+	if got := q.Snapshot().Strikes[1]; got.TrackingNumbers[0] != "TRK-2" || got.Told[0] != "TRK-2" {
+		t.Fatal("Restore aliases the snapshot")
 	}
 }
 
@@ -73,9 +86,11 @@ func TestRestoreAccepts(t *testing.T) {
 	five := flaggedSnapshot()
 	five.Strikes = nil
 	for i := 1; i <= MaxStrikes; i++ {
-		five.Strikes = append(five.Strikes, Strike{RouteID: "route-" + string(rune('0'+i)), TrackingNumber: "TRK-1", Category: CategoryNotHome, At: day0})
+		five.Strikes = append(five.Strikes, Strike{RouteID: "route-" + string(rune('0'+i)), TrackingNumbers: []string{"TRK-1"}, Category: CategoryNotHome, At: day0})
 	}
-	for name, s := range map[string]Snapshot{"flagged": open, "one strike": one, "no strike": none, "a full ring": five} {
+	packed := flaggedSnapshot()
+	packed.Strikes[0].TrackingNumbers, packed.Strikes[0].Told = packages(MaxStrikePackages), packages(MaxStrikePackages)
+	for name, s := range map[string]Snapshot{"flagged": open, "one strike": one, "no strike": none, "a full ring": five, "a full strike": packed} {
 		if _, err := Restore(s); err != nil {
 			t.Errorf("%s: %v", name, err)
 		}
@@ -97,10 +112,17 @@ func TestRestoreRejectsCorruptRows(t *testing.T) {
 		"uncounted category":            func(s *Snapshot) { s.Strikes[0].Category = "OTHER" },
 		"blank strike category":         func(s *Snapshot) { s.Strikes[0].Category = "" },
 		"two strikes share a route":     func(s *Snapshot) { s.Strikes[1].RouteID = "route-1" },
-		"strike without a tracking no.": func(s *Snapshot) { s.Strikes[0].TrackingNumber = "" },
-		"strike without an instant":     func(s *Snapshot) { s.Strikes[0].At = time.Time{} },
-		"flag without two strikes":      func(s *Snapshot) { s.Strikes = s.Strikes[:1] },
-		"two strikes without a flag":    func(s *Snapshot) { s.FlaggedAt = time.Time{} },
+		"strike without a tracking no.": func(s *Snapshot) { s.Strikes[0].TrackingNumbers = nil },
+		"blank tracking number":         func(s *Snapshot) { s.Strikes[0].TrackingNumbers = []string{""} },
+		"repeated tracking number":      func(s *Snapshot) { s.Strikes[1].TrackingNumbers = []string{"TRK-2", "TRK-2"} },
+		"too many packages": func(s *Snapshot) {
+			s.Strikes[0].TrackingNumbers, s.Strikes[0].Told = packages(MaxStrikePackages+1), nil
+		},
+		"told is not a package of it": func(s *Snapshot) { s.Strikes[0].Told = []string{"TRK-9"} },
+		"told twice":                  func(s *Snapshot) { s.Strikes[1].Told = []string{"TRK-2", "TRK-2"} },
+		"strike without an instant":   func(s *Snapshot) { s.Strikes[0].At = time.Time{} },
+		"flag without two strikes":    func(s *Snapshot) { s.Strikes = s.Strikes[:1] },
+		"two strikes without a flag":  func(s *Snapshot) { s.FlaggedAt = time.Time{} },
 	}
 	for name, mutate := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -117,7 +139,16 @@ func TestRestoreRejectsCorruptRows(t *testing.T) {
 func sixStrikes() []Strike {
 	var out []Strike
 	for i := 1; i <= MaxStrikes+1; i++ {
-		out = append(out, Strike{RouteID: "route-" + string(rune('0'+i)), TrackingNumber: "TRK-1", Category: CategoryNotHome, At: day0})
+		out = append(out, Strike{RouteID: "route-" + string(rune('0'+i)), TrackingNumbers: []string{"TRK-1"}, Category: CategoryNotHome, At: day0})
+	}
+	return out
+}
+
+// packages returns n distinct tracking numbers.
+func packages(n int) []string {
+	out := make([]string, n)
+	for i := range out {
+		out[i] = "TRK-" + strconv.Itoa(i+1)
 	}
 	return out
 }

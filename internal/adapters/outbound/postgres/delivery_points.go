@@ -24,18 +24,27 @@ const deliveryPointColumns = `stop_key, attempts, delivered, safe_place_used, fa
 	strikes, flagged_at, last_attempt_at, version`
 
 // strikeJSON is the stored shape of one strike in the strikes jsonb array.
+// TrackingNumbers and Told are the shape of ADR 0018. TrackingNumber (the first
+// package) and Notified (every package told) are still written, so a row stays
+// readable by the previous release; a row written by that release has only those
+// two fields and decodes as a strike of one package.
 type strikeJSON struct {
-	RouteID        string    `json:"routeId"`
-	TrackingNumber string    `json:"trackingNumber"`
-	Category       string    `json:"category"`
-	At             time.Time `json:"at"`
-	Notified       bool      `json:"notified"`
+	RouteID         string    `json:"routeId"`
+	TrackingNumber  string    `json:"trackingNumber"`
+	TrackingNumbers []string  `json:"trackingNumbers,omitempty"`
+	Told            []string  `json:"told,omitempty"`
+	Category        string    `json:"category"`
+	At              time.Time `json:"at"`
+	Notified        bool      `json:"notified"`
 }
 
 func encodeStrikes(in []deliverypoint.Strike) (string, error) {
 	out := make([]strikeJSON, len(in))
 	for i, s := range in {
-		out[i] = strikeJSON{RouteID: s.RouteID, TrackingNumber: s.TrackingNumber, Category: string(s.Category), At: s.At.UTC(), Notified: s.Notified}
+		out[i] = strikeJSON{
+			RouteID: s.RouteID, TrackingNumber: s.TrackingNumbers[0], TrackingNumbers: s.TrackingNumbers, Told: s.Told,
+			Category: string(s.Category), At: s.At.UTC(), Notified: len(s.Told) == len(s.TrackingNumbers),
+		}
 	}
 	b, err := json.Marshal(out)
 	if err != nil {
@@ -51,9 +60,14 @@ func decodeStrikes(raw []byte) ([]deliverypoint.Strike, error) {
 	}
 	out := make([]deliverypoint.Strike, len(in))
 	for i, s := range in {
-		out[i] = deliverypoint.Strike{
-			RouteID: s.RouteID, TrackingNumber: s.TrackingNumber, Category: deliverypoint.Category(s.Category), At: s.At.UTC(), Notified: s.Notified,
+		k := deliverypoint.Strike{RouteID: s.RouteID, TrackingNumbers: s.TrackingNumbers, Told: s.Told, Category: deliverypoint.Category(s.Category), At: s.At.UTC()}
+		if len(s.TrackingNumbers) == 0 && s.TrackingNumber != "" { // a row of the previous release
+			k.TrackingNumbers = []string{s.TrackingNumber}
+			if s.Notified {
+				k.Told = k.TrackingNumbers
+			}
 		}
+		out[i] = k
 	}
 	return out, nil
 }

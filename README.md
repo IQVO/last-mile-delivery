@@ -234,7 +234,7 @@ CI (`.github/workflows/ci.yml`) runs `lint`, `guide-lint`, `complexity`, `test`,
 
 ## Architecture Decision Records
 
-[docs/adr/](docs/adr/index.md) — index plus 15 ADRs (0001–0015: bounded context, aggregates and invariants, consumed contracts and local read models, CloudEvents envelope and type catalogue, runtime/outbox/HTTP and readiness, MCP server adoption, console remote, fleet observability standard, A2A inbound adapter, fleet REST API guideline, wave stop cost declaration, analytics read side, stop ETA window, delivery point profile, carrier area exclusion). `docs/docs/operations/before-first-release.md` is the packaging checklist (rows 5 to 9, the chart, are done; row 11, the registry secrets, is for the repo admin).
+[docs/adr/](docs/adr/index.md) — index plus 18 ADRs (0001–0018: bounded context, aggregates and invariants, consumed contracts and local read models, CloudEvents envelope and type catalogue, runtime/outbox/HTTP and readiness, MCP server adoption, console remote, fleet observability standard, A2A inbound adapter, fleet REST API guideline, wave stop cost declaration, analytics read side, stop ETA window, delivery point profile, carrier area exclusion, wave stop emission declaration, return-pickup inductions, the delivery-point flag naming every package of a failed visit). `docs/docs/operations/before-first-release.md` is the packaging checklist (rows 5 to 9, the chart, are done; row 11, the registry secrets, is for the repo admin).
 
 ## License
 

@@ -10,8 +10,8 @@ const entity = "deliverypointprofile"
 
 // DeliveryPointFlagged is raised by Observe while a point has at least
 // FlagAfterStrikes open strikes and an observation reached packages that were
-// not told yet. TrackingNumbers holds only those packages (1 to MaxStrikes);
-// Failures is the number of strikes open at that moment; FlaggedAt is the attempt
+// not told yet. TrackingNumbers holds only those packages (1 to
+// MaxEventPackages; a larger set is split over several events); Failures is the number of strikes open at that moment; FlaggedAt is the attempt
 // instant that triggered it. No event means "no new package was affected".
 type DeliveryPointFlagged struct {
 	shared.Header
