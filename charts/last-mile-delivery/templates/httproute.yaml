@@ -5,6 +5,10 @@ metadata:
   name: {{ include "last-mile-delivery.fullname" . }}
   labels:
     {{- include "last-mile-delivery.labels" . | nindent 4 }}
+  {{- with include "last-mile-delivery.kongPluginNames" . }}
+  annotations:
+    konghq.com/plugins: {{ . | quote }}
+  {{- end }}
 spec:
   parentRefs:
     {{- range .Values.gatewayApi.parentRefs }}
