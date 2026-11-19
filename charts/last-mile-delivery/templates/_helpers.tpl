@@ -248,3 +248,18 @@ group. Fail at render instead of crash-looping.
 {{- fail "analytics.projector.consumerGroup is required (ANALYTICS_CONSUMER_GROUP): use the STABLE id last-mile-delivery-analytics, never the pod name." -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Comma-joined names of this chart's enabled KongPlugins, for the
+konghq.com/plugins annotation on every HTTPRoute this chart renders.
+Empty string (annotation omitted) when none are enabled.
+*/}}
+{{- define "last-mile-delivery.kongPluginNames" -}}
+{{- $names := list -}}
+{{- range $name, $cfg := .Values.kongPlugins -}}
+{{- if $cfg.enabled -}}
+{{- $names = append $names (printf "%s-%s" (include "last-mile-delivery.fullname" $) $name) -}}
+{{- end -}}
+{{- end -}}
+{{- join "," $names -}}
+{{- end -}}

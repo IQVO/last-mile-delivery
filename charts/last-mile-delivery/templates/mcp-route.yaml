@@ -14,6 +14,10 @@ metadata:
   labels:
     {{- include "last-mile-delivery.labels" . | nindent 4 }}
     app.kubernetes.io/component: mcp
+  {{- with include "last-mile-delivery.kongPluginNames" . }}
+  annotations:
+    konghq.com/plugins: {{ . | quote }}
+  {{- end }}
 spec:
   parentRefs:
     {{- range .Values.mcp.route.parentRefs }}
