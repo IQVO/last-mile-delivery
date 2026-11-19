@@ -65,6 +65,36 @@ Feature: Delivery point profile rules taken from the documentation
     And the delivery point "k-a" has 1 open strike
     And the delivery point "k-a" tallied 2 attempts: 0 delivered (0 in a safe place), 2 not home, 0 access problem, 0 other
 
+  Scenario: Two packages of one order failing together are both flagged
+    Given the stop "k-a" has one started route for each of the package groups "TRK-1 TRK-2" and "TRK-3"
+    When on route "route-1" the driver records "TRK-1" as failed with the detail "NOT_HOME" because "nobody answered"
+    And on route "route-1" the driver records "TRK-2" as failed with the detail "NOT_HOME" because "nobody answered"
+    Then exactly 0 "DeliveryPointFlagged" events were published
+    And the delivery point "k-a" has 1 open strike
+    When on route "route-2" the driver records "TRK-3" as failed with the detail "NOT_HOME" because "nobody answered"
+    Then exactly 1 "DeliveryPointFlagged" event was published
+    And the latest "DeliveryPointFlagged" event for the stop "k-a" flags 2 failures for the packages "TRK-1,TRK-2,TRK-3" because NOT_HOME
+
+  Scenario: Two packages failing together after the point was flagged are both told
+    Given the stop "k-a" has one started route for each of the package groups "TRK-1" and "TRK-2 TRK-3"
+    When on route "route-1" the driver records "TRK-1" as failed with the detail "NOT_HOME" because "nobody answered"
+    And on route "route-2" the driver records "TRK-2" as failed with the detail "NOT_HOME" because "nobody answered"
+    Then the latest "DeliveryPointFlagged" event for the stop "k-a" flags 2 failures for the packages "TRK-1,TRK-2" because NOT_HOME
+    When on route "route-2" the driver records "TRK-3" as failed with the detail "NOT_HOME" because "nobody answered"
+    Then exactly 2 "DeliveryPointFlagged" events were published
+    And the latest "DeliveryPointFlagged" event for the stop "k-a" flags 2 failures for the packages "TRK-3" because NOT_HOME
+    And the delivery point "k-a" has 2 open strikes
+
+  Scenario: A later visit flags only the newly affected package
+    Given the stop "k-a" has one started route for each of the package groups "TRK-1 TRK-2", "TRK-3" and "TRK-4"
+    When on route "route-1" the driver records "TRK-1" as failed with the detail "NOT_HOME" because "nobody answered"
+    And on route "route-1" the driver records "TRK-2" as failed with the detail "NOT_HOME" because "nobody answered"
+    And on route "route-2" the driver records "TRK-3" as failed with the detail "NOT_HOME" because "nobody answered"
+    And on route "route-3" the driver records "TRK-4" as failed with the detail "NOT_HOME" because "nobody answered"
+    Then exactly 2 "DeliveryPointFlagged" events were published
+    And the latest "DeliveryPointFlagged" event for the stop "k-a" flags 3 failures for the packages "TRK-4" because NOT_HOME
+    And the delivery point "k-a" has 3 open strikes
+
   Scenario: A delivery ends the episode, so the next failure is a first strike again
     Given the packages "TRK-1", "TRK-2" and "TRK-3" of the stop "k-a" each ride their own started route
     When on route "route-1" the driver records "TRK-1" as failed with the detail "NOT_HOME" because "nobody answered"
