@@ -9,11 +9,10 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-
 	inboundhttp "github.com/claudioed/last-mile-delivery/internal/adapters/inbound/http"
 	"github.com/claudioed/last-mile-delivery/internal/adapters/outbound/postgres"
 	"github.com/claudioed/last-mile-delivery/internal/application/ports"
+	"github.com/claudioed/last-mile-delivery/internal/application/repository"
 	"github.com/claudioed/last-mile-delivery/internal/application/views"
 	"github.com/claudioed/last-mile-delivery/internal/domain/wave"
 	"github.com/claudioed/last-mile-delivery/internal/testing/pgtest"
@@ -27,7 +26,7 @@ import (
 // retry can lose, which is how the conflict reaches the client as a 409.
 type racingWaves struct {
 	ports.WaveRepository
-	pool   *pgxpool.Pool
+	bump   func(id wave.ID) error
 	losses atomic.Int32
 }
 
@@ -36,16 +35,15 @@ func (r *racingWaves) Get(ctx context.Context, id wave.ID) (*wave.DeliveryWave, 
 	if err != nil || r.losses.Add(-1) < 0 {
 		return w, err
 	}
-	_, err = r.pool.Exec(context.Background(), `UPDATE delivery_waves SET version = version + 1 WHERE wave_id = $1`, string(id))
-	return w, err
+	return w, r.bump(id)
 }
 
 const replayWaveBody = `{"stationNodeId":"node-ds-01","serviceDate":"2026-10-24","inductCutoffAt":"2099-10-24T08:00:00Z","windowStart":"2099-10-24T12:00:00Z","windowEnd":"2099-10-24T20:00:00Z","stopCapacity":5}`
 
 type replayWorld struct {
-	pool *pgxpool.Pool
-	ad   adapters
-	url  string
+	ad    adapters
+	url   string
+	count func(t *testing.T, sql string, args ...any) int
 }
 
 func newReplayWorld(t *testing.T, waves *racingWaves) *replayWorld {
@@ -58,7 +56,11 @@ func newReplayWorld(t *testing.T, waves *racingWaves) *replayWorld {
 	t.Cleanup(pool.Close)
 	ad := postgresAdapters(pool)
 	if waves != nil {
-		waves.WaveRepository, waves.pool = ad.deps.Waves, pool
+		waves.WaveRepository = ad.deps.Waves
+		waves.bump = func(id wave.ID) error {
+			_, err := pool.Exec(context.Background(), `UPDATE delivery_waves SET version = version + 1 WHERE wave_id = $1`, string(id))
+			return err
+		}
 		ad.deps.Waves = waves
 	}
 	if err := ad.deps.Stations.Save(ctx, views.Station{NodeID: "node-ds-01", NodeType: views.DeliveryStation, RegionID: "region-se"}); err != nil {
@@ -66,16 +68,20 @@ func newReplayWorld(t *testing.T, waves *racingWaves) *replayWorld {
 	}
 	srv := httptest.NewServer(inboundhttp.NewRouter(buildServer(ad, nil), nil, ""))
 	t.Cleanup(srv.Close)
-	return &replayWorld{pool: pool, ad: ad, url: srv.URL}
+	count := func(t *testing.T, sql string, args ...any) int {
+		t.Helper()
+		var n int
+		if err := pool.QueryRow(context.Background(), sql, args...).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	return &replayWorld{ad: ad, url: srv.URL, count: count}
 }
 
 func (w *replayWorld) keyRows(t *testing.T, key string) int {
 	t.Helper()
-	var n int
-	if err := w.pool.QueryRow(context.Background(), `SELECT count(*) FROM idempotency_keys WHERE idempotency_key = $1`, key).Scan(&n); err != nil {
-		t.Fatal(err)
-	}
-	return n
+	return w.count(t, `SELECT count(*) FROM idempotency_keys WHERE idempotency_key = $1`, key)
 }
 
 // waveID schedules a wave under its own key and returns its id.
@@ -85,11 +91,11 @@ func (w *replayWorld) waveID(t *testing.T) string {
 	if r.code != 201 {
 		t.Fatalf("setup wave = %+v", r)
 	}
-	var id string
-	if err := w.pool.QueryRow(context.Background(), `SELECT wave_id FROM delivery_waves`).Scan(&id); err != nil {
-		t.Fatal(err)
+	waves, err := w.ad.deps.Waves.List(context.Background(), repository.WaveFilter{StationNodeID: "node-ds-01"})
+	if err != nil || len(waves) != 1 {
+		t.Fatalf("setup wave list = %d %v", len(waves), err)
 	}
-	return id
+	return string(waves[0].ID())
 }
 
 // A concurrent-update 409 is RETRYABLE: nothing the loser did is kept, no key row
