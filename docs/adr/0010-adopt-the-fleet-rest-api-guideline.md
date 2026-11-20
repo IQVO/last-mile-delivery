@@ -70,3 +70,12 @@ breaking by design and ships as one set across the fleet.
 - Clients must send an `Idempotency-Key` on every POST, read lists from `items`
   and loop on `nextCursor`, and treat 409 `idempotency-key-reused` as a bug.
 - Deploy together with the rest of the REST cutover set.
+
+## Update 2026-11-20
+
+[ADR 0019](./0019-idempotency-replay-classes-a-retryable-refusal-is-not-stored.md)
+supersedes the sentence "A 2xx and a 4xx answer are stored (24 h)" of the "One
+transaction" decision: a refusal is stored only when its problem type is `FINAL`
+or `OUTCOME`; a `RETRYABLE` refusal (for example `concurrent-update`,
+`unknown-station`, `not-found`) is not stored and its key is released. The text
+above is left as decided.

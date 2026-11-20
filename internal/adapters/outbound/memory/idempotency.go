@@ -18,8 +18,9 @@ type storedAnswer struct {
 
 // Idempotency is the in-memory double of idempotency.Store: the same contract
 // as the Postgres store, serialised by one mutex. There is no transaction to
-// join, so a 4xx or 5xx handler leaves whatever it wrote in the memory
-// repositories (their own writes are atomic per call).
+// join, so a refusal or 5xx handler leaves whatever it wrote in the memory
+// repositories (their own writes are atomic per call). A 5xx and a Transient
+// answer (a RETRYABLE refusal, ADR 0019) are not stored: the key stays free.
 type Idempotency struct {
 	mu   sync.Mutex
 	rows map[string]storedAnswer
@@ -53,7 +54,7 @@ func (s *Idempotency) Do(ctx context.Context, key, hash string, fn func(context.
 		return idempotency.Record{}, false, err
 	}
 	rec.RequestHash = hash
-	if rec.Status < 500 {
+	if rec.Status < 500 && !rec.Transient {
 		stored := rec
 		stored.Body = append([]byte(nil), rec.Body...)
 		s.rows[key] = storedAnswer{rec: stored, created: s.now()}

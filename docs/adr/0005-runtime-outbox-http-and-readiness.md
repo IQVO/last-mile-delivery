@@ -37,3 +37,11 @@ service runs: the process, the outbox relay, the HTTP edge and the readiness gat
 - The real-wiring test (`cmd/api/wiring_integration_test.go`) stops the broker and asserts the 503, the 200 on
   `/healthz`, an accepted write (the outbox holds it) and the exit of the service.
 - Helm chart, Secrets and pod hardening are out of scope here (`docs/before-first-release.md`, rows 5 to 9).
+
+## Update 2026-11-20
+
+The "first response is replayed" line of the HTTP bullet is refined by
+[ADR 0019](./0019-idempotency-replay-classes-a-retryable-refusal-is-not-stored.md)
+(through [ADR 0010](./0010-adopt-the-fleet-rest-api-guideline.md)): a refusal that
+depends on state that can change is not stored and its key is released. The text
+above is left as decided.
