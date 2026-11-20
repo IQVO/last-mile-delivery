@@ -29,7 +29,13 @@ const maxKeyLength = 128
 // claims the key, so the key row, the aggregate change and the outbox rows
 // commit together. The same key and fingerprint replays the stored answer with
 // Idempotency-Replayed: true, the same key with another fingerprint is 409
-// idempotency-key-reused. A 4xx is stored too; a 5xx or a panic is not.
+// idempotency-key-reused. A 2xx is stored; a 5xx or a panic is not. A refusal
+// is stored (and replayed) only when its problem type declares the replay class
+// FINAL or OUTCOME (ADR 0019); a RETRYABLE refusal, and any refusal that
+// declared no class, is answered but not stored: the store rolls the request
+// back, the key is released and a retry executes again. The class is read from
+// the mark the error writer leaves in the request context; the middleware
+// holds no list of problem slugs.
 func RequireIdempotencyKey(store idempotency.Store) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -45,8 +51,11 @@ func RequireIdempotencyKey(store idempotency.Store) func(http.Handler) http.Hand
 			var fresh *capture
 			rec, replayed, err := store.Do(r.Context(), key, hash, func(ctx context.Context) (idempotency.Record, error) {
 				fresh = &capture{header: http.Header{}}
+				ctx, mark := withReplayMark(ctx)
 				next.ServeHTTP(fresh, r.WithContext(ctx))
-				return fresh.record(), nil
+				rec := fresh.record()
+				rec.Transient = mark.transient(rec.Status)
+				return rec, nil
 			})
 			switch {
 			case err != nil:

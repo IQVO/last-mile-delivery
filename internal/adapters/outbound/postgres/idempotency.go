@@ -24,7 +24,11 @@ const httpClientError = 400
 // key and runs fn inside that same transaction (carried in the ctx fn gets), so
 // the key row, the aggregate change and the outbox rows commit together; a
 // concurrent request with the same key waits and then replays the stored
-// answer. A 4xx is stored, a 5xx or a panic rolls back and is never stored.
+// answer. A 2xx and a refusal the middleware did not mark Transient (a FINAL or
+// OUTCOME problem type, ADR 0019) are stored, with the handler's writes; a 5xx,
+// a Transient refusal (RETRYABLE) or a panic rolls back, key row included, and
+// is never stored, so the key is released. A concurrent duplicate waits on the
+// advisory lock and then finds no row: it executes as a fresh request.
 type IdempotencyStore struct{ pool *pgxpool.Pool }
 
 var _ idempotency.Store = (*IdempotencyStore)(nil)
@@ -95,7 +99,7 @@ func (s *IdempotencyStore) Do(ctx context.Context, key, hash string, fn func(con
 	if rec, err = fn(pgtx.With(ctx, tx)); err != nil {
 		return idempotency.Record{}, false, err
 	}
-	if rec.Status >= httpServerError {
+	if rec.Status >= httpServerError || rec.Transient {
 		return rec, false, nil
 	}
 	if err := healAbortedHandler(ctx, tx, rec.Status); err != nil {

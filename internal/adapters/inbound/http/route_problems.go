@@ -7,6 +7,9 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// methodNotAllowedProblem is the 405 of a path that exists for another method.
+var methodNotAllowedProblem = problem{http.StatusMethodNotAllowed, "method-not-allowed", "Method not allowed", replayFinal}
+
 // probeMethods are the methods chi can route; allowedMethods tries each.
 var probeMethods = []string{
 	http.MethodGet, http.MethodHead, http.MethodPost, http.MethodPut, http.MethodPatch,
@@ -44,6 +47,6 @@ func methodNotAllowedFor(routes chi.Routes, detail string) http.HandlerFunc {
 		if allow := allowedMethods(routes, routedPath(r)); allow != "" {
 			w.Header().Set("Allow", allow)
 		}
-		writeProblem(w, r, problem{http.StatusMethodNotAllowed, "method-not-allowed", "Method not allowed"}, detail)
+		writeProblem(w, r, methodNotAllowedProblem, detail)
 	}
 }
