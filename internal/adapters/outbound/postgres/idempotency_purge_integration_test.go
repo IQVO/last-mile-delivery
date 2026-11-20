@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/claudioed/last-mile-delivery/internal/adapters/outbound/postgres"
+	"github.com/claudioed/last-mile-delivery/internal/adapters/outbound/repocontract"
 	"github.com/claudioed/last-mile-delivery/internal/application/idempotency"
 	"github.com/claudioed/last-mile-delivery/internal/testing/pgtest"
 )
@@ -116,4 +117,17 @@ func TestIdempotencyPurgeDoesNotBreakARequestHoldingTheKey(t *testing.T) {
 	if err != nil || !replayed || string(rec.Body) != "fresh" {
 		t.Fatalf("after purge + request = %+v %v %v, want the fresh answer replayed", rec, replayed, err)
 	}
+}
+
+// The Postgres store passes the same retention contract as the memory double.
+func TestIdempotencyPostgresPassesThePurgeContract(t *testing.T) {
+	repocontract.RunIdempotencyPurge(t, func(t *testing.T) repocontract.IdempotencyFixture {
+		pool := pgtest.NewPool(t)
+		return repocontract.IdempotencyFixture{
+			Store: postgres.NewIdempotencyStore(pool),
+			Age: func(t *testing.T, d time.Duration) {
+				pgtest.Exec(t, pool, `UPDATE idempotency_keys SET created_at = created_at - make_interval(secs => $1)`, d.Seconds())
+			},
+		}
+	})
 }

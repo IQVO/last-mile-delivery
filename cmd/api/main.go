@@ -1,5 +1,6 @@
 // Command api is the last-mile-delivery service: the REST API, the three
-// consumers and the always-on outbox relay in one process.
+// consumers, the always-on outbox relay and the idempotency-key retention loop
+// in one process.
 //
 // Observability environment (docs/adr/0008): OTEL_SERVICE_NAME (default
 // last-mile-delivery), OTEL_EXPORTER_OTLP_ENDPOINT (default
@@ -86,8 +87,9 @@ func run(ctx context.Context) error {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	consumers, closeConsumers := startConsumers(ad, rt, logger)
+	purge, closePurge := startIdempotencyPurge(ad.idempotency, logger)
 	relay, closeRelay := startOutboxRelay(ad.outboxStore, rt.brokers, logger)
-	return serveUntilSignal(ctx, logger, httpServer, readiness, consumers, closeConsumers, relay, closeRelay)
+	return serveUntilSignal(ctx, logger, httpServer, readiness, append(consumers, purge), func() { closePurge(); closeConsumers() }, relay, closeRelay)
 }
 
 // worker is a started background loop and the channel closed once it returned.
