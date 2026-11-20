@@ -64,6 +64,8 @@ REST errors are RFC 9457 `application/problem+json`; the `type` is the slug (`in
 | `ports.ErrConcurrentUpdate` | 409 | `concurrent-update` |
 | anything else | 500 | `internal-error` |
 
+Every problem type declares a replay class (ADR 0019): a `FINAL` refusal is stored under the key and replayed, a `RETRYABLE` one is not stored and its key is released (the class table is in the ADR and is held equal to `problemCatalogue` by test).
+
 ## ScheduleWave
 
 - **Trigger**: station planner, `POST /waves` with `Idempotency-Key`.

@@ -165,7 +165,7 @@ Logs, metrics and traces follow the fleet standard ([ADR 0008](docs/adr/0008-fle
 
 ## API
 
-REST contract: [`apis/openapi.yaml`](apis/openapi.yaml) — 12 operations plus `/healthz` and `/readyz`. Every `POST` needs `Idempotency-Key` (1 to 128 printable ASCII characters, global; a replay carries `Idempotency-Replayed: true`, the key reused with another request is 409 `idempotency-key-reused`). The two lists are keyset-paged (`limit`, `cursor`, `{items, nextCursor}`); errors are RFC 9457 problem+json. See [ADR 0010](docs/adr/0010-adopt-the-fleet-rest-api-guideline.md).
+REST contract: [`apis/openapi.yaml`](apis/openapi.yaml) — 12 operations plus `/healthz` and `/readyz`. Every `POST` needs `Idempotency-Key` (1 to 128 printable ASCII characters, global; a replay carries `Idempotency-Replayed: true`, the key reused with another request is 409 `idempotency-key-reused`; a 2xx and a refusal that is final for the request are replayed, a refusal that depends on state that can change, such as `concurrent-update` or `unknown-station`, is not stored: its key is released and a retry executes again, [ADR 0019](docs/adr/0019-idempotency-replay-classes-a-retryable-refusal-is-not-stored.md)). The two lists are keyset-paged (`limit`, `cursor`, `{items, nextCursor}`); errors are RFC 9457 problem+json. See [ADR 0010](docs/adr/0010-adopt-the-fleet-rest-api-guideline.md).
 
 | Method | Route | Purpose |
 |---|---|---|
