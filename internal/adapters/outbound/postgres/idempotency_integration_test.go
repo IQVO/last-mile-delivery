@@ -131,3 +131,37 @@ func TestIdempotencyStoreRunsAConcurrentKeyOnce(t *testing.T) {
 		t.Fatalf("runs %d replays %d, want 1 and 7", runs.Load(), replays.Load())
 	}
 }
+
+// A Transient answer (a RETRYABLE refusal, ADR 0019) is returned but not stored:
+// the key row and the handler's writes are rolled back, the key is free and the
+// same key with ANOTHER request hash is a new request, not a replay.
+func TestIdempotencyStoreReleasesATransientAnswer(t *testing.T) {
+	pool := pgtest.NewPool(t)
+	store := postgres.NewIdempotencyStore(pool)
+	ctx := context.Background()
+	refusal := func(c context.Context) (idempotency.Record, error) {
+		tx, ok := pgtx.From(c)
+		if !ok {
+			t.Fatal("fn must run inside the store's transaction")
+		}
+		if _, err := tx.Exec(c, `INSERT INTO delivery_service_partners (dsp_id, station_node_id, van_capacity, state, version) VALUES ('dsp-transient', 'node-ds-01', 2, 'ACTIVE', 1)`); err != nil {
+			t.Fatal(err)
+		}
+		return idempotency.Record{Status: 409, ContentType: "application/problem+json", Body: []byte(`{"status":409}`), Transient: true}, nil
+	}
+	rec, replayed, err := store.Do(ctx, "k-transient", "h1", refusal)
+	if err != nil || replayed || rec.Status != 409 {
+		t.Fatalf("first = %+v %v %v, want the 409 answered", rec, replayed, err)
+	}
+	var keys, writes int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM idempotency_keys WHERE idempotency_key = 'k-transient'`).Scan(&keys); err != nil || keys != 0 {
+		t.Fatalf("key rows after a Transient answer = %d %v, want 0", keys, err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM delivery_service_partners WHERE dsp_id = 'dsp-transient'`).Scan(&writes); err != nil || writes != 0 {
+		t.Fatalf("the handler's write survived a Transient answer: %d %v", writes, err)
+	}
+	rec, replayed, err = store.Do(ctx, "k-transient", "h2", answer(201, "fresh"))
+	if err != nil || replayed || rec.Status != 201 {
+		t.Fatalf("another request under the released key = %+v %v %v, want a fresh 201", rec, replayed, err)
+	}
+}
