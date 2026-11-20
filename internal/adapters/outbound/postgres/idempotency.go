@@ -19,7 +19,7 @@ const httpServerError = 500
 // httpClientError is the first status that is an error answer (a 4xx).
 const httpClientError = 400
 
-// IdempotencyStore is the Postgres idempotency_keys store (24 h) of the
+// IdempotencyStore is the Postgres idempotency_keys store (idempotency.TTL) of the
 // Idempotency-Key middleware. Do takes a transaction-level advisory lock on the
 // key and runs fn inside that same transaction (carried in the ctx fn gets), so
 // the key row, the aggregate change and the outbox rows commit together; a
@@ -42,6 +42,26 @@ func lockID(key string) int64 {
 	h := fnv.New64a()
 	_, _ = h.Write([]byte(key))
 	return int64(h.Sum64()) //nolint:gosec // the 64 bits are only a lock key: wrapping to negative is fine
+}
+
+// PurgeExpired implements idempotency.Store: it deletes at most limit rows older
+// than idempotency.TTL, oldest first (idx_idempotency_keys_created_at). SKIP
+// LOCKED leaves a row another transaction is writing, and the age test is
+// repeated on the DELETE itself, so a row a request just refreshed (the upsert
+// of an expired key resets created_at) is never deleted. It takes no advisory
+// lock: an expired row is invisible to Do, so a request that holds its key
+// neither waits for the purge nor sees it.
+func (s *IdempotencyStore) PurgeExpired(ctx context.Context, limit int) (int, error) {
+	tag, err := s.pool.Exec(ctx, `DELETE FROM idempotency_keys
+		WHERE created_at <= now() - make_interval(secs => $1)
+		AND idempotency_key IN (
+			SELECT idempotency_key FROM idempotency_keys
+			WHERE created_at <= now() - make_interval(secs => $1)
+			ORDER BY created_at LIMIT $2 FOR UPDATE SKIP LOCKED)`, idempotency.TTL.Seconds(), limit)
+	if err != nil {
+		return 0, fmt.Errorf("idempotency purge: %w", err)
+	}
+	return int(tag.RowsAffected()), nil
 }
 
 // healAbortedHandler releases the handler_run savepoint fn ran behind.
@@ -85,7 +105,7 @@ func (s *IdempotencyStore) Do(ctx context.Context, key, hash string, fn func(con
 	}
 	var rec idempotency.Record
 	err = tx.QueryRow(ctx, `SELECT request_hash, response_status, content_type, response_body FROM idempotency_keys
-		WHERE idempotency_key = $1 AND created_at > now() - interval '24 hours'`, key).
+		WHERE idempotency_key = $1 AND created_at > now() - make_interval(secs => $2)`, key, idempotency.TTL.Seconds()).
 		Scan(&rec.RequestHash, &rec.Status, &rec.ContentType, &rec.Body)
 	switch {
 	case err == nil:

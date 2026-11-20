@@ -38,7 +38,9 @@ Route -> use case, kept in sync with `apis/openapi.yaml` (registered in
   and a row in the ADR 0019 class table.
 - **Idempotency-Key** is required on every POST
   (`idempotency.go`, store `postgres/idempotency.go`, table `idempotency_keys`,
-  24 h): same key + same request replays the stored answer with
+  24 h, `idempotency.TTL`; rows older than it are deleted hourly by the retention
+  loop `cmd/api/retention.go` via `Store.PurgeExpired`, ADR 0019 addendum): same
+  key + same request replays the stored answer with
   `Idempotency-Replayed: true`, same key + other request is 409
   `idempotency-key-reused`, a missing key 400 `idempotency-key-required`, a key
   outside 1-128 printable ASCII 400 `idempotency-key-invalid`; the key is GLOBAL

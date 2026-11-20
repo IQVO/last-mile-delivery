@@ -249,3 +249,14 @@ func TableCount(t *testing.T, pool *pgxpool.Pool) int {
 	}
 	return n
 }
+
+// RowCount returns how many rows table holds (table is a trusted literal of a
+// test, never user input).
+func RowCount(t *testing.T, pool *pgxpool.Pool, table string) int {
+	t.Helper()
+	var n int
+	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM `+table).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
