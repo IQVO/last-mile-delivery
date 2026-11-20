@@ -203,3 +203,33 @@ state is read. Rows marked JUDGEMENT are explained after the table.
   and statuses are unchanged.
 - Not changed here (open): retention. The age check on replay exists (24 h) but
   no job deletes old rows of `idempotency_keys`.
+
+## Addendum 2026-11-20: retention (closes the open point above)
+
+The last bullet of Consequences ("Not changed here (open): retention") is closed by
+`fix(idempotency): purge expired key rows`; the Decision text is not changed.
+
+- **What**: `idempotency.Store` gains `PurgeExpired(ctx, limit) (deleted, err)`. It
+  deletes at most `limit` rows older than `idempotency.TTL`, oldest first, and is
+  implemented in the Postgres store and in the memory double; both run the same
+  contract (`repocontract.RunIdempotencyPurge`).
+- **One TTL**: `idempotency.TTL` (24 h) is the only age. The replay read check of
+  both stores and the purge use it (the Postgres query binds it, no `'24 hours'`
+  literal is left), so the two can not drift: a row is replayed while younger than
+  the TTL and is deletable from the moment it is no longer replayed.
+- **Where**: a background loop in `cmd/api` (`retention.go`, started next to the
+  outbox relay and stopped with the consumers on shutdown), not the hot path: it
+  purges at start and then every hour, in batches of 1000 until a batch comes back
+  short. A failed pass is logged and retried at the next tick. Interval and batch
+  are constants, not environment variables, so the chart and its tests are unchanged.
+  `customer-returns` does the same (a retention sweep over the same table);
+  `linehaul-transportation` purges on every keyed write, which this service does not
+  copy so that no request pays for housekeeping.
+- **Safety**: an expired row is already invisible to `Do`, so deleting it is not
+  observable. The Postgres statement takes no advisory lock, selects its batch with
+  `FOR UPDATE SKIP LOCKED` and repeats the age test on the `DELETE`, so it never
+  waits for a request that holds the key and never deletes a row that request just
+  refreshed (the upsert of an expired key resets `created_at`). The memory double
+  shares the store's mutex with `Do`, so there a purge waits for a request in flight.
+- **Not changed**: replay classes, the stored answers, the key semantics (global key,
+  fingerprint), published `outbox_events` and `processed_events` (still never deleted).
