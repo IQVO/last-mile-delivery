@@ -204,6 +204,15 @@ docs/adr/0009). Component label a2a: the api Service must never select it.
 {{- include "last-mile-delivery.fullname" . }}-a2a
 {{- end }}
 
+{{/* agents.colocate (warehouse-infra ADR 0012): "true" iff colocate, mcp and a2a are all on; else empty. */}}
+{{- define "last-mile-delivery.agentsColocated" -}}
+{{- if and (.Values.agents | default dict).colocate .Values.mcp.enabled .Values.a2a.enabled }}true{{ end -}}
+{{- end }}
+
+{{- define "last-mile-delivery.agentsFullname" -}}
+{{- printf "%s-agents" (include "last-mile-delivery.fullname" .) | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
 {{/*
 Fully qualified names of the analytics read side (docs/adr/0012): the
 projector Deployment (no Service: it serves only its admin probes) and the
