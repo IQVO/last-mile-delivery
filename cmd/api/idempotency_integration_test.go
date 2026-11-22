@@ -86,10 +86,12 @@ func TestIdempotencyContractOverRealPostgres(t *testing.T) {
 		t.Fatalf("long key = %+v", r)
 	}
 
-	bad := `{"stationNodeId":"node-x","vanCapacity":3}`
+	// invalid-van-capacity is FINAL (a function of the request alone): stored and replayed.
+	// A RETRYABLE refusal such as unknown-station is not: idempotency_replay_integration_test.go.
+	bad := `{"stationNodeId":"node-ds-01","vanCapacity":0}`
 	a, b := idemPost(t, srv.URL+"/partners", "k-bad", bad), idemPost(t, srv.URL+"/partners", "k-bad", bad)
 	if a.code != 422 || b.code != 422 || b.replayed != "true" || a.body != b.body {
-		t.Fatalf("a 4xx must be cached: %+v / %+v", a, b)
+		t.Fatalf("a FINAL 4xx must be cached: %+v / %+v", a, b)
 	}
 
 	var wg sync.WaitGroup

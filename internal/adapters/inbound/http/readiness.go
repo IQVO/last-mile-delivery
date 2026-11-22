@@ -94,7 +94,7 @@ func (g *Readiness) Failing(ctx context.Context) []string {
 	var failing []string
 	for _, d := range g.deps {
 		if err := d.Check(checkCtx); err != nil {
-			slog.WarnContext(ctx, "readiness: dependency is not ready", "dependency", d.Name, "error", err)
+			slog.WarnContext(ctx, "readiness: dependency is not ready", "dependency", d.Name, "error", logReplacer.Replace(err.Error()))
 			failing = append(failing, d.Name)
 		}
 	}
@@ -103,7 +103,7 @@ func (g *Readiness) Failing(ctx context.Context) []string {
 }
 
 // dependencyUnavailable is the 503 problem of a failed dependency check.
-var dependencyUnavailable = problem{status: http.StatusServiceUnavailable, slug: "dependency-unavailable", title: "A runtime dependency is unavailable"}
+var dependencyUnavailable = problem{status: http.StatusServiceUnavailable, slug: "dependency-unavailable", title: "A runtime dependency is unavailable", class: replayRetryable}
 
 // handleReadyz: 200 {"status":"ready"} while ready; 503 {"status":"not_ready"}
 // once SetNotReady was called (draining); 503 problem+json

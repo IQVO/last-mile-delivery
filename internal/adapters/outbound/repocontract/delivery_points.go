@@ -52,8 +52,10 @@ func deliveryPointRoundTrip(t *testing.T, f Fixture) {
 	step(t, f, p, "route-1", trk4, route.OutcomeFailed, "", time.Minute)
 	step(t, f, p, "route-2", trk1, route.OutcomeFailed, route.DetailNotHome, time.Hour)
 	step(t, f, p, "route-3", trk2, route.OutcomeFailed, route.DetailAccessProblem, 2*time.Hour)
+	step(t, f, p, "route-3", trk3, route.OutcomeFailed, route.DetailNotHome, 3*time.Hour) // joins the strike of route-3 (ADR 0018)
 	want := p.Snapshot()
-	if want.FlaggedAt.IsZero() || len(want.Strikes) != 2 || !want.Strikes[0].Notified || want.SafePlaceUsed != 1 || want.FailedOther != 1 || want.Version != 4 {
+	if want.FlaggedAt.IsZero() || len(want.Strikes) != 2 || len(want.Strikes[0].Told) != 1 || len(want.Strikes[1].TrackingNumbers) != 2 ||
+		len(want.Strikes[1].Told) != 2 || want.SafePlaceUsed != 1 || want.FailedOther != 1 || want.Version != 5 {
 		t.Fatalf("the fixture must carry every kind of fact: %+v", want)
 	}
 	got, err := f.DeliveryPoints.Get(ctxb(), pointKeyA)
@@ -62,10 +64,10 @@ func deliveryPointRoundTrip(t *testing.T, f Fixture) {
 		t.Fatalf("snapshot = %+v, want %+v", got.Snapshot(), want)
 	}
 	// A delivery on a route with no strike ends the episode: strikes and flag go.
-	step(t, f, got, "route-4", trk3, route.OutcomeDelivered, "", 3*time.Hour)
+	step(t, f, got, "route-4", trk3, route.OutcomeDelivered, "", 4*time.Hour)
 	again, err := f.DeliveryPoints.Get(ctxb(), pointKeyA)
 	noErr(t, err)
-	if !reflect.DeepEqual(again.Snapshot(), got.Snapshot()) || again.Flagged() || again.OpenStrikes() != 0 || again.Version() != 5 {
+	if !reflect.DeepEqual(again.Snapshot(), got.Snapshot()) || again.Flagged() || again.OpenStrikes() != 0 || again.Version() != 6 {
 		t.Fatalf("snapshot = %+v, want %+v", again.Snapshot(), got.Snapshot())
 	}
 }

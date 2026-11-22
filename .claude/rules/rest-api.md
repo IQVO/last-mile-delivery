@@ -34,15 +34,22 @@ Route -> use case, kept in sync with `apis/openapi.yaml` (registered in
   `concurrent-update` 409, `validation-failed` 422; one slug per model `Err...`
   (`route-over-capacity`, `already-delivered`, `invalid-wave-times`, ...); an
   unmapped error is an opaque 500 `internal-error`. A new `Err` needs a catalogue
-  row and a row in `TestProblemMapping` (`handlers_test.go`).
-- **Idempotency-Key** is required on all nine POSTs
+  row (with its replay class), a row in `TestProblemMapping` (`handlers_test.go`)
+  and a row in the ADR 0019 class table.
+- **Idempotency-Key** is required on every POST
   (`idempotency.go`, store `postgres/idempotency.go`, table `idempotency_keys`,
-  24 h): same key + same request replays the stored answer with
+  24 h, `idempotency.TTL`; rows older than it are deleted hourly by the retention
+  loop `cmd/api/retention.go` via `Store.PurgeExpired`, ADR 0019 addendum): same
+  key + same request replays the stored answer with
   `Idempotency-Replayed: true`, same key + other request is 409
   `idempotency-key-reused`, a missing key 400 `idempotency-key-required`, a key
   outside 1-128 printable ASCII 400 `idempotency-key-invalid`; the key is GLOBAL
-  (looked up alone, fingerprint = method + path + body hash); every 4xx is
-  stored, 5xx is not; the key row commits with the aggregate + outbox in ONE
+  (looked up alone, fingerprint = method + path + body hash); a 2xx and a
+  FINAL (or OUTCOME) refusal are stored, a 5xx and a RETRYABLE refusal are not
+  (the key is released, the retry executes; the class is the `class` field of
+  the `problem` in `errors.go`, the table is ADR 0019 and a test holds it equal
+  to the catalogue; a new problem declares its class or a unit test fails, and
+  the middleware names no slug); the key row commits with the aggregate + outbox in ONE
   transaction; concurrent requests with one key run once (advisory lock). A new
   POST goes in the `r.Group` of `server.go` that applies the middleware, never
   outside it. List GETs are paged `{items,nextCursor}` (`limit` + keyset

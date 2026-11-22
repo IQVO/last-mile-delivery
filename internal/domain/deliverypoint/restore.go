@@ -3,6 +3,7 @@ package deliverypoint
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/claudioed/last-mile-delivery/internal/domain/shared"
 )
@@ -11,18 +12,14 @@ import (
 // a valid address stop key; counters in range, attempts equal to the sum of the
 // outcome counters (both saturating at shared.MaxInt32) and safePlaceUsed at most
 // delivered; at most MaxStrikes strikes, each a counted category with its own
-// route; and a flag open exactly when FlagAfterStrikes strikes are.
+// route and 1 to MaxStrikePackages distinct packages, the told ones among them; and a flag open exactly when FlagAfterStrikes strikes are.
 func Restore(s Snapshot) (*Profile, error) {
 	if err := checkSnapshot(s); err != nil {
 		return nil, shared.Corrupt("delivery point profile %q: %v", s.StopKey, err)
 	}
-	strikes := make([]Strike, len(s.Strikes))
-	for i, k := range s.Strikes {
-		k.At = shared.UTC(k.At)
-		strikes[i] = k
-	}
-	if len(strikes) == 0 {
-		strikes = nil
+	strikes := cloneStrikes(s.Strikes)
+	for i := range strikes {
+		strikes[i].At = shared.UTC(strikes[i].At)
 	}
 	return &Profile{
 		stopKey: s.StopKey, attempts: s.Attempts, delivered: s.Delivered, safePlaceUsed: s.SafePlaceUsed,
@@ -76,8 +73,8 @@ func checkStrikes(in []Strike) error {
 	}
 	routes := map[string]bool{}
 	for _, k := range in {
-		if !shared.ValidID(k.RouteID) || !shared.ValidID(k.TrackingNumber) || k.At.IsZero() {
-			return errors.New("a strike needs a route, a tracking number and an instant")
+		if !shared.ValidID(k.RouteID) || k.At.IsZero() {
+			return errors.New("a strike needs a route and an instant")
 		}
 		if !k.Category.Valid() {
 			return fmt.Errorf("strike category %q is not a counted category", k.Category)
@@ -86,6 +83,28 @@ func checkStrikes(in []Strike) error {
 			return fmt.Errorf("two strikes share route %q", k.RouteID)
 		}
 		routes[k.RouteID] = true
+		if err := checkPackages(k); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// checkPackages validates the packages a strike names: 1 to MaxStrikePackages
+// distinct valid tracking numbers, and a told set that is a distinct subset.
+func checkPackages(k Strike) error {
+	if len(k.TrackingNumbers) < 1 || len(k.TrackingNumbers) > MaxStrikePackages {
+		return fmt.Errorf("a strike names 1 to %d packages, not %d", MaxStrikePackages, len(k.TrackingNumbers))
+	}
+	for i, tn := range k.TrackingNumbers {
+		if !shared.ValidID(tn) || slices.Contains(k.TrackingNumbers[:i], tn) {
+			return fmt.Errorf("strike package %q is not a distinct valid tracking number", tn)
+		}
+	}
+	for i, tn := range k.Told {
+		if !slices.Contains(k.TrackingNumbers, tn) || slices.Contains(k.Told[:i], tn) {
+			return fmt.Errorf("told package %q is not a distinct package of the strike", tn)
+		}
 	}
 	return nil
 }

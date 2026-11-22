@@ -184,3 +184,18 @@ func TestAnOlderReportKeepsTheWindowAnchoredAtTheNewestAttempt(t *testing.T) {
 		t.Fatalf("event = %+v", ev)
 	}
 }
+
+func TestOnlyASafePlaceDeliveryCountsAsSafePlaceUsed(t *testing.T) {
+	p := fresh(t)
+	delivered(t, p, "route-1", "TRK-1", day0)
+	if p.Delivered() != 1 || p.SafePlaceUsed() != 0 || p.Attempts() != 1 {
+		t.Fatalf("a plain delivery must not count a safe place: %+v", p.Snapshot())
+	}
+	seen(t, p, "route-2", "TRK-2", route.OutcomeDelivered, route.DetailSafePlaceUsed, days(1))
+	if p.Delivered() != 2 || p.SafePlaceUsed() != 1 || p.Attempts() != 2 {
+		t.Fatalf("a safe-place delivery counts once: %+v", p.Snapshot())
+	}
+	if p.FailedNotHome() != 0 || p.FailedAccess() != 0 || p.FailedOther() != 0 {
+		t.Fatalf("a delivery is never tallied as a failure: %+v", p.Snapshot())
+	}
+}

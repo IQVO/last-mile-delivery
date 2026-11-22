@@ -48,13 +48,14 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 	p := problemFor(err)
 	detail := err.Error()
 	if p == internalProblem {
-		slog.ErrorContext(r.Context(), "request failed", "error", err, "method", r.Method, "path", sanitizeLog(r.URL.Path))
+		slog.ErrorContext(r.Context(), "request failed", "error", logReplacer.Replace(err.Error()), "method", logReplacer.Replace(r.Method), "path", sanitizeLog(r.URL.Path))
 		detail = "an unexpected error occurred"
 	}
 	writeProblem(w, r, p, detail)
 }
 
 func writeProblem(w http.ResponseWriter, r *http.Request, p problem, detail string) {
+	markReplayClass(r.Context(), p.class)
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(p.status)
 	_ = json.NewEncoder(w).Encode(problemDetail{

@@ -24,6 +24,10 @@ info:
     characters is 400 `idempotency-key-invalid`, a key reused with another
     method, path or body is 409 `idempotency-key-reused`, and a repeated request
     replays the stored answer with the header `Idempotency-Replayed: true`.
+    A 2xx is stored and a 5xx never; a refusal is stored (and replayed) only
+    when it is final for the request, and a refusal that depends on state that
+    can change is not stored, so its key is released and the retry executes
+    again (the lists are on the `Idempotency-Key` parameter; ADR 0019).
     Every collection is paged with `limit` and `cursor` and answers
     `{items, nextCursor}`; an undeclared query parameter is 400
     `unknown-query-parameter`. Errors are RFC 9457 `application/problem+json`;
@@ -37,7 +41,7 @@ info:
     `resource-not-found`. A path no route serves is 404 `resource-not-found`,
     a method a path does not serve is 405 `method-not-allowed` (problem+json),
     and an unmapped failure is an opaque 500 `internal-error` (never stored for
-    replay; every 4xx answer is). Every problem body carries `type`, `title`,
+    replay). Every problem body carries `type`, `title`,
     `status`, `detail` and `instance`. The first eight operations of this file are the
     model's REST list; `getWaveStops`, `cancelWave`, `getRoute`,
     `deactivatePartner` and `declareWaveCost` are the additions of Gap Register
@@ -730,12 +734,28 @@ components:
       name: Idempotency-Key
       in: header
       required: true
-      description: >-
+      description: |
         Client-generated key (a UUID) per logical submit, 1 to 128 printable
         ASCII characters. A retry with the same method, path and body replays
         the stored answer with `Idempotency-Replayed: true` and changes
         nothing; the same key with another method, path or body is 409
-        `idempotency-key-reused`. Keys are global and kept 24 hours.
+        `idempotency-key-reused`. Keys are global.
+
+        What is stored. A 2xx is stored. A 5xx is never stored. A refusal is
+        stored (and replayed) only when it is final for the request:
+        `validation-failed`, `invalid-wave-times`, `invalid-van-capacity`,
+        `already-delivered`, `attempt-already-recorded`,
+        `package-already-routed`, `induction-closed` and `already-inducted`.
+        A refusal that depends on state that can change is NOT stored: its key
+        is released, a retry with the same key and request executes again (it
+        can succeed once the state allows), and a different request under the
+        released key is a new request, not `idempotency-key-reused`. These are
+        `concurrent-update` (re-read, then retry), `not-found`,
+        `unknown-station`, `package-not-on-route`, `package-not-inducted`,
+        `stop-key-mismatch`, `route-over-capacity`, `partner-inactive`,
+        `partner-station-mismatch`, `route-not-started`, `route-incomplete`,
+        `wave-full` and `illegal-transition`; the 409 `idempotency-key-reused`
+        is itself never stored. Rows are kept 24 hours.
       schema:
         type: string
         minLength: 1

@@ -19,12 +19,16 @@ const httpServerError = 500
 // httpClientError is the first status that is an error answer (a 4xx).
 const httpClientError = 400
 
-// IdempotencyStore is the Postgres idempotency_keys store (24 h) of the
+// IdempotencyStore is the Postgres idempotency_keys store (idempotency.TTL) of the
 // Idempotency-Key middleware. Do takes a transaction-level advisory lock on the
 // key and runs fn inside that same transaction (carried in the ctx fn gets), so
 // the key row, the aggregate change and the outbox rows commit together; a
 // concurrent request with the same key waits and then replays the stored
-// answer. A 4xx is stored, a 5xx or a panic rolls back and is never stored.
+// answer. A 2xx and a refusal the middleware did not mark Transient (a FINAL or
+// OUTCOME problem type, ADR 0019) are stored, with the handler's writes; a 5xx,
+// a Transient refusal (RETRYABLE) or a panic rolls back, key row included, and
+// is never stored, so the key is released. A concurrent duplicate waits on the
+// advisory lock and then finds no row: it executes as a fresh request.
 type IdempotencyStore struct{ pool *pgxpool.Pool }
 
 var _ idempotency.Store = (*IdempotencyStore)(nil)
@@ -38,6 +42,26 @@ func lockID(key string) int64 {
 	h := fnv.New64a()
 	_, _ = h.Write([]byte(key))
 	return int64(h.Sum64()) //nolint:gosec // the 64 bits are only a lock key: wrapping to negative is fine
+}
+
+// PurgeExpired implements idempotency.Store: it deletes at most limit rows older
+// than idempotency.TTL, oldest first (idx_idempotency_keys_created_at). SKIP
+// LOCKED leaves a row another transaction is writing, and the age test is
+// repeated on the DELETE itself, so a row a request just refreshed (the upsert
+// of an expired key resets created_at) is never deleted. It takes no advisory
+// lock: an expired row is invisible to Do, so a request that holds its key
+// neither waits for the purge nor sees it.
+func (s *IdempotencyStore) PurgeExpired(ctx context.Context, limit int) (int, error) {
+	tag, err := s.pool.Exec(ctx, `DELETE FROM idempotency_keys
+		WHERE created_at <= now() - make_interval(secs => $1)
+		AND idempotency_key IN (
+			SELECT idempotency_key FROM idempotency_keys
+			WHERE created_at <= now() - make_interval(secs => $1)
+			ORDER BY created_at LIMIT $2 FOR UPDATE SKIP LOCKED)`, idempotency.TTL.Seconds(), limit)
+	if err != nil {
+		return 0, fmt.Errorf("idempotency purge: %w", err)
+	}
+	return int(tag.RowsAffected()), nil
 }
 
 // healAbortedHandler releases the handler_run savepoint fn ran behind.
@@ -81,7 +105,7 @@ func (s *IdempotencyStore) Do(ctx context.Context, key, hash string, fn func(con
 	}
 	var rec idempotency.Record
 	err = tx.QueryRow(ctx, `SELECT request_hash, response_status, content_type, response_body FROM idempotency_keys
-		WHERE idempotency_key = $1 AND created_at > now() - interval '24 hours'`, key).
+		WHERE idempotency_key = $1 AND created_at > now() - make_interval(secs => $2)`, key, idempotency.TTL.Seconds()).
 		Scan(&rec.RequestHash, &rec.Status, &rec.ContentType, &rec.Body)
 	switch {
 	case err == nil:
@@ -95,7 +119,7 @@ func (s *IdempotencyStore) Do(ctx context.Context, key, hash string, fn func(con
 	if rec, err = fn(pgtx.With(ctx, tx)); err != nil {
 		return idempotency.Record{}, false, err
 	}
-	if rec.Status >= httpServerError {
+	if rec.Status >= httpServerError || rec.Transient {
 		return rec, false, nil
 	}
 	if err := healAbortedHandler(ctx, tx, rec.Status); err != nil {

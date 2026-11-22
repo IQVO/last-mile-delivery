@@ -97,9 +97,7 @@ func NewRouter(s *Server, logger *slog.Logger, serviceName string) http.Handler 
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		writeProblem(w, r, notFoundResource, "no resource matches the requested path")
 	})
-	r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
-		writeProblem(w, r, problem{http.StatusMethodNotAllowed, "method-not-allowed", "Method not allowed"}, "the method is not allowed on this resource")
-	})
+	r.MethodNotAllowed(methodNotAllowedFor(r, "the method is not allowed on this resource"))
 	return r
 }
 

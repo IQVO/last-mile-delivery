@@ -3,8 +3,8 @@
 // shipping-and-tracking derives at label time (ADR 0014, roadmap C5).
 //
 // The profile holds only counters and a short ring of strikes (a counted failed
-// visit). It never holds an address, a name, a phone or a free text, and it
-// influences nothing: no sequence, no ETA, no promise. The only command is
+// visit and the packages that failed in it). It never holds an address, a name,
+// a phone or a free text, and it influences nothing: no sequence, no ETA, no promise. The only command is
 // Observe; the only event is DeliveryPointFlagged. Without an outcome detail from
 // the driver client the profile tallies attempts and never counts a strike.
 package deliverypoint
@@ -21,11 +21,19 @@ import (
 const (
 	// FlagAfterStrikes is how many open strikes flag a point.
 	FlagAfterStrikes = 2
-	// StrikeWindow is how old a strike may be, measured from the newest attempt
-	// time seen at the point, before it no longer counts.
-	StrikeWindow = 60 * 24 * time.Hour
+	// StrikeWindowDays is how many days old a strike may be, measured from the
+	// newest attempt time seen at the point, before it no longer counts.
+	StrikeWindowDays = 60
 	// MaxStrikes is the size of the ring; the oldest strike is dropped first.
 	MaxStrikes = 5
+	// MaxStrikePackages is how many packages one strike names: the packages of
+	// one visit that failed at the stop (ADR 0018). A stop holds a handful of
+	// parcels, so the bound only keeps a stored row small.
+	MaxStrikePackages = 50
+	// MaxEventPackages is the most tracking numbers one DeliveryPointFlagged
+	// carries (the maxItems of the contract); a larger set is split over several
+	// events of the same type.
+	MaxEventPackages = 5
 )
 
 // stopKeyPackagePrefix marks a package that has no address key: it is its own
@@ -47,13 +55,16 @@ const (
 func (c Category) Valid() bool { return c == CategoryNotHome || c == CategoryAccessProblem }
 
 // Strike is one counted failed visit: one route, at most one strike per route.
+// It names every package of the visit that failed at the stop (ADR 0018).
 type Strike struct {
-	RouteID        string
-	TrackingNumber string
-	Category       Category
-	At             time.Time
-	// Notified is true once a DeliveryPointFlagged carried the tracking number.
-	Notified bool
+	RouteID string
+	// TrackingNumbers are the packages of the visit that failed at the stop, in
+	// the order they were reported (1 to MaxStrikePackages, distinct).
+	TrackingNumbers []string
+	Category        Category
+	At              time.Time
+	// Told is the part of TrackingNumbers that a DeliveryPointFlagged carried.
+	Told []string
 }
 
 // Profile is the aggregate root. Its id is the stopKey.
@@ -170,5 +181,10 @@ func cloneStrikes(in []Strike) []Strike {
 	if len(in) == 0 {
 		return nil
 	}
-	return slices.Clone(in)
+	out := make([]Strike, len(in))
+	for i, s := range in {
+		s.TrackingNumbers, s.Told = slices.Clone(s.TrackingNumbers), slices.Clone(s.Told)
+		out[i] = s
+	}
+	return out
 }

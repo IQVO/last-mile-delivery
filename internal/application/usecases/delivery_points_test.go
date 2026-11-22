@@ -150,3 +150,26 @@ func TestAnInvalidDetailIsRefusedAndChangesNothing(t *testing.T) {
 		wantIs(t, e.attemptWith("TRK-1", route.OutcomeFailed, route.DetailSafePlaceUsed, t0.Add(8*time.Hour)), shared.ErrValidation)
 	})
 }
+
+func TestTheSecondPackageOfTheFlaggingVisitIsFlaggedByItsOwnEvent(t *testing.T) {
+	e := dispatchedRoute(t, true)
+	e.seedStrike(t, "k-a", "route-0", "TRK-0")
+	e.start(t)
+	at := t0.Add(8 * time.Hour)
+	noErr(t, e.attemptWith("TRK-1", route.OutcomeFailed, route.DetailNotHome, at))
+	// TRK-2 fails at the same stop on the same route: it joins the strike of the
+	// visit and is told now, the packages already told are not (ADR 0018).
+	noErr(t, e.attemptWith("TRK-2", route.OutcomeFailed, route.DetailNotHome, at.Add(time.Minute)))
+	var told [][]string
+	for _, ev := range e.store.Outbox().Events() {
+		if f, ok := ev.(deliverypoint.DeliveryPointFlagged); ok {
+			told = append(told, f.TrackingNumbers)
+		}
+	}
+	if want := [][]string{{"TRK-0", "TRK-1"}, {"TRK-2"}}; !reflect.DeepEqual(told, want) {
+		t.Fatalf("flagged packages per event = %v, want %v", told, want)
+	}
+	if p := e.profile(t, "k-a"); p.OpenStrikes() != 2 || !p.Flagged() || p.FailedNotHome() != 3 {
+		t.Fatalf("profile = %+v", p.Snapshot())
+	}
+}

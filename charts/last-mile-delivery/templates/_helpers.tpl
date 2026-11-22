@@ -204,6 +204,15 @@ docs/adr/0009). Component label a2a: the api Service must never select it.
 {{- include "last-mile-delivery.fullname" . }}-a2a
 {{- end }}
 
+{{/* agents.colocate (warehouse-infra ADR 0012): "true" iff colocate, mcp and a2a are all on; else empty. */}}
+{{- define "last-mile-delivery.agentsColocated" -}}
+{{- if and (.Values.agents | default dict).colocate .Values.mcp.enabled .Values.a2a.enabled }}true{{ end -}}
+{{- end }}
+
+{{- define "last-mile-delivery.agentsFullname" -}}
+{{- printf "%s-agents" (include "last-mile-delivery.fullname" .) | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
 {{/*
 Fully qualified names of the analytics read side (docs/adr/0012): the
 projector Deployment (no Service: it serves only its admin probes) and the
@@ -247,4 +256,19 @@ group. Fail at render instead of crash-looping.
 {{- if not .Values.analytics.projector.consumerGroup -}}
 {{- fail "analytics.projector.consumerGroup is required (ANALYTICS_CONSUMER_GROUP): use the STABLE id last-mile-delivery-analytics, never the pod name." -}}
 {{- end -}}
+{{- end -}}
+
+{{/*
+Comma-joined names of this chart's enabled KongPlugins, for the
+konghq.com/plugins annotation on every HTTPRoute this chart renders.
+Empty string (annotation omitted) when none are enabled.
+*/}}
+{{- define "last-mile-delivery.kongPluginNames" -}}
+{{- $names := list -}}
+{{- range $name, $cfg := .Values.kongPlugins -}}
+{{- if $cfg.enabled -}}
+{{- $names = append $names (printf "%s-%s" (include "last-mile-delivery.fullname" $) $name) -}}
+{{- end -}}
+{{- end -}}
+{{- join "," $names -}}
 {{- end -}}

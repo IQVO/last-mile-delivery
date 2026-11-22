@@ -1,9 +1,12 @@
 package http_test
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/claudioed/last-mile-delivery/internal/application/views"
 )
 
 func TestAStateChangingPostNeedsAnIdempotencyKey(t *testing.T) {
@@ -73,17 +76,64 @@ func TestAKeyIsGlobalAcrossRoutes(t *testing.T) {
 	}
 }
 
-func TestAFourXXIsStoredAndReplayed(t *testing.T) {
+func TestAFinalRefusalIsStoredAndReplayed(t *testing.T) {
 	a := newApp(t)
 	h := map[string]string{"Idempotency-Key": "bad-once"}
-	bad := strings.Replace(waveBodyJSON, "node-ds-01", "node-x", 1)
+	bad := strings.Replace(waveBodyJSON, `"windowStart":"2026-10-24T12:00:00Z"`, `"windowStart":"2026-10-24T07:00:00Z"`, 1)
+	if bad == waveBodyJSON {
+		t.Fatal("the scripted edit did not match")
+	}
 	first := a.do(http.MethodPost, "/waves", bad, h)
 	second := a.do(http.MethodPost, "/waves", bad, h)
-	if first.Code != 422 || second.Code != 422 || first.Body != second.Body || second.Header.Get("Idempotency-Replayed") != "true" {
+	if first.Code != 422 || second.Code != 422 || first.slug(t) != "invalid-wave-times" || first.Body != second.Body || second.Header.Get("Idempotency-Replayed") != "true" {
 		t.Fatalf("first %d %s / second %d %s", first.Code, first.Body, second.Code, second.Body)
 	}
 	if second.Header.Get("Content-Type") != "application/problem+json" {
 		t.Fatalf("replayed Content-Type = %q", second.Header.Get("Content-Type"))
+	}
+}
+
+// unknown-station is RETRYABLE: the station is a fact another context delivers
+// later, so the refusal is not stored and the same key works once it is known.
+func TestARetryableRefusalIsNotStoredAndItsKeyRetries(t *testing.T) {
+	a := newApp(t)
+	h := map[string]string{"Idempotency-Key": "station-later"}
+	unknown := strings.Replace(waveBodyJSON, "node-ds-01", "node-ds-02", 1)
+	first := a.do(http.MethodPost, "/waves", unknown, h)
+	if first.Code != 422 || first.slug(t) != "unknown-station" || first.Header.Get("Idempotency-Replayed") != "" {
+		t.Fatalf("first = %d %s", first.Code, first.Body)
+	}
+	if n := a.idem.Stored(); n != 0 {
+		t.Fatalf("stored answers after a RETRYABLE refusal = %d, want 0", n)
+	}
+	if err := a.deps.Stations.Save(context.Background(), views.Station{NodeID: "node-ds-02", NodeType: views.DeliveryStation, RegionID: "region-se"}); err != nil {
+		t.Fatal(err)
+	}
+	retry := a.do(http.MethodPost, "/waves", unknown, h)
+	if retry.Code != http.StatusCreated || retry.Header.Get("Idempotency-Replayed") != "" {
+		t.Fatalf("retry = %d %s, want a fresh 201 now that the station is known", retry.Code, retry.Body)
+	}
+	again := a.do(http.MethodPost, "/waves", unknown, h)
+	if again.Code != http.StatusCreated || again.Header.Get("Idempotency-Replayed") != "true" || again.Body != retry.Body {
+		t.Fatalf("third = %d %s, want the stored 201 replayed", again.Code, again.Body)
+	}
+	if n := a.store.Counts().Waves; n != 1 {
+		t.Fatalf("waves = %d, want 1", n)
+	}
+}
+
+// A different body under a key a RETRYABLE refusal released is a new request,
+// not idempotency-key-reused.
+func TestAReleasedKeyTakesADifferentBody(t *testing.T) {
+	a := newApp(t)
+	h := map[string]string{"Idempotency-Key": "released"}
+	unknown := strings.Replace(waveBodyJSON, "node-ds-01", "node-ds-02", 1)
+	if r := a.do(http.MethodPost, "/waves", unknown, h); r.Code != 422 {
+		t.Fatalf("first = %d %s", r.Code, r.Body)
+	}
+	r := a.do(http.MethodPost, "/waves", waveBodyJSON, h)
+	if r.Code != http.StatusCreated {
+		t.Fatalf("another body under the released key = %d %s, want a new request (201)", r.Code, r.Body)
 	}
 }
 

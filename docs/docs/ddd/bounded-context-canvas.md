@@ -94,4 +94,4 @@ A1 to A29 in [ADR 0002](/docs/adr/0002-aggregates-and-invariants) (for example A
 | Who consumes `PackageInductionDeferred` and `PackageReturnInitiated`? | `delivery-promise` consumes `PackageInductionDeferred` as a risk to the group's promise; `shipping-and-tracking` consumes `PackageReturnInitiated` and moves the package from `AT_STATION` to `RETURNED` |
 | Is a route re-validated when its partner is later deactivated? | no: only planning checks the partner |
 | Route sequencing and optimisation | not modelled: the planner supplies the stops |
-| Row cleanup of `idempotency_keys` and published `outbox_events` | no purge job exists |
+| Row cleanup of `idempotency_keys` and published `outbox_events` | `idempotency_keys`: the retention loop of `cmd/api` deletes rows older than 24 h, hourly, 1000 per statement ([ADR 0019](/docs/adr/0019-idempotency-replay-classes-a-retryable-refusal-is-not-stored) addendum); published `outbox_events`: no purge job exists |

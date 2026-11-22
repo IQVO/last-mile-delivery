@@ -64,6 +64,8 @@ REST errors are RFC 9457 `application/problem+json`; the `type` is the slug (`in
 | `ports.ErrConcurrentUpdate` | 409 | `concurrent-update` |
 | anything else | 500 | `internal-error` |
 
+Every problem type declares a replay class (ADR 0019): a `FINAL` refusal is stored under the key and replayed, a `RETRYABLE` one is not stored and its key is released (the class table is in the ADR and is held equal to `problemCatalogue` by test).
+
 ## ScheduleWave
 
 - **Trigger**: station planner, `POST /waves` with `Idempotency-Key`.
@@ -88,7 +90,7 @@ REST errors are RFC 9457 `application/problem+json`; the `type` is the slug (`in
 ## CancelWave
 
 - **Trigger**: station planner, `POST /waves/{waveId}/cancellations` with `reason` (1 to `MaxReason` characters, trimmed).
-- **Invariant**: the wave is `OPEN` (to `CANCELLED`).
+- **Invariant**: the wave is `OPEN` (to `CANCELLED`); in any other state, a second cancel of a `CANCELLED` wave included, the answer is `409 illegal-transition` and nothing is published again (`DeliveryWave.Cancel` via `move(StateOpen, StateCancelled)`, `internal/domain/wave/wave.go:271-277`).
 - **Flow**: cancel, then **re-induct every package it held** onto the next eligible wave (G17); a package no wave takes is deferred.
 - **Events**: `DeliveryWaveCancelled` (an integration event, G5), `DeliveryWaveCapacityChanged`, `PackageInductionDeferred`.
 
@@ -127,9 +129,9 @@ REST errors are RFC 9457 `application/problem+json`; the `type` is the slug (`in
 
 ## Read-model consumers
 
-- `ApplyNodeRegistered`: claims the event and keeps the node in `rm_stations` only when `nodeType` is `DELIVERY_STATION`.
+- `ApplyNodeRegistered`: claims the event and keeps the node in `rm_stations` only when `nodeType` is `DELIVERY_STATION`; the first write wins (`ON CONFLICT (node_id) DO NOTHING`).
 - `ApplyServiceAreaAssigned`: keeps the assignment in `rm_station_service_areas` when its `assignmentVersion` is higher than the stored one; the declared `deliveryMode` is kept with it (absent or unknown reads as `NETWORK_ROUTE`, ADR 0015).
-- `ApplyLabelIssued`: keeps `stopKey`, `destinationPostalPrefix` and `assignmentId` in `rm_package_stops`; a label without a usable `stopKey` is ignored (A4).
+- `ApplyLabelIssued`: keeps `stopKey`, `destinationPostalPrefix` and `assignmentId` in `rm_package_stops`, first write per tracking number wins (`ON CONFLICT (tracking_number) DO NOTHING`); a label without a usable `stopKey` is ignored (A4).
 
 None of them raises events. Deterministic problems (undecodable payload, invalid values) are dead-lettered, transient ones retried ([Runbook](/docs/operations/runbook)).
 

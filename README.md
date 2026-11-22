@@ -86,7 +86,7 @@ internal/
   architecture/              the fitness tests below
 apis/                        openapi.yaml (REST) + asyncapi.yaml (events)
 docs/adr/                    15 ADRs + index
-features/                    11 godog feature files (164 scenarios)
+features/                    11 godog feature files (167 scenarios, 214 executed)
 charts/last-mile-delivery/   the Helm chart
 web/                         the operator micro-frontend remote
 ```
@@ -165,7 +165,7 @@ Logs, metrics and traces follow the fleet standard ([ADR 0008](docs/adr/0008-fle
 
 ## API
 
-REST contract: [`apis/openapi.yaml`](apis/openapi.yaml) — 12 operations plus `/healthz` and `/readyz`. Every `POST` needs `Idempotency-Key` (1 to 128 printable ASCII characters, global; a replay carries `Idempotency-Replayed: true`, the key reused with another request is 409 `idempotency-key-reused`). The two lists are keyset-paged (`limit`, `cursor`, `{items, nextCursor}`); errors are RFC 9457 problem+json. See [ADR 0010](docs/adr/0010-adopt-the-fleet-rest-api-guideline.md).
+REST contract: [`apis/openapi.yaml`](apis/openapi.yaml) — 12 operations plus `/healthz` and `/readyz`. Every `POST` needs `Idempotency-Key` (1 to 128 printable ASCII characters, global; a replay carries `Idempotency-Replayed: true`, the key reused with another request is 409 `idempotency-key-reused`; a 2xx and a refusal that is final for the request are replayed, a refusal that depends on state that can change, such as `concurrent-update` or `unknown-station`, is not stored: its key is released and a retry executes again, [ADR 0019](docs/adr/0019-idempotency-replay-classes-a-retryable-refusal-is-not-stored.md)). The two lists are keyset-paged (`limit`, `cursor`, `{items, nextCursor}`); errors are RFC 9457 problem+json. See [ADR 0010](docs/adr/0010-adopt-the-fleet-rest-api-guideline.md).
 
 | Method | Route | Purpose |
 |---|---|---|
@@ -224,7 +224,7 @@ lefthook wires the same targets as hooks (`lefthook install` once per clone): pr
 ## Tests
 
 - **Unit**: `make test` — domain, use cases, handlers, adapters.
-- **BDD**: `make bdd` — godog scenarios in `features/` (11 feature files, 164 scenarios).
+- **BDD**: `make bdd` — godog scenarios in `features/` (11 feature files, 167 scenarios, 214 executed).
 - **Integration**: `make integration` — testcontainers Postgres + Kafka (incl. the `/readyz` 503 proof).
 - **Mutation**: `make mutation` (blocking subset) / `make mutation-full` — gremlins, config in `.gremlins.yaml`.
 - **Architecture fitness**: `make arch-test` — `internal/architecture/` (hexagonal rule, CloudEvents-only, catalogue, Kafka rules, outbox cap, read-only MCP/A2A).
@@ -234,7 +234,7 @@ CI (`.github/workflows/ci.yml`) runs `lint`, `guide-lint`, `complexity`, `test`,
 
 ## Architecture Decision Records
 
-[docs/adr/](docs/adr/index.md) — index plus 15 ADRs (0001–0015: bounded context, aggregates and invariants, consumed contracts and local read models, CloudEvents envelope and type catalogue, runtime/outbox/HTTP and readiness, MCP server adoption, console remote, fleet observability standard, A2A inbound adapter, fleet REST API guideline, wave stop cost declaration, analytics read side, stop ETA window, delivery point profile, carrier area exclusion). `docs/docs/operations/before-first-release.md` is the packaging checklist (rows 5 to 9, the chart, are done; row 11, the registry secrets, is for the repo admin).
+[docs/adr/](docs/adr/index.md) — index plus 18 ADRs (0001–0018: bounded context, aggregates and invariants, consumed contracts and local read models, CloudEvents envelope and type catalogue, runtime/outbox/HTTP and readiness, MCP server adoption, console remote, fleet observability standard, A2A inbound adapter, fleet REST API guideline, wave stop cost declaration, analytics read side, stop ETA window, delivery point profile, carrier area exclusion, wave stop emission declaration, return-pickup inductions, the delivery-point flag naming every package of a failed visit). `docs/docs/operations/before-first-release.md` is the packaging checklist (rows 5 to 9, the chart, are done; row 11, the registry secrets, is for the repo admin).
 
 ## License
 
