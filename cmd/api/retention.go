@@ -41,7 +41,7 @@ func purgeLoop(ctx context.Context, logger *slog.Logger, store idempotency.Store
 	for {
 		switch n, err := purgeIdempotencyKeys(ctx, store, batch); {
 		case err != nil && ctx.Err() == nil:
-			logger.Error("idempotency purge failed", "deleted", n, "error", err)
+			logger.Error("idempotency purge failed", "deleted", n, "error", sanitizeErr(err))
 		case n > 0:
 			logger.Info("idempotency purge done", "deleted", n)
 		}
