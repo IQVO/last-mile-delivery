@@ -223,7 +223,7 @@ func problemFromUseCase(err error, skill, id string) *problem {
 	case errors.Is(err, shared.ErrValidation):
 		return &problem{Type: "validation-failed", Title: "Validation failed", Detail: validationDetail(skill), Status: http.StatusUnprocessableEntity}
 	default:
-		slog.Error("a2a skill failed", "skill", skill, "error", err)
+		slog.Error("a2a skill failed", "skill", logReplacer.Replace(skill), "error", logReplacer.Replace(err.Error()))
 		return &problem{Type: "internal-error", Title: "Internal server error", Detail: "the skill failed; see server logs (trace id in the response metadata)", Status: http.StatusInternalServerError}
 	}
 }
